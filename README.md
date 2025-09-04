@@ -1,6 +1,6 @@
 # Licencias_Gestion
 
-Descargar asos para crear el proyecto React + Vite
+Descargar Pasos para crear el proyecto React + Vite
 
 Ubícate en tu carpeta correcta
 
