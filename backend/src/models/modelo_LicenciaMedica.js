@@ -7,7 +7,12 @@ const LicenciaMedica = db.define('LicenciaMedica', {
   fecha_inicio: { type: DataTypes.DATE, allowNull: false },
   fecha_fin: { type: DataTypes.DATE, allowNull: false },
   motivo_rechazo: { type: DataTypes.TEXT, allowNull: true },
-  fecha_creacion: { type: DataTypes.DATE, defaultValue: DataTypes.NOW }
+  fecha_creacion: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
+  estado_licencia: {
+    type: DataTypes.ENUM('sin validar', 'en revisión', 'aprobada', 'rechazada'),
+    allowNull: false,
+    defaultValue: 'sin validar'
+  }
 }, {
   tableName: 'licencia_medica',
   timestamps: false
