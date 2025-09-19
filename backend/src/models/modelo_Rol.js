@@ -11,3 +11,4 @@ const Rol = db.define('Rol', {
 });
 
 export default Rol;
+
