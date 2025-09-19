@@ -1,5 +1,5 @@
-const { DataTypes } = require('sequelize');
-const db = require('../config/db');
+import { DataTypes } from 'sequelize';
+import db from '../../config/db.js';
 
 const Rol = db.define('Rol', {
   id_rol: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
@@ -10,4 +10,4 @@ const Rol = db.define('Rol', {
   timestamps: false
 });
 
-module.exports = Rol;
+export default Rol;

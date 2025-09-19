@@ -1,6 +1,6 @@
-const { DataTypes } = require('sequelize');
-const db = require('../config/db');
-const Rol = require('./modelo_Rol');
+import { DataTypes } from 'sequelize';
+import db from '../../config/db.js';
+import Rol from './modelo_Rol.js';
 
 const Usuario = db.define('Usuario', {
   id_usuario: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
@@ -16,4 +16,4 @@ const Usuario = db.define('Usuario', {
 Rol.hasMany(Usuario, { foreignKey: 'id_rol' });
 Usuario.belongsTo(Rol, { foreignKey: 'id_rol' });
 
-module.exports = Usuario;
+export default Usuario;
