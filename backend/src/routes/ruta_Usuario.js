@@ -1,6 +1,9 @@
 // backend/src/routes/ruta_Usuario.js
 import { Router } from 'express';
 import Usuario from '../models/modelo_Usuario.js';
+import Rol from '../models/modelo_Rol.js';
+import { generarJWT } from '../../utils/jwt.js';
+import { validarJWT, esEstudiante } from '../../middlewares/auth.js';
 
 // ✅ Importamos utilidades
 import { encriptarContrasena, verificarContrasena } from '../../utils/encriptar.js';
@@ -55,19 +58,25 @@ router.post('/login', async (req, res) => {
     const { correo, contrasena } = req.body;
 
     // Buscar usuario
-    const usuario = await Usuario.findOne({ where: { correo_usuario: correo } });
+    const usuario = await Usuario.findOne({
+      where: { correo_usuario: correo },
+      include: { model: Rol }
+    });
     if (!usuario) {
-      return res.send('<p>❌ Usuario no encontrado</p><a href="/">Volver</a>');
+      return res.status(400).json({ msg: 'Usuario o contraseña incorrectos' });
     }
 
     // Verificar contraseña encriptada
     const esValido = await verificarContrasena(contrasena, usuario.contrasena);
     if (!esValido) {
-      return res.send('<p>❌ El usuario o la contraseña son incorrectos</p><a href="/">Volver</a>');
+      return res.status(400).json({ msg: 'Usuario o contraseña incorrectos' });
     }
 
-    // Si es correcto
-    return res.redirect('/usuarios/inicio');
+    // Generar JWT
+    const token = await generarJWT(usuario.id_usuario, usuario.Rol.nombre_rol);
+
+    res.redirect(`/usuarios/inicio?token=${token}`);
+
   } catch (error) {
     console.error('❌ Error en login:', error);
     return res.status(500).send('Error en el login');
@@ -75,7 +84,10 @@ router.post('/login', async (req, res) => {
 });
 
 // 🔹 Página después de login
-router.get('/inicio', (req, res) => {
+router.get('/inicio', [
+  validarJWT,
+  esEstudiante
+], (req, res) => {
   res.send('<h1>Bienvenido a la página de inicio 🎉</h1><a href="/">Cerrar sesión</a>');
 });
 
