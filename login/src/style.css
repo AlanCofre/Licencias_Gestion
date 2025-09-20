@@ -1,0 +1,150 @@
+/* Contenedor principal */
+.app-container {
+  position: relative;
+  width: 100%;
+  min-height: 100vh;
+  background-color: #ffffff;
+}
+
+/* Imagen de fondo */
+.app-background {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  position: fixed;
+  top: 0;
+  left: 0;
+}
+
+/* Título principal */
+.main-title {
+  text-align: center;
+  font-size: clamp(2rem, 8vw, 8rem); /* Escala según pantalla */
+  font-weight: 800;
+  color: white;
+  text-shadow: 0px 8px 9px rgba(0, 0, 0, 0.5);
+  margin-top: 2rem;   /* Margen superior para separar de borde */
+  margin-bottom: 2rem; /* Margen inferior para que la tarjeta no lo sobrepase */
+  z-index: 1;         /* Asegura que esté sobre la imagen */
+  position: relative;
+}
+
+/* Tarjeta blanca central */
+.login-card {
+  width: 90%;
+  max-width: 50.25rem; /* 804px */
+  height: auto;        /* Auto para que crezca con contenido */
+  position: absolute;
+  top: 35%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: white;
+  box-shadow: 0px 0.25rem 0.25rem rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  border-radius: 8px;
+  z-index: 1;
+}
+
+/* Subtítulo registro */
+.login-title {
+  color: black;
+  font-size: 2.25rem; /* 36px */
+  font-weight: 600;
+  margin-bottom: 2rem;
+}
+
+/* Labels */
+.login-label {
+  color: black;
+  font-size: 1.2rem;
+  font-weight: 400;
+  margin-bottom: 0.3rem;
+  align-self: flex-start;
+}
+
+/* Inputs */
+.login-input {
+  width: 100%;
+  max-width: 100%;
+  height: 2.5rem; /* 40px */
+  background: #95B5C4;
+  border-radius: 0.3125rem; /* 5px */
+  border: none;
+  margin-bottom: 1.5rem;
+  padding: 0.75rem;
+  font-size: 1rem;
+  color: #333;
+  align-self: flex-start;
+  box-sizing: border-box;
+}
+
+/* Input password extra margin */
+.login-input.password {
+  margin-bottom: 2rem;
+}
+
+/* Botón registrarse */
+.login-button {
+  width: 60%;
+  height: 3rem; /* 48px */
+  background: #00AAFF;
+  color: white;
+  font-size: 1.5rem; /* 24px */
+  font-weight: 600;
+  border: none;
+  border-radius: 0.3125rem;
+  box-shadow: 0px 0.5625rem 0.60625rem -0.25rem rgba(0, 0, 0, 0.24);
+  cursor: pointer;
+  margin-top: 1rem;
+}
+
+/* Registro debajo de la tarjeta */
+.register {
+  text-align: center;
+  margin-top: calc(50% + 15rem); /* Ajusta según la posición de la tarjeta */
+  font-size: 1rem;
+}
+
+.register-link {
+  color: #76F1FF;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+/* Responsive: reduce tamaños en pantallas pequeñas */
+@media (max-width: 600px) {
+  .login-card {
+    max-width: 95vw;
+    width: 95vw;
+    padding: 1rem;
+    height: auto;
+  }
+  .login-title {
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+  }
+  .login-label {
+    font-size: 1rem;
+  }
+  .login-input {
+    font-size: 0.9rem;
+    height: 2rem;
+    padding: 0.5rem;
+  }
+  .login-button {
+    font-size: 1rem;
+    height: 2.5rem;
+  }
+  .main-title {
+    font-size: clamp(1.5rem, 10vw, 4rem);
+    margin-bottom: 1rem;
+  }
+  .register {
+    margin-top: 2rem;
+    font-size: 0.9rem;
+  }
+}
