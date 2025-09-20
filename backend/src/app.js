@@ -10,7 +10,6 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Middleware para servir index.html desde la carpeta "test"
 app.get('/', serveStaticFolder('test'));
 
 // Rutas de usuario
