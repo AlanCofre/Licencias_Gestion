@@ -1,5 +1,6 @@
 // backend/src/routes/ruta_Usuario.js
 import { Router } from 'express';
+import jwt from 'jsonwebtoken';
 import Usuario from '../models/modelo_Usuario.js';
 
 // ✅ Importamos utilidades
@@ -34,18 +35,28 @@ router.post('/registro', async (req, res) => {
     const hash = await encriptarContrasena(contrasena);
 
     // Crear usuario (rol = 1 por defecto)
-    await Usuario.create({
+    const nuevoUsuario = await Usuario.create({
       nombre,
       correo_usuario: correo,
       contrasena: hash,
       activo: 1,
-      id_rol: 1
+      id_rol: 1, // Por defecto, rol de 'estudiante' o similar
     });
 
-    return res.send('<p>✅ Usuario registrado con éxito</p><a href="/">Iniciar sesión</a>');
+    return res.status(201).json({
+      mensaje: 'Usuario registrado con éxito.',
+      usuario: {
+        id: nuevoUsuario.id_usuario,
+        nombre: nuevoUsuario.nombre,
+        correo: nuevoUsuario.correo_usuario,
+      },
+    });
   } catch (error) {
     console.error('❌ Error en registro:', error);
-    return res.status(500).send('Error en el registro');
+    if (error.name === 'SequelizeUniqueConstraintError') {
+      return res.status(409).json({ error: 'El correo ya está registrado.' });
+    }
+    return res.status(500).json({ error: 'Error en el servidor durante el registro.' });
   }
 });
 
@@ -57,20 +68,32 @@ router.post('/login', async (req, res) => {
     // Buscar usuario
     const usuario = await Usuario.findOne({ where: { correo_usuario: correo } });
     if (!usuario) {
-      return res.send('<p>❌ Usuario no encontrado</p><a href="/">Volver</a>');
+      return res.status(404).json({ error: 'Usuario no encontrado' });
     }
 
     // Verificar contraseña encriptada
     const esValido = await verificarContrasena(contrasena, usuario.contrasena);
     if (!esValido) {
-      return res.send('<p>❌ El usuario o la contraseña son incorrectos</p><a href="/">Volver</a>');
+      return res.status(401).json({ error: 'Credenciales inválidas' });
     }
 
-    // Si es correcto
-    return res.redirect('/usuarios/inicio');
+    // Si es correcto, generar JWT
+    const payload = {
+      id: usuario.id_usuario,
+      rol: usuario.id_rol,
+    };
+
+    const token = jwt.sign(payload, process.env.JWT_SECRET, {
+      expiresIn: '1h', // El token expira en 1 hora
+    });
+
+    return res.json({
+      mensaje: 'Login exitoso',
+      token,
+    });
   } catch (error) {
     console.error('❌ Error en login:', error);
-    return res.status(500).send('Error en el login');
+    return res.status(500).json({ error: 'Error en el servidor durante el login' });
   }
 });
 
