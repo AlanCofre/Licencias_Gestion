@@ -1,0 +1,130 @@
+/* App.css */
+
+/* Contenedor principal */
+.app-container {
+  width: 100vw;
+  height: 100vh;
+  position: relative;
+  background: white;
+  overflow: hidden;
+}
+
+/* Fondo */
+.app-background {
+  width: 100vw;
+  height: 100vh;
+  position: absolute;
+  top: 0;
+  left: 0;
+  object-fit: cover;
+}
+
+/* Tarjeta blanca central */
+.login-card {
+  width: 804px;
+  height: 433px;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: white;
+  box-shadow: 0px 4px 4px rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Subtítulo inicio de sesión */
+.login-title {
+  color: black;
+  font-size: 36px;
+  font-family: 'Wix Madefor Display';
+  font-weight: 600;
+  margin-bottom: 32px;
+}
+
+/* Labels */
+.login-label {
+  color: black;
+  font-size: 24px;
+  font-family: 'Wix Madefor Display';
+  font-weight: 400;
+  margin-bottom: 8px;
+  align-self: flex-start;
+}
+
+/* Inputs */
+.login-input {
+  width: 90%;
+  height: 40px;
+  background: #95B5C4;
+  border-radius: 5px;
+  border: none;
+  margin-bottom: 24px;
+  padding: 8px;
+  font-size: 18px;
+  color: #333;
+}
+
+/* Input password extra margin */
+.login-input.password {
+  margin-bottom: 32px;
+}
+
+/* Botón iniciar sesión */
+.login-button {
+  width: 60%;
+  height: 48px;
+  background: #00AAFF;
+  color: white;
+  font-size: 24px;
+  font-family: 'Wix Madefor Display';
+  font-weight: 600;
+  border: none;
+  border-radius: 5px;
+  box-shadow: 0px 9px 9.7px -4px rgba(0, 0, 0, 0.24);
+  cursor: pointer;
+}
+
+/* Título principal */
+.main-title {
+  width: 100vw;
+  position: absolute;
+  top: 106px;
+  left: 0;
+  display: flex;
+  justify-content: center;
+  color: white;
+  font-size: 128px;
+  font-family: 'Wix Madefor Display';
+  font-weight: 800;
+  text-shadow: 0px 8px 9px rgba(0, 0, 0, 0.5);
+}
+
+/* Registro */
+.register {
+  width: 100vw;
+  position: absolute;
+  bottom: 32px;
+  left: 0;
+  display: flex;
+  justify-content: center;
+  text-align: center;
+}
+
+.register span:first-child {
+  color: white;
+  font-size: 20px;
+  font-family: 'Wix Madefor Display';
+  font-weight: 500;
+}
+
+.register span:last-child {
+  color: #76F1FF;
+  font-size: 20px;
+  font-family: 'Wix Madefor Display';
+  font-weight: 800;
+  margin-left: 8px;
+  cursor: pointer;
+}
