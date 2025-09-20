@@ -1,18 +1,21 @@
 {
   "name": "medleave-backend",
   "version": "1.0.0",
-  "type": "module",
   "scripts": {
     "dev": "nodemon --env-file=.env src/server.js",
     "start": "node src/server.js"
   },
   "dependencies": {
-    "dotenv": "^16.4.5",
-    "express": "^4.19.2",
-    "mysql2": "^3.10.0",
-    "sequelize": "^6.37.3"
+    "bcryptjs": "^3.0.2",
+    "dotenv": "^16.6.1",
+    "express": "^4.21.2",
+    "express-rate-limit": "^8.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "mysql2": "^3.15.0",
+    "nodemailer": "^7.0.6",
+    "sequelize": "^6.37.7"
   },
   "devDependencies": {
-    "nodemon": "^3.1.4"
+    "nodemon": "^3.1.10"
   }
 }
