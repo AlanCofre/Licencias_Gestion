@@ -1,7 +1,8 @@
+
 import express from 'express';
-import dotenv from 'dotenv';
+import session from 'express-session';
 import usuarioRoutes from './routes/ruta_Usuario.js';
-import { serveStaticFolder } from '../middlewares/static_Serve.js';
+import dotenv from 'dotenv';
 
 dotenv.config();
 
@@ -10,12 +11,20 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.get('/', serveStaticFolder('test'));
+// Middleware de sesión
+app.use(session({
+  secret: 'mi_secreto_seguro',
+  resave: false,
+  saveUninitialized: true,
+  cookie: { secure: false }
+}));
 
-// Rutas de usuario
+// Rutas
 app.use('/usuarios', usuarioRoutes);
 
+// Redirección base
+app.get('/', (req, res) => res.redirect('/usuarios/login'));
+
+// Puerto
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Servidor corriendo en http://localhost:${PORT}`);
-});
+app.listen(PORT, () => console.log(`Servidor en http://localhost:${PORT}`));
