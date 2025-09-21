@@ -1,159 +1,39 @@
-import React, { useState } from "react";
+import React from "react";
 
-function EditProfile() {
-  const [profilePic, setProfilePic] = useState(null);
-  const [preview, setPreview] = useState(null);
-
-  const [formData, setFormData] = useState({
-    telefono: "",
-    correoAlternativo: "",
-    direccion: "",
-    idioma: "",
-    recuperarContrasena: "",
-  });
-
-  // Manejar cambios en inputs
-  const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
-  };
-
-  // Manejar cambio de imagen
-  const handleImageChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      // Previsualización
-      setPreview(URL.createObjectURL(file));
-      setProfilePic(file);
-
-      // Aquí se podrían hacer recorte o compresión con librerías externas
-    }
-  };
-
-  // Guardar datos (por ahora solo consola)
-  const handleSave = (e) => {
-    e.preventDefault();
-    console.log("Datos a guardar:", formData, profilePic);
-    alert("Datos guardados (solo en UI, aún no hay backend)");
-  };
-
-  return (
-    <div className="relative min-h-screen bg-gray-100 flex flex-col items-center py-12 gap-6">
-      <br></br>
-      <h1 className="text-4xl font-bold text-center mb-12 py-20">Editar Perfil</h1>
-
-      <form
-        className="w-[90%] max-w-[50rem] bg-white rounded-lg shadow-md p-10 flex flex-col gap-8 border-white border-30"
-        onSubmit={handleSave}
-      >
-        {/* Foto */}
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-32 h-32 rounded-full bg-gray-200 overflow-hidden">
-            {preview ? (
-              <img
-                src={preview}
-                alt="Preview"
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-gray-500">
-                Foto
-              </div>
-            )}
+const Navbar = () => (
+  <header className="bg-gradient-to-b from-[var(--blue-600)] to-[var(--blue-700)] text-white shadow-sm">
+    <div className="container mx-auto px-4">
+      <div className="flex items-center justify-between h-20"> {/* altura mayor */}
+        {/* Logo a la izquierda */}
+        <div className="flex items-center">
+          <h1 className="text-2xl font-display font-bold tracking-wide">MedManager</h1>
+        </div>
+        
+        {/* Navegación centrada */}
+        <div className="flex-1 flex justify-center">
+          <div className="flex space-x-8 text-sm font-medium font-sans">
+            <a href="#" className="hover:underline border-r border-blue-600 pr-4">Inicio</a>
+            <a href="#" className="hover:underline border-r border-blue-600 pr-4">Pendientes</a>
+            <a href="#" className="hover:underline border-r border-blue-600 pr-4">Revisadas</a>
+            <a href="#" className="hover:underline">Verificadas</a>
           </div>
-          <input
-            type="file"
-            accept="image/*"
-            onChange={handleImageChange}
-            className="text-sm"
-          />
         </div>
-
-        {/* Telefono */}
-        <div className="flex flex-col">
-          <label className="mb-2 font-medium text-black">Teléfono de contacto:</label>
-          <input
-            type="tel"
-            name="telefono"
-            value={formData.telefono}
-            onChange={handleChange}
-            placeholder="+56 9 1234 5678"
-            pattern="[+0-9\s\-]{8,15}"
-            required
-            className="w-full p-4 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
-          />
+        
+        {/* Usuario a la derecha */}
+        <div className="flex items-center space-x-4 text-sm font-sans">
+          <div className="text-right">
+            <div className="text-xs opacity-75">Usuario</div>
+            <div className="font-semibold">Juan Pérez</div>
+          </div>
+          <button className="bg-blue-700 hover:bg-blue-600 p-2 rounded transition-colors">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7" />
+            </svg>
+          </button>
         </div>
-
-        {/* Correo alternativo */}
-        <div className="flex flex-col">
-          <label className="mb-2 font-medium text-black">Correo alternativo:</label>
-          <input
-            type="email"
-            name="correoAlternativo"
-            value={formData.correoAlternativo}
-            onChange={handleChange}
-            placeholder="correo@alternativo.com"
-            required
-            className="w-full p-4 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
-          />
-        </div>
-
-        {/* Dirección particular */}
-        <div className="flex flex-col">
-          <label className="mb-2 font-medium text-black">Dirección particular:</label>
-          <input
-            type="text"
-            name="direccion"
-            value={formData.direccion}
-            onChange={handleChange}
-            placeholder="Calle, número, ciudad"
-            required
-            className="w-full p-4 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
-          />
-        </div>
-
-        {/* Idioma */}
-        <div className="flex flex-col">
-          <label className="mb-2 font-medium text-black">Idioma:</label>
-          <select
-            name="idioma"
-            value={formData.idioma}
-            onChange={handleChange}
-            required
-            className="w-full p-4 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
-          >
-            <option value="">Selecciona idioma</option>
-            <option value="es">Español</option>
-            <option value="en">Inglés</option>
-            <option value="fr">Francés</option>
-          </select>
-        </div>
-
-        {/* Recuperar contraseña */}
-        <div className="flex flex-col">
-          <label className="mb-2 font-medium text-black">Recuperar contraseña:</label>
-          <input
-            type="password"
-            name="recuperarContrasena"
-            value={formData.recuperarContrasena}
-            onChange={handleChange}
-            placeholder="Nueva contraseña"
-            required
-            className="w-full p-4 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
-          />
-        </div>
-
-        <button
-          type="submit"
-          className="w-3/5 self-center h-14 bg-[#00AAFF] text-white font-semibold rounded-md shadow-md hover:brightness-110 transition"
-        >
-          Guardar cambios
-        </button>
-      </form>
+      </div>
     </div>
-  );
-}
+  </header>
+);
 
-export default EditProfile;
+export default Navbar;
