@@ -1,6 +1,10 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import Navbar from "../components/Navbar";
 
 function EditProfile() {
+  const navigate = useNavigate(); // hook para navegación
+
   const [profilePic, setProfilePic] = useState(null);
   const [preview, setPreview] = useState(null);
 
@@ -24,7 +28,6 @@ function EditProfile() {
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      // Previsualización
       setPreview(URL.createObjectURL(file));
       setProfilePic(file);
     }
@@ -38,8 +41,9 @@ function EditProfile() {
   };
 
   return (
-    <div className="relative min-h-screen bg-gray-100 flex flex-col items-center py-12 gap-6">
-      <br></br>
+    <div className="relative min-h-screen bg-blue-100 flex flex-col items-center py-12 gap-6">
+      <Navbar />
+      <br />
       <h1 className="text-4xl font-bold text-center mb-12 py-20">Editar Perfil</h1>
 
       <form
@@ -50,23 +54,14 @@ function EditProfile() {
         <div className="flex flex-col items-center gap-4">
           <div className="w-32 h-32 rounded-full bg-gray-200 overflow-hidden">
             {preview ? (
-              <img
-                src={preview}
-                alt="Preview"
-                className="w-full h-full object-cover"
-              />
+              <img src={preview} alt="Preview" className="w-full h-full object-cover" />
             ) : (
               <div className="w-full h-full flex items-center justify-center text-gray-500">
                 Foto
               </div>
             )}
           </div>
-          <input
-            type="file"
-            accept="image/*"
-            onChange={handleImageChange}
-            className="text-sm"
-          />
+          <input type="file" accept="image/*" onChange={handleImageChange} className="text-sm" />
         </div>
 
         {/* Telefono */}
@@ -98,7 +93,7 @@ function EditProfile() {
           />
         </div>
 
-        {/* Dirección particular */}
+        {/* Dirección */}
         <div className="flex flex-col">
           <label className="mb-2 font-medium text-black">Dirección particular:</label>
           <input
@@ -129,23 +124,23 @@ function EditProfile() {
           </select>
         </div>
 
-        {/* Recuperar contraseña */}
+        {/* Recuperar contraseña con diseño mejorado */}
         <div className="flex flex-col">
           <label className="mb-2 font-medium text-black">Recuperar contraseña:</label>
-          <input
-            type="password"
-            name="recuperarContrasena"
-            value={formData.recuperarContrasena}
-            onChange={handleChange}
-            placeholder="Nueva contraseña"
-            required
-            className="w-full p-4 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
-          />
+          <button
+            type="button"
+            onClick={() => navigate("/reset-password")}
+            className="
+              w-full flex items-center justify-center gap-2 p-3 bg-gradient-to-r from-blue-500 to-blue-400 text-white font-semibold rounded-lg shadow-md hover:shadow-lg transition-all duration-200"
+          >
+            Cambiar / Recuperar contraseña
+          </button>
         </div>
 
+        {/* Guardar cambios */}
         <button
           type="submit"
-          className="w-3/5 self-center h-14 bg-[#00AAFF] text-white font-semibold rounded-md shadow-md hover:brightness-110 transition"
+          className="w-3/5 self-center h-14 bg-[#00AAFF] text-white font-semibold rounded-md shadow-md hover:brightness-110 transition transform hover:-translate-y-0.5"
         >
           Guardar cambios
         </button>
