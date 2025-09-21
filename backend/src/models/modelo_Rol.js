@@ -1,13 +1,18 @@
-const { DataTypes } = require('sequelize');
-const db = require('../config/db');
+import { DataTypes, Model } from 'sequelize';
+import sequelize from '../db/sequelize.js';
 
-const Rol = db.define('Rol', {
-  id_rol: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
-  nombre_rol: { type: DataTypes.ENUM('estudiante', 'funcionario', 'admin'), allowNull: false },
-  descripcion: { type: DataTypes.TEXT, allowNull: true }
-}, {
-  tableName: 'rol',
-  timestamps: false
-});
+class Rol extends Model {}
 
-module.exports = Rol;
+Rol.init(
+  {
+    id_rol: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+    nombre_rol: {
+      type: DataTypes.ENUM('estudiante', 'funcionario', 'admin'),
+      allowNull: false
+    },
+    descripcion: { type: DataTypes.TEXT, allowNull: true }
+  },
+  { sequelize, tableName: 'rol', timestamps: false }
+);
+
+export default Rol;
