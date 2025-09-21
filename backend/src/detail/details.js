@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const db = require('./db'); 
+const db = require('../db/db'); 
 
 // GET /licencias/usuario/:id
 router.get('/licencias/usuario/:id', async (req, res) => {

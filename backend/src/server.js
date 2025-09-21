@@ -8,7 +8,7 @@ const InsertRouter = require('./insert/insert');
 const NotificationRouter = require('./notification/notificacion');
 
 // Conexión a la base de datos
-const db = require('./detail/db');
+const db = require('./db/db');
 
 // Middleware
 app.use(cors());
