@@ -1,21 +1,66 @@
-import UsuarioService from '../services/servicio_Usuario.js';
+import Usuario from '../src/models/modelo_Usuario.js';
+import LicenciaMedica from '../src/models/modelo_LicenciaMedica.js';
 
-export async function registrar(req, res) {
-  const { nombre, correo, contrasena } = req.body;
-  try {
-    const usuario = await UsuarioService.registrar(nombre, correo, contrasena);
-    res.json({ mensaje: 'Usuario registrado', usuario });
-  } catch (err) {
-    res.status(400).json({ error: err.message });
-  }
-}
+// Mostrar formularios
+export const mostrarLogin = (req, res) => {
+  res.sendFile('login.html', { root: './frontend/views' });
+};
 
-export async function login(req, res) {
-  const { correo, contrasena } = req.body;
+export const mostrarRegistro = (req, res) => {
+  res.sendFile('registro.html', { root: './fronted/views' });
+};
+
+// Registrar usuario
+export const registro = async (req, res) => {
   try {
-    const usuario = await UsuarioService.login(correo, contrasena);
-    res.json({ mensaje: 'Login exitoso', usuario });
+    const { nombre, correo, contrasena } = req.body;
+    const existe = await Usuario.findOne({ where: { correo_usuario: correo } });
+    if (existe) return res.send('Correo ya registrado');
+
+    await Usuario.create({ nombre, correo_usuario: correo, contrasena, id_rol: 1 });
+    res.redirect('/usuarios/login');
   } catch (err) {
-    res.status(401).json({ error: err.message });
+    res.status(500).send('Error al registrar usuario');
   }
-}
+};
+
+// Iniciar sesión
+export const login = async (req, res) => {
+  try {
+    const { correo, contrasena } = req.body;
+    const usuario = await Usuario.findOne({ where: { correo_usuario: correo } });
+
+    if (!usuario || usuario.contrasena !== contrasena) {
+      return res.send('Usuario o contraseña incorrectos');
+    }
+
+    req.session.userId = usuario.id_usuario;
+    res.redirect('/usuarios/home');
+  } catch (err) {
+    res.status(500).send('Error al iniciar sesión');
+  }
+};
+
+// Página home con resumen
+export const home = async (req, res) => {
+  if (!req.session.userId) return res.redirect('/usuarios/login');
+  
+  const id_usuario = req.session.userId;
+
+  const aceptadas = await LicenciaMedica.count({ where: { id_usuario, estado: 'aceptado' } });
+  const pendientes = await LicenciaMedica.count({ where: { id_usuario, estado: 'pendiente' } });
+  const rechazadas = await LicenciaMedica.count({ where: { id_usuario, estado: 'rechazado' } });
+
+  res.send(`
+    <h1>Resumen</h1>
+    <p>Aceptadas: ${aceptadas}</p>
+    <p>Pendientes: ${pendientes}</p>
+    <p>Rechazadas: ${rechazadas}</p>
+    <form method="POST" action="/usuarios/logout"><button type="submit">Cerrar sesión</button></form>
+  `);
+};
+
+// Cerrar sesión
+export const logout = (req, res) => {
+  req.session.destroy(() => res.redirect('/usuarios/login'));
+};
