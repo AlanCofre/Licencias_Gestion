@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "scripts": {
     "dev": "nodemon --env-file=.env src/server.js",
-    "start": "node src/server.js"
+    "start": "node src/server.js",
+    "test": "jest --runInBand"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",
