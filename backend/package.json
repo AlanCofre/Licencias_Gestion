@@ -3,12 +3,13 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "nodemon --env-file=.env src/server.js",
-    "start": "node src/server.js"
+  "dev": "nodemon src/server.js",
+  "start": "node src/server.js"
+
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",
-    "dotenv": "^16.4.5",
+    "dotenv": "^16.6.1",
     "express": "^4.19.2",
     "jsonwebtoken": "^9.0.2",
     "mysql2": "^3.10.0",

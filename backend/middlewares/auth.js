@@ -1,7 +1,12 @@
 import jwt from 'jsonwebtoken';
 
+// Middleware base: valida el token y mete datos en req
 export const validarJWT = (req, res, next) => {
-  const token = req.query.token || req.header('x-token');
+  // Puedes aceptar token en headers o query
+  const token =
+    req.header('Authorization')?.replace('Bearer ', '') ||
+    req.header('x-token') ||
+    req.query.token;
 
   if (!token) {
     return res.status(401).json({
@@ -15,25 +20,45 @@ export const validarJWT = (req, res, next) => {
     req.rol = rol;
     next();
   } catch (error) {
-    console.log(error);
-    res.status(401).json({
+    console.error(error);
+    return res.status(401).json({
       msg: 'Token no válido',
     });
   }
 };
 
+// Middleware específico: SOLO estudiante
 export const esEstudiante = (req, res, next) => {
   if (!req.rol) {
     return res.status(500).json({
-      msg: 'Se quiere verificar el role sin validar el token primero',
+      msg: 'Primero valida el token antes de verificar roles',
     });
   }
 
   if (req.rol !== 'estudiante') {
     return res.status(403).json({
-      msg: 'No tiene permisos para realizar esta acción',
+      msg: 'No tiene permisos para realizar esta acción (solo estudiantes)',
     });
   }
 
   next();
+};
+
+// Middleware genérico: permite varios roles
+export const tieneRol = (...rolesPermitidos) => {
+  return (req, res, next) => {
+    if (!req.rol) {
+      return res.status(500).json({
+        msg: 'Primero valida el token antes de verificar roles',
+      });
+    }
+
+    if (!rolesPermitidos.includes(req.rol)) {
+      return res.status(403).json({
+        msg: `Requiere uno de estos roles: ${rolesPermitidos}`,
+      });
+    }
+
+    next();
+  };
 };
