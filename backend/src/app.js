@@ -12,7 +12,6 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(healthRouter);
 app.use(licenciasRouter);
-app.get('/', serveStaticFolder('test'));
 // Rutas de usuario
 
 // Middleware de sesión

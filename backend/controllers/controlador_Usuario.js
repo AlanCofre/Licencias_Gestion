@@ -1,25 +1,43 @@
 import Usuario from '../src/models/modelo_Usuario.js';
 import LicenciaMedica from '../src/models/modelo_LicenciaMedica.js';
+import { encriptarContrasena, verificarContrasena } from '../utils/encriptar.js';
+import { validarNombre, validarCorreo, validarContrasena } from '../utils/validaciones.js';
 
 // Mostrar formularios
 export const mostrarLogin = (req, res) => {
-  res.sendFile('login.html', { root: './frontend/views' });
+  res.sendFile('login.html', { root: './frontend/public' });
 };
 
 export const mostrarRegistro = (req, res) => {
-  res.sendFile('registro.html', { root: './fronted/views' });
+  res.sendFile('registro.html', { root: './fronted/public' });
 };
 
 // Registrar usuario
 export const registro = async (req, res) => {
   try {
     const { nombre, correo, contrasena } = req.body;
-    const existe = await Usuario.findOne({ where: { correo_usuario: correo } });
-    if (existe) return res.send('Correo ya registrado');
 
-    await Usuario.create({ nombre, correo_usuario: correo, contrasena, id_rol: 1 });
+    // Validaciones
+    if (!validarNombre(nombre)) return res.send('❌ Nombre inválido');
+    if (!validarCorreo(correo)) return res.send('❌ Correo inválido');
+    if (!validarContrasena(contrasena)) return res.send('❌ La contraseña debe tener al menos 6 caracteres');
+
+    const existe = await Usuario.findOne({ where: { correo_usuario: correo } });
+    if (existe) return res.send('❌ Correo ya registrado');
+
+    // Encriptar contraseña antes de guardar
+    const hash = encriptarContrasena(contrasena);
+
+    await Usuario.create({
+      nombre,
+      correo_usuario: correo,
+      contrasena: hash,
+      id_rol: 1
+    });
+
     res.redirect('/usuarios/login');
   } catch (err) {
+    console.error('Error en registro:', err);
     res.status(500).send('Error al registrar usuario');
   }
 };
@@ -30,8 +48,8 @@ export const login = async (req, res) => {
     const { correo, contrasena } = req.body;
     const usuario = await Usuario.findOne({ where: { correo_usuario: correo } });
 
-    if (!usuario || usuario.contrasena !== contrasena) {
-      return res.send('Usuario o contraseña incorrectos');
+    if (!usuario || !verificarContrasena(contrasena, usuario.contrasena)) {
+      return res.send('<p>❌ Usuario o contraseña incorrectos</p><a href="/usuarios/login">Volver</a>');
     }
 
     req.session.userId = usuario.id_usuario;
