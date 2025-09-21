@@ -1,9 +1,11 @@
 import React from "react";
+import { Link } from "react-router-dom";
 
 const Navbar = () => (
   <header className="bg-gradient-to-b from-[var(--blue-600)] to-[var(--blue-700)] text-white shadow-sm">
     <div className="container mx-auto px-4">
       <div className="flex items-center justify-between h-20"> {/* altura mayor */}
+        
         {/* Logo a la izquierda */}
         <div className="flex items-center">
           <h1 className="text-2xl font-display font-bold tracking-wide">MedManager</h1>
@@ -12,10 +14,10 @@ const Navbar = () => (
         {/* Navegación centrada */}
         <div className="flex-1 flex justify-center">
           <div className="flex space-x-8 text-sm font-medium font-sans">
-            <a href="#" className="hover:underline border-r border-blue-600 pr-4">Inicio</a>
-            <a href="#" className="hover:underline border-r border-blue-600 pr-4">Pendientes</a>
-            <a href="#" className="hover:underline border-r border-blue-600 pr-4">Revisadas</a>
-            <a href="#" className="hover:underline">Verificadas</a>
+            <Link to="/" className="hover:underline border-r border-blue-600 pr-4">Inicio</Link>
+            <Link to="/pendientes" className="hover:underline border-r border-blue-600 pr-4">Pendientes</Link>
+            <Link to="/revisadas" className="hover:underline border-r border-blue-600 pr-4">Revisadas</Link>
+            <Link to="/verificadas" className="hover:underline">Verificadas</Link>
           </div>
         </div>
         

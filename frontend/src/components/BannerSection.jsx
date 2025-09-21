@@ -18,7 +18,7 @@ const BannerSection = () => (
       </div>
     </section>
 
-    {/* Botones flotando a mitad */}
+    {/* Botones */}
     <div className="relative z-20 container mx-auto px-8 -mt-7 flex flex-wrap justify-center gap-12">
       <Link to="/como-usar" className="inline-flex no-underline">
         <button className="bg-white text-gray-700 px-6 py-3 shadow-lg hover:shadow-xl transition-all duration-200 flex items-center gap-3 font-sans font-medium">
