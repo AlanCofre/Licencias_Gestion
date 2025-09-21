@@ -4,7 +4,6 @@ import bannerImg from "../assets/banner-inicio.png";
 
 const BannerSection = () => (
   <section className="relative bg-gradient-to-r from-[var(--blue-600)] to-[var(--blue-400)] h-[480px] overflow-hidden">
-    {/* --- restaura imagen de fondo del banner (estaba faltando) --- */}
     <div
       className="absolute inset-0 bg-cover bg-right opacity-40 pointer-events-none"
       style={{ backgroundImage: `url(${bannerImg})`, backgroundPosition: "right center" }}
@@ -16,6 +15,7 @@ const BannerSection = () => (
           Gestión de licencias<br/>medicas
         </h1>
       </div>
+      
 
       <div className="pb-12">
         <div className="flex flex-wrap gap-6 max-w-4xl items-center">
