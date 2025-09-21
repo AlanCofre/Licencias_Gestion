@@ -1,6 +1,7 @@
-const express = require('express');
+import express from 'express';
+import db from './db.js';
+
 const router = express.Router();
-const db = require('./db'); 
 
 // GET /licencias/usuario/:id
 router.get('/licencias/usuario/:id', async (req, res) => {
@@ -19,6 +20,4 @@ router.get('/licencias/usuario/:id', async (req, res) => {
   }
 });
 
-module.exports = router;
-
-// falta insertar los datos en la tabla de la interfaz
+export default router;

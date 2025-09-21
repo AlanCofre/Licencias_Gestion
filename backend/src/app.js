@@ -1,7 +1,7 @@
 
 import express from 'express';
 import session from 'express-session';
-import usuarioRoutes from './routes/ruta_Usuario.js';
+import usuarioRoutes from './routes/usuario.route.js';
 import healthRouter from './routes/health.route.js';
 import licenciasRouter from './routes/licencias.route.js';
 import dotenv from 'dotenv';
@@ -12,7 +12,6 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(healthRouter);
 app.use(licenciasRouter);
-// Rutas de usuario
 
 // Middleware de sesión
 app.use(session({

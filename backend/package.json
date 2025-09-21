@@ -15,9 +15,12 @@
     "mysql2": "^3.15.0",
     "sequelize": "^6.37.7"
   },
+
   "devDependencies": {
     "nodemon": "^3.1.10"
   },
+  "type": "module",
   "author": "",
   "license": "ISC"
+  
 }

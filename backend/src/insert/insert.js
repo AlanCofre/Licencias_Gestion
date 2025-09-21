@@ -1,5 +1,6 @@
-const express = require('express');
-const mysql = require('mysql2/promise');
+import express from 'express';
+import mysql from 'mysql2/promise';
+
 const router = express.Router();
 
 // Conexión a la base de datos
@@ -53,4 +54,4 @@ router.post('/subir-archivo', async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;
