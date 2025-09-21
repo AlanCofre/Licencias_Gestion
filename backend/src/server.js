@@ -1,22 +1,35 @@
-import 'dotenv/config';
-import app from './app.js';
-import sequelize from './db/sequelize.js';
+const express = require('express');
+const cors = require('cors');
+const app = express();
 
-const PORT = process.env.PORT || 3000;
+// Routers
+const DetailsRouter = require('./detail/details');
+const InsertRouter = require('./insert/insert');
 
-async function start() {
-  try {
-    await sequelize.authenticate();
-    console.log('✅ Conexión inicial a MySQL OK');
-    // En desarrollo podrías sincronizar:
-    // await sequelize.sync({ alter: true });
-  } catch (error) {
-    console.error('❌ Falló la conexión inicial a MySQL:', error);
-  }
+// Conexión a la base de datos
+const db = require('./detail/db');
 
-  app.listen(PORT, () => {
-    console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
-  });
-}
+// Middleware
+app.use(cors()); // Habilita CORS para todos los orígenes
+app.use(express.json()); // Parseo de JSON en requests
 
-start();
+// Rutas
+app.use('/', DetailsRouter);
+app.use('/', InsertRouter); // ← Añadido: activa /subir-archivo
+
+// Inicio del servidor
+app.listen(3000, () => {
+  console.log('✅ Servidor corriendo en http://localhost:3000');
+
+  // Consulta inicial opcional
+  (async () => {
+    try {
+      const [licencias] = await db.execute(
+        'SELECT * FROM licenciamedica ORDER BY fecha_emision DESC LIMIT 5'
+      );
+      console.log('📦 Licencias precargadas al iniciar:', licencias);
+    } catch (err) {
+      console.error('❌ Error al precargar licencias:', err);
+    }
+  })();
+});
