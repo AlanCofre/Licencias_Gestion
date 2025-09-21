@@ -50,14 +50,19 @@ const licenciaSchema = z.object({
 });
 
 function validateLicenciaBody(req, res, next) {
-  const parsed = licenciaSchema.safeParse(req.body); // 👈 usa el MISMO nombre
+  const parsed = licenciaSchema.safeParse(req.body);
+
   if (!parsed.success) {
-    const errores = parsed.error.errors.map(e => ({
-      campo: e.path.join(".") || "body",
-      mensaje: e.message,
+    // En Zod, la lista viene en "issues"
+    const list = parsed.error?.issues || parsed.error?.errors || [];
+    const errores = issues.map(e => ({
+      campo: (e.path && e.path.join(".")) || "body",
+      mensaje: e.message
     }));
+
     return res.status(400).json({ ok: false, errores });
   }
+
   req.validated = parsed.data;
   next();
 }
