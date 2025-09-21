@@ -10,6 +10,7 @@ LicenciaMedica.init(
     fecha_inicio: { type: DataTypes.DATE, allowNull: false },
     fecha_fin: { type: DataTypes.DATE, allowNull: false },
     estado: {
+      // Añadido 'sin validar' al ENUM para que coincida con el defaultValue
       type: DataTypes.ENUM('sin validar', 'en revisión', 'aprobada', 'rechazada'),
       allowNull: false,
       defaultValue: 'sin validar'
