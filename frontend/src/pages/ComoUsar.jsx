@@ -7,6 +7,7 @@ import signo from "../assets/SignoPregunta.png";
 export default function ComoUsar() {
   return (
     <div className="min-h-screen flex flex-col bg-blue-100">
+      <Navbar />
 
       {/* Banner reutilizado para mantener look */}
       <BannerSection />
@@ -55,6 +56,7 @@ export default function ComoUsar() {
         </div>
       </main>
 
+      <Footer />
     </div>
   );
 }
