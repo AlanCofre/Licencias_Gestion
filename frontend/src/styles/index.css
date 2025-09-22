@@ -15,7 +15,6 @@
   --blue-800: #0a4f86;
   --accent: #06b6d4;
   --muted: #e6f2fb;
-  --text-contrast: 7:1; /* WCAG AAA level */
 }
 
 body {
@@ -28,53 +27,3 @@ body {
   @apply bg-white text-gray-700 px-6 py-3 rounded-lg shadow-md flex items-center gap-3 transition-all;
 }
 .btn-ghost:focus { outline: 3px solid rgba(14,165,233,0.25); }
-
-/* Focus styles for better accessibility */
-@layer utilities {
-  .focus-visible\:ring-2:focus-visible {
-    outline: 2px solid transparent;
-    outline-offset: 2px;
-    box-shadow: 0 0 0 2px var(--ring-color, theme('colors.blue.500'));
-  }
-}
-
-/* Screen reader only content */
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
-}
-
-.sr-only:focus,
-.focus\:not-sr-only:focus {
-  position: static;
-  width: auto;
-  height: auto;
-  padding: initial;
-  margin: initial;
-  overflow: visible;
-  clip: auto;
-  white-space: normal;
-}
-
-/* High contrast mode support */
-@media (prefers-contrast: high) {
-  .bg-blue-600 { background-color: #1e40af; }
-  .bg-blue-700 { background-color: #1d4ed8; }
-  .bg-blue-800 { background-color: #1e3a8a; }
-}
-
-/* Reduced motion support */
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-  }
-}
