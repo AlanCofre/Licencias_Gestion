@@ -1,7 +1,6 @@
-import express from 'express';
-
+const express = require('express');
 const router = express.Router();
-const db = require('../db/db'); 
+const db = require('../db/db'); // asegúrate que exporte algo compatible (ver abajo)
 
 // GET /licencias/usuario/:id
 router.get('/licencias/usuario/:id', async (req, res) => {
@@ -9,10 +8,9 @@ router.get('/licencias/usuario/:id', async (req, res) => {
 
   try {
     const [licencias] = await db.execute(
-      `SELECT * FROM licenciamedica WHERE id_usuario = ? ORDER BY fecha_emision DESC`,
+      'SELECT * FROM licenciamedica WHERE id_usuario = ? ORDER BY fecha_emision DESC',
       [idUsuario]
     );
-
     res.status(200).json({ licencias });
   } catch (err) {
     console.error('❌ Error al consultar licencias por usuario:', err);
@@ -20,4 +18,4 @@ router.get('/licencias/usuario/:id', async (req, res) => {
   }
 });
 
-export default router;
+module.exports = router;
