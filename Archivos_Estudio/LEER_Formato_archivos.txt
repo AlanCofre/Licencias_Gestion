@@ -1,4 +1,0 @@
-Importante:
-
--Los archivos deben estar en PDF
--Deben ser nombrado con el nombre del integrante y lo que estudiaron (ej: Juanito_TailwindCSS)

@@ -1,16 +1,35 @@
-const express = require('express');
+
+import express from 'express';
+import session from 'express-session';
+import usuarioRoutes from './routes/usuario.route.js';
+import healthRouter from './routes/health.route.js';
+import licenciasRouter from './routes/licencias.route.js';
+import dotenv from 'dotenv';
+
+dotenv.config();
 const app = express();
-
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(healthRouter);
+app.use(licenciasRouter);
 
-const authRouter = require('./routes/auth');
-app.use('/auth', authRouter);
+// Middleware de sesión
+app.use(session({
+  secret: 'mi_secreto_seguro',
+  resave: false,
+  saveUninitialized: true,
+  cookie: { secure: false }
+}));
 
-const licenciasRouter = require('./routes/licenciamedica.routes');
-app.use('/api/licencias', licenciasRouter);
+// Rutas
+app.use('/usuarios', usuarioRoutes);
 
-app.get('/health', (_req, res) => res.json({ ok: true }));
+// Redirección base
+app.get('/', (req, res) => res.redirect('/usuarios/login'));
 
-app.use((req, res) => res.status(404).json({ message: 'Not found' }));
-
-module.exports = app;
+// Puerto
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Servidor corriendo en http://localhost:${PORT}`);
+});
+export default app;
