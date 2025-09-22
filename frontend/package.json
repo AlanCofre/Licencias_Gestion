@@ -10,7 +10,10 @@
   "dependencies": {
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
     "lucide-react": "^0.544.0",
+=======
+>>>>>>> parent of 26af2884 (Merge branch 'Frontend_Jose/GenRev' into feature_frontend)
 =======
 >>>>>>> parent of 26af2884 (Merge branch 'Frontend_Jose/GenRev' into feature_frontend)
     "react": "^18.2.0",
