@@ -1,6 +1,8 @@
-const express = require('express');
+// backend/src/routes/ruta_Licencia.js
+import express from 'express';
+import db from '../../db/db.js'; // asegúrate que el archivo db.js exporte por defecto la conexión
+
 const router = express.Router();
-const db = require('../db/db'); // asegúrate que exporte algo compatible (ver abajo)
 
 // GET /licencias/usuario/:id
 router.get('/licencias/usuario/:id', async (req, res) => {
@@ -18,4 +20,4 @@ router.get('/licencias/usuario/:id', async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;

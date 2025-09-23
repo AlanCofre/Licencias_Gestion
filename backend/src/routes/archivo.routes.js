@@ -1,7 +1,7 @@
 const { Router } = require('express');
-const requireAuth = require('../middlewares/requireAuth');
+const requireAuth = require('../../middlewares/requireAuth');
 const ctrl = require('../controllers/archivo.controller');
-const pool = require('../db/db');
+const pool = require('../../db/db');
 
 const router = Router();
 

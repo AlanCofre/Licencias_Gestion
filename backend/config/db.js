@@ -1,17 +1,24 @@
-// backend/config/db.js
-import 'dotenv/config';
+import dotenv from 'dotenv';
 import mysql from 'mysql2/promise';
+import { fileURLToPath } from 'url';
+import path from 'path';
 
-const pool = mysql.createPool({
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+dotenv.config({ path: path.join(__dirname, '..', '.env') });
+
+
+const db = mysql.createPool({
   host: process.env.DB_HOST || '127.0.0.1',
-  port: Number(process.env.DB_PORT || 3306),
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || '',
-  database: process.env.DB_NAME || 'a2019_acofre',
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD || process.env.DB_PASS || '',
+  database: process.env.DB_NAME,
+  port: Number(process.env.DB_PORT) || 3306,
+  ssl: (process.env.DB_SSL || 'false').toString() === 'true' ? { rejectUnauthorized: true } : undefined,
   waitForConnections: true,
   connectionLimit: 10,
-  queueLimit: 0,
-  ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
+  queueLimit: 0
 });
 
-export default pool;
+
+export default db;

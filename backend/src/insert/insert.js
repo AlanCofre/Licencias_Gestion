@@ -1,16 +1,8 @@
 // src/insert/insert.js
-const express = require('express');
-const mysql = require('mysql2/promise');
+import express from 'express';
+import pool from '../../config/db.js'; // Asegúrate de que la ruta sea correcta
 
 const router = express.Router();
-
-// Conexión a la base de datos (ajusta credenciales según .env si quieres)
-const pool = mysql.createPool({
-  host: 'localhost',
-  user: 'root',
-  password: '',
-  database: 'prueba'
-});
 
 // Ruta POST para subir archivo
 router.post('/subir-archivo', async (req, res) => {
@@ -55,4 +47,4 @@ router.post('/subir-archivo', async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;
