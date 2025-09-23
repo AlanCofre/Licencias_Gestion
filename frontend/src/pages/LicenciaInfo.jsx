@@ -1,5 +1,5 @@
 import React from "react";
-import BannerSection from "../components/BannerInfo.jsx";
+import BannerInfo from "../components/BannerInfo.jsx";
 import Footer from "../components/Footer.jsx";
 
 function AppVisualizar() {
@@ -21,7 +21,7 @@ function AppVisualizar() {
     <div className="w-screen min-h-screen flex flex-col bg-blue-100 overflow-x-hidden">
       {/* Banner */}
       <div className="banner relative w-full h-[500px]">
-        <BannerSection />
+        <BannerInfo />
       </div>
 
       {/* Contenedor de tabla */}

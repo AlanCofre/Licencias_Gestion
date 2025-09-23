@@ -2,7 +2,7 @@ import React from "react";
 import { Link } from "react-router-dom";
 import bannerImg from "../assets/banner-inicio.png";
 
-const BannerSection = () => (
+const BannerInfo = () => (
   <section className="relative bg-gradient-to-r from-[var(--blue-600)] to-[var(--blue-400)] h-[480px] overflow-hidden">
     {/* Imagen de fondo */}
     <div
@@ -78,4 +78,4 @@ const BannerSection = () => (
   </section>
 );
 
-export default BannerSection;
+export default BannerInfo;
