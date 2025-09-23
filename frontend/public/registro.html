@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Registro</title>
+</head>
+<body>
+  <h2>Registro de Usuario</h2>
+  <form method="POST" action="/usuarios/registro">
+    <label for="nombre">Nombre:</label><br>
+    <input type="text" id="nombre" name="nombre" required /><br><br>
+
+    <label for="correo">Correo:</label><br>
+    <input type="email" id="correo" name="correo" required /><br><br>
+
+    <label for="contrasena">Contraseña:</label><br>
+    <input type="password" id="contrasena" name="contrasena" required /><br><br>
+
+    <button type="submit">Registrar</button>
+  </form>
+
+  <p>¿Ya tienes cuenta? <a href="/usuarios/login">Inicia sesión aquí</a></p>
+</body>
+</html>
