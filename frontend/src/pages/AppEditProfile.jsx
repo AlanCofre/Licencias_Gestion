@@ -42,7 +42,6 @@ function EditProfile() {
 
   return (
     <div className="relative min-h-screen bg-blue-100 flex flex-col items-center py-12 gap-6">
-      <Navbar />
       <br />
       <h1 className="text-4xl font-bold text-center mb-12 py-20">Editar Perfil</h1>
 

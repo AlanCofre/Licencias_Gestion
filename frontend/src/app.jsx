@@ -1,13 +1,20 @@
 import React from "react";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
-import Dashboard from "./pages/Dashboard";;
+import Dashboard from "./pages/Dashboard";
+import NavbarC from "./components/NavbarCalendar";
+import EditProfile from "./pages/AppEditProfile";
+import AppLogin from "./pages/AppLogin";
+import AppRegistro from "./pages/AppRegistro";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
+import AppVisualizar from "./pages/LicenciaInfo";
 
 function App() {
   return (
     <div className="min-h-screen flex flex-col bg-blue-100">
-      <Navbar />
-      <Dashboard />
+      <NavbarC />
+      <AppVisualizar />
       <div className="flex-grow" />
       <Footer />
     </div>

@@ -1,5 +1,5 @@
 import React from "react";
-import bannerLogin from "./assets/banner-login.png";
+import bannerLogin from "../assets/banner-login.png";
 
 function AppRegistro() {
   return (

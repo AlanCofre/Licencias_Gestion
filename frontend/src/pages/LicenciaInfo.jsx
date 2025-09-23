@@ -81,8 +81,6 @@ function AppVisualizar() {
         </div>
       </div>
 
-      {/* Footer */}
-      <Footer />
     </div>
   );
 }
