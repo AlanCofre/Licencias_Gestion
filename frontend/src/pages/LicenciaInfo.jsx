@@ -73,7 +73,7 @@ function AppVisualizar() {
               </div>
               <div className="px-3 py-2.5 flex justify-center items-center">
                 <button className="bg-sky-500 text-white font-bold px-6 py-2 rounded shadow hover:bg-sky-600 transition">
-                  Ver Doc. adjunto
+                  Ver detalles
                 </button>
               </div>
             </div>

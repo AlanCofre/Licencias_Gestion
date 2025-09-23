@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { DayPicker } from "react-day-picker";
+import { Link } from "react-router-dom";
 import "react-day-picker/dist/style.css";
 import icono from "../assets/IconoCalendario.png";
 
@@ -30,12 +31,12 @@ const NavbarC = () => {
 
             {/* Usuario a la derecha */}
             <div className="flex items-center space-x-4 text-sm font-sans">
-              {/* Nombre del usuario */}
-              <div className="text-right">
+              {/* Nombre del usuario (ahora enlace a editar perfil) */}
+              <Link to="/edit-profile" className="text-right hover:underline" title="Editar perfil">
                 <div className="text-xs opacity-75">Usuario</div>
                 <div className="font-semibold">Juan Pérez</div>
-              </div>
-
+              </Link>
+              
               {/* Botón de calendario con imagen */}
               <button
                 onClick={() => setShowCalendar(true)}
@@ -45,7 +46,11 @@ const NavbarC = () => {
               </button>
 
               {/* Botón de logout */}
-              <button className="bg-blue-700 hover:bg-blue-600 p-2 rounded transition-colors">
+              <button
+                title="Log out"
+                aria-label="Log out"
+                className="bg-blue-700 hover:bg-blue-600 p-2 rounded transition-colors"
+              >
                 <svg
                   className="w-5 h-5"
                   fill="none"
