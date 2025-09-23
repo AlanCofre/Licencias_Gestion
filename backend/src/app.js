@@ -6,6 +6,8 @@ import insertRouter from './insert/insert.js';
 import notificationRouter from './notification/notificacion.js';
 import licenciasRouter from './routes/licencias.routes.js';
 import db from './../config/db.js';
+import healthRouter from './routes/health.route.js';
+import usuarioRoutes from './routes/usuario.route.js';
 // Pool de mysql2/promise exportado desde ./db/db.js
 // (si tu módulo exporta `module.exports = pool`, esto sigue funcionando como default en ESM)
 // === App + Config ===
@@ -21,6 +23,9 @@ console.log('[DB CONFIG]', {
 /* === Middlewares globales === */
 app.use(cors());
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(healthRouter);
+app.use(licenciasRouter);
 
 /* === Rutas === */
 // REST principal de licencias (endpoint nuevo: POST /api/licencias)
@@ -30,7 +35,7 @@ app.use('/api/licencias', licenciasRouter);
 app.use('/licencias', detailsRouter);
 app.use('/archivos', insertRouter);
 app.use('/notificaciones', notificationRouter);
-
+app.use('/usuarios', usuarioRoutes);
 /* === 404 (no encontrado) === */
 app.use((req, res) => {
   res.status(404).json({ ok: false, mensaje: 'Ruta no encontrada' });
@@ -41,6 +46,7 @@ app.use((err, req, res, next) => {
   console.error('💥 Error no controlado:', err);
   res.status(500).json({ ok: false, mensaje: 'Error interno del servidor' });
 });
+app.get('/', (req, res) => res.redirect('/usuarios/login'));
 
 /* === Arranque del servidor === */
 app.listen(PORT, async () => {

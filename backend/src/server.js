@@ -18,6 +18,7 @@ import insertRouter from './insert/insert.js';
 import notificationRouter from './notification/notificacion.js';
 import licenciaRoutes from './routes/licencia.routes.js';
 import archivoRoutes from './routes/archivo.routes.js';
+import usuarioRoutes from './routes/ruta_Usuario.js';
 
 // Pool de mysql2/promise exportado desde ./db/db.js
 // (si tu módulo exporta `module.exports = pool`, esto sigue funcionando como default en ESM)
@@ -35,8 +36,9 @@ app.use(express.json());
 
 /* === Rutas === */
 // REST principal de licencias (endpoint nuevo: POST /api/licencias)
+app.use('/usuarios', usuarioRoutes);
 app.use('/api/licencias', licenciaRoutes);
-
+app.get('/', (req, res) => res.redirect('/usuarios/login'));
 // Rutas auxiliares que ya tenías
 app.use('/licencias', detailsRouter);
 app.use('/archivos', insertRouter);

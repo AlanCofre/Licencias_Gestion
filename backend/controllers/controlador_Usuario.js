@@ -5,11 +5,21 @@ import { validarNombre, validarCorreo, validarContrasena } from '../utils/valida
 import jwt from 'jsonwebtoken';
 import UsuarioService from '../services/servicio_Usuario.js';
 
+export const mostrarLogin = (req, res) => {
+  res.sendFile('login.html', { root: './frontend/public' });
+};
+
+export const mostrarRegistro = (req, res) => {
+  res.sendFile('registro.html', { root: './fronted/public' });
+};
+
+
 export async function registrar(req, res) {
   try {
     const { nombre, correo, contrasena, idRol } = req.body; // idRol opcional (default 2)
-    const usuario = await UsuarioService.registrar(nombre, correo, contrasena, idRol);
-    res.json({ mensaje: 'Usuario registrado', usuario });
+    const usuario = await UsuarioService.registrar(nombre, correo, contrasena, 1);
+    
+    res.redirect('/usuarios/login');
   } catch (err) {
     console.error('[registrar] error:', err);
     res.status(400).json({ error: err.message || 'Error al registrar' });
@@ -31,7 +41,7 @@ export async function login(req, res) {
       { expiresIn: process.env.JWT_EXPIRES_IN || '1d' }
     );
 
-    res.json({ mensaje: 'Login exitoso', usuario, token });
+    res.redirect('/usuarios/home');
   } catch (err) {
     console.error('[login] error:', err);
     res.status(401).json({ error: err.message || 'Credenciales inválidas' });
