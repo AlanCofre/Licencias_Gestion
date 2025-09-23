@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { DayPicker } from "react-day-picker";
 import "react-day-picker/dist/style.css";
+import icono from "../assets/IconoCalendario.png";
 
 const NavbarC = () => {
   const [showCalendar, setShowCalendar] = useState(false);
@@ -40,7 +41,7 @@ const NavbarC = () => {
                 onClick={() => setShowCalendar(true)}
                 className="p-2 rounded hover:bg-blue-600 transition-colors"
               >
-                <img src="/calendar-icon.png" alt="Calendario" className="w-6 h-6" />
+                <img src={icono} alt="Calendario" className="w-6 h-6" />
               </button>
 
               {/* Botón de logout */}

@@ -1,7 +1,10 @@
 import React from "react";
-import bannerLogin from "./assets/banner-login.png";
+import bannerLogin from "../assets/banner-login.png";
+import { useNavigate } from "react-router-dom";
 
 function AppLogin() {
+  const navigate = useNavigate(); // hook para navegar
+
   return (
     <div className="relative min-h-screen bg-white flex flex-col items-center justify-start py-12">
       {/* Fondo */}
@@ -44,6 +47,16 @@ function AppLogin() {
               className="w-full bg-[#95B5C4] rounded-md border-none p-4 text-black"
             />
           </div>
+
+          {/* Enlace Olvidé mi contraseña */}
+          <div className="flex justify-center mt-2">
+            <span
+              className="text-[#00AAFF] text-sm font-medium cursor-pointer hover:underline"
+              onClick={() => navigate("/forgot-password")} // 👈 navega a ForgotPassword
+            >
+              Olvidé mi contraseña.
+            </span>
+          </div>
         </div>
 
         <button className="w-3/5 h-14 bg-[#00AAFF] text-white text-xl font-semibold rounded-md shadow-md hover:brightness-110 transition self-center mt-4">
@@ -54,7 +67,7 @@ function AppLogin() {
       {/* Registro debajo del contenedor */}
       <div className="relative z-10 mt-10 text-center text-black text-base">
         <span>¿No tienes una cuenta? </span>
-        <span className="text-[#76F1FF] font-bold cursor-pointer">
+        <span className="text-[#76F1FF] font-bold cursor-pointer hover:underline">
           Regístrate aquí.
         </span>
       </div>
