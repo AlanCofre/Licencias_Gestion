@@ -1,7 +1,7 @@
 import React from "react";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
-import Dashboard from "./pages/Dashboard";
+import Dashboard from "./pages/Dashboard";;
 
 function App() {
   return (
