@@ -5,6 +5,7 @@ import ComoUsar from "./pages/ComoUsar.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import ResetPassword from "./pages/ResetPassword.jsx";
 import ForgotPassword from "./pages/ForgotPassword.jsx";
+import AppRegistro from "./pages/AppRegistro.jsx";
 
 export default function RoutesWrapper() {
   return (
@@ -17,6 +18,7 @@ export default function RoutesWrapper() {
       <Route path="*" element={<Navigate to="/" replace />} />
       <Route path="/reset-password" element={<ResetPassword/>} />
       <Route path="/forgot-password" element={<ForgotPassword />} /> 
+      <Route path="/register" element={<AppRegistro />} />
     </Routes>
   );
 }
