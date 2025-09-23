@@ -12,6 +12,9 @@ export const mostrarLogin = (req, res) => {
 export const mostrarRegistro = (req, res) => {
   res.sendFile('registro.html', { root: './fronted/public' });
 };
+export const mostrarIndex = (req, res) => {
+  res.sendFile('index.html', { root: './frontend/public' });
+}
 
 
 export async function registrar(req, res) {
@@ -35,13 +38,8 @@ export async function login(req, res) {
 
     const usuario = await UsuarioService.login(correo, contrasena); // { id, nombre, correo, rol }
 
-    const token = jwt.sign(
-      { id: usuario.id, rol: usuario.rol },
-      process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN || '1d' }
-    );
 
-    res.redirect('/usuarios/home');
+    res.redirect('/usuarios/index');
   } catch (err) {
     console.error('[login] error:', err);
     res.status(401).json({ error: err.message || 'Credenciales inválidas' });
@@ -49,22 +47,11 @@ export async function login(req, res) {
 };
 
 // Página home con resumen
-export const home = async (req, res) => {
-  if (!req.session.userId) return res.redirect('/usuarios/login');
-  
-  const id_usuario = req.session.userId;
+export const index = async (req, res) => {
 
-  const aceptadas = await LicenciaMedica.count({ where: { id_usuario, estado: 'aceptado' } });
-  const pendientes = await LicenciaMedica.count({ where: { id_usuario, estado: 'pendiente' } });
-  const rechazadas = await LicenciaMedica.count({ where: { id_usuario, estado: 'rechazado' } });
 
-  res.send(`
-    <h1>Resumen</h1>
-    <p>Aceptadas: ${aceptadas}</p>
-    <p>Pendientes: ${pendientes}</p>
-    <p>Rechazadas: ${rechazadas}</p>
-    <form method="POST" action="/usuarios/logout"><button type="submit">Cerrar sesión</button></form>
-  `);
+  // redirige a un archivo HTML en vez de mandar HTML inline
+  res.sendFile('index.html', { root: './frontend/public' });
 };
 
 // Cerrar sesión
