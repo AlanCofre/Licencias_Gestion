@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Iniciar Sesión</title>
+</head>
+<body>
+  <h2>Inicio de Sesión</h2>
+  <form method="POST" action="/usuarios/login">
+    <label for="correo">Correo:</label><br>
+    <input type="email" id="correo" name="correo" required /><br><br>
+
+    <label for="contrasena">Contraseña:</label><br>
+    <input type="password" id="contrasena" name="contrasena" required /><br><br>
+
+    <button type="submit">Iniciar Sesión</button>
+  </form>
+
+  <p>¿No tienes cuenta? <a href="/usuarios/registro">Regístrate aquí</a></p>
+</body>
+</html>
