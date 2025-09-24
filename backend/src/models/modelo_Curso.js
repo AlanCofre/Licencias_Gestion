@@ -1,19 +1,17 @@
-const { DataTypes } = require('sequelize');
-const db = require('../config/db');
-const Usuario = require('./modelo_Usuario');
+import { DataTypes, Model } from 'sequelize';
+import sequelize from '../../db/sequelize.js';
 
-const Curso = db.define('Curso', {
-  id_curso: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
-  codigo: { type: DataTypes.STRING(50), allowNull: false },
-  nombre_curso: { type: DataTypes.STRING(100), allowNull: false },
-  semestre: { type: DataTypes.ENUM('1', '2'), allowNull: false },
-  seccion: { type: DataTypes.ENUM('1', '2', '3', '4'), allowNull: false }
-}, {
-  tableName: 'curso',
-  timestamps: false
-});
+class Curso extends Model {}
 
-Usuario.hasMany(Curso, { foreignKey: 'id_usuario' });
-Curso.belongsTo(Usuario, { foreignKey: 'id_usuario' });
+Curso.init(
+  {
+    id_curso: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+    codigo: { type: DataTypes.STRING(50), allowNull: false },
+    nombre_curso: { type: DataTypes.STRING(100), allowNull: false },
+    semestre: { type: DataTypes.ENUM('1', '2'), allowNull: false },
+    seccion: { type: DataTypes.ENUM('1', '2', '3', '4'), allowNull: false }
+  },
+  { sequelize, tableName: 'curso', timestamps: false }
+);
 
-module.exports = Curso;
+export default Curso;

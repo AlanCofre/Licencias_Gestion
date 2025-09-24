@@ -52,7 +52,7 @@ function AppLogin() {
           <div className="flex justify-center mt-2">
             <span
               className="text-[#00AAFF] text-sm font-medium cursor-pointer hover:underline"
-              onClick={() => navigate("/forgot-password")} // 👈 navega a ForgotPassword
+              onClick={() => navigate("/forgot-password")}
             >
               Olvidé mi contraseña.
             </span>
@@ -68,7 +68,7 @@ function AppLogin() {
       <div className="relative z-10 mt-10 text-center text-black text-base">
         <span>¿No tienes una cuenta? </span>
         <span className="text-[#76F1FF] font-bold cursor-pointer hover:underline"
-        onClick={() => navigate("/registro")} // 👈 navega a AppRegistro
+          onClick={() => navigate("/register")}
         >
           Regístrate aquí.
         </span>

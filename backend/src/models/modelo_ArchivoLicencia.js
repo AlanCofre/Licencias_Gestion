@@ -1,20 +1,18 @@
-const { DataTypes } = require('sequelize');
-const db = require('../config/db');
-const LicenciaMedica = require('./modelo_LicenciaMedica');
+import { DataTypes, Model } from 'sequelize';
+import sequelize from '../../db/sequelize.js';
 
-const ArchivoLicencia = db.define('ArchivoLicencia', {
-  id_archivo: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
-  ruta_url: { type: DataTypes.STRING(4096), allowNull: false },
-  tipo_mime: { type: DataTypes.STRING(100), allowNull: false },
-  hash: { type: DataTypes.STRING(128), allowNull: false },
-  tamano: { type: DataTypes.INTEGER, allowNull: false },
-  fecha_subida: { type: DataTypes.DATE, defaultValue: DataTypes.NOW }
-}, {
-  tableName: 'archivo_licencia',
-  timestamps: false
-});
+class ArchivoLicencia extends Model {}
 
-LicenciaMedica.hasMany(ArchivoLicencia, { foreignKey: 'id_licencia', onDelete: 'CASCADE' });
-ArchivoLicencia.belongsTo(LicenciaMedica, { foreignKey: 'id_licencia' });
+ArchivoLicencia.init(
+  {
+    id_archivo: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+    ruta_url: { type: DataTypes.STRING(4096), allowNull: false },
+    tipo_mime: { type: DataTypes.STRING(100), allowNull: false },
+    hash: { type: DataTypes.STRING(128), allowNull: false },
+    tamano: { type: DataTypes.INTEGER, allowNull: false },
+    fecha_subida: { type: DataTypes.DATE, defaultValue: DataTypes.NOW }
+  },
+  { sequelize, tableName: 'archivo_licencia', timestamps: false }
+);
 
-module.exports = ArchivoLicencia;
+export default ArchivoLicencia;
