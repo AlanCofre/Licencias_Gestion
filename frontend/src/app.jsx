@@ -5,6 +5,7 @@ import Dashboard from "./pages/Dashboard";
 import NavbarC from "./components/NavbarCalendar";
 import EditProfile from "./pages/AppEditProfile";
 import AppLogin from "./pages/AppLogin";
+import GenerarRevision from "./pages/GenerarRevision";
 import AppRegistro from "./pages/AppRegistro";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
