@@ -1,41 +1,44 @@
-// controllers/controlador_Usuario.js
-import Usuario from '../src/models/modelo_Usuario.js';
-import LicenciaMedica from '../src/models/modelo_LicenciaMedica.js';
-import { encriptarContrasena, verificarContrasena } from '../utils/encriptar.js';
-import { validarNombre, validarCorreo, validarContrasena } from '../utils/validaciones.js';
+// backend/controllers/controlador_Usuario.js
+import path from 'path';
+import { fileURLToPath } from 'url';
 import jwt from 'jsonwebtoken';
 import UsuarioService from '../services/servicio_Usuario.js';
 
-export const mostrarLogin = (req, res) => {
-  res.sendFile('login.html', { root: './frontend/public' });
+// === Paths para servir HTML de /frontend/public ===
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const PUBLIC_ROOT = path.join(__dirname, '..', '..', 'frontend', 'public');
+
+// Vistas simples (opcional)
+export const mostrarLogin = (_req, res) => {
+  res.sendFile(path.join(PUBLIC_ROOT, 'login.html'));
 };
 
-export const mostrarRegistro = (req, res) => {
-  // (tenías un typo "fronted")
-  res.sendFile('registro.html', { root: './frontend/public' });
+export const mostrarRegistro = (_req, res) => {
+  res.sendFile(path.join(PUBLIC_ROOT, 'registro.html'));
 };
 
-export const mostrarIndex = (req, res) => {
-  // (tenías un typo "fronted")
-  res.sendFile('index.html', { root: './frontend/public' });
+export const mostrarIndex = (_req, res) => {
+  res.sendFile(path.join(PUBLIC_ROOT, 'index.html'));
 };
 
+// ===== Registro =====
 export async function registrar(req, res) {
   try {
-    const { nombre, correo, contrasena, idRol } = req.body; // idRol opcional
-    await UsuarioService.registrar(nombre, correo, contrasena, idRol ?? 1);
-    return res.redirect('/usuarios/login');
+    const { nombre, correo, contrasena, idRol } = req.body;
+    // Por defecto, registrar como ESTUDIANTE (2) si no envían idRol
+    const roleId = Number.isInteger(idRol) ? idRol : 2;
+
+    const usuario = await UsuarioService.registrar(nombre, correo, contrasena, roleId);
+    // Devuelve JSON (más claro para pruebas); si quieres redirigir, cambia aquí
+    return res.status(201).json({ mensaje: 'Usuario registrado', usuario });
   } catch (err) {
     console.error('[registrar] error:', err);
     return res.status(400).json({ error: err.message || 'Error al registrar' });
   }
 }
 
-/**
- * LOGIN
- * - Si el cliente pide JSON (fetch / API), responde { ok, token, user }
- * - Si es navegador, setea cookie + session y redirige a /usuarios/index
- */
+// ===== Login (emite JWT con { id, rol }) =====
 export async function login(req, res) {
   try {
     const { correo, contrasena } = req.body || {};
@@ -43,69 +46,43 @@ export async function login(req, res) {
       return res.status(400).json({ ok: false, msg: 'correo y contrasena son requeridos' });
     }
 
-    // Autentica con tu servicio (debe lanzar error si falla)
-    const usuario = await UsuarioService.login(correo, contrasena);
-    // Normaliza ids para compatibilidad
-    const userId = usuario.id ?? usuario.id_usuario;
+    const usuario = await UsuarioService.login(correo, contrasena); // { id, nombre, correo, rol }
 
-    // Genera JWT (incluye ambas claves para compatibilidad con middlewares/HTML)
-    const payload = { id: userId, id_usuario: userId, rol: usuario.rol };
-    const token = jwt.sign(payload, process.env.JWT_SECRET, {
-      expiresIn: process.env.JWT_EXPIRES_IN || '1d',
+    const secret = process.env.JWT_SECRET || 'DEV_SECRET_CHANGE_ME';
+    const token = jwt.sign(
+      { id: usuario.id, rol: usuario.rol },           // <-- rol STRING
+      secret,
+      { expiresIn: process.env.JWT_EXPIRES_IN || '1d' }
+    );
+
+    // Respuesta API amigable
+    return res.json({
+      ok: true,
+      mensaje: 'Login exitoso',
+      usuario,
+      token,
     });
-
-    // Guarda en sesión para tu página index clásica
-    if (req.session) req.session.userId = userId;
-
-    // ¿Cliente quiere JSON?
-    const wantsJson =
-      req.headers.accept?.includes('application/json') ||
-      req.is?.('application/json') ||
-      req.get?.('x-requested-with') === 'fetch';
-
-    if (wantsJson) {
-      return res.json({
-        ok: true,
-        token,
-        user: {
-          id_usuario: userId,
-          id: userId,
-          nombre: usuario.nombre,
-          correo: usuario.correo || correo,
-          rol: usuario.rol,
-        },
-      });
-    }
-
-    // Fallback clásico: cookie httpOnly + redirect
-    res.cookie?.('token', token, { httpOnly: true, sameSite: 'lax' });
-    return res.redirect('/usuarios/index');
   } catch (err) {
     console.error('[login] error:', err);
     return res.status(401).json({ ok: false, msg: err.message || 'Credenciales inválidas' });
   }
 }
 
-// Página home con resumen (usa session.userId)
-export const index = async (req, res) => {
-  if (!req.session?.userId) return res.redirect('/usuarios/login');
-
-  const id_usuario = req.session.userId;
-
-  const aceptadas = await LicenciaMedica.count({ where: { id_usuario, estado: 'aceptado' } });
-  const pendientes = await LicenciaMedica.count({ where: { id_usuario, estado: 'pendiente' } });
-  const rechazadas = await LicenciaMedica.count({ where: { id_usuario, estado: 'rechazado' } });
-
+// ===== Home simple (opcional; sin Sequelize) =====
+export const index = (req, res) => {
   res.send(`
-    <h1>Resumen</h1>
-    <p>Aceptadas: ${aceptadas}</p>
-    <p>Pendientes: ${pendientes}</p>
-    <p>Rechazadas: ${rechazadas}</p>
-    <form method="POST" action="/usuarios/logout"><button type="submit">Cerrar sesión</button></form>
+    <h1>Licencias — Demo JWT</h1>
+    <p>Usa Thunder Client/Postman para probar:</p>
+    <ul>
+      <li>POST /usuarios/login</li>
+      <li>GET  /api/licencias/mis-licencias (con Authorization: Bearer ...)</li>
+      <li>POST /api/licencias/crear (sólo estudiante)</li>
+      <li>GET  /api/licencias/revisar (profesor o secretario)</li>
+    </ul>
   `);
 };
 
-// Cerrar sesión
+// ===== Logout básico (opcional) =====
 export const logout = (req, res) => {
   try {
     if (req.session) req.session.destroy(() => {});

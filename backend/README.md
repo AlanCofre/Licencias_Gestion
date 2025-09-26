@@ -31,6 +31,7 @@ npm run dev
 - Siguiente paso: Infra (TI) o aplicar túnel; como alternativa, desarrollar contra MySQL local y luego apuntar a remoto.
 
 ###################################################################################################VICTOR#####################################
+VICTOOOR
 
 0) Requisitos previos (rápido)
 XAMPP con MySQL encendido.
@@ -94,7 +95,7 @@ En phpMyAdmin → SQL:
 INSERT INTO usuario (nombre, correo_usuario, contrasena, activo, id_rol)
 VALUES ('Juan Estudiante', 'estudiante@demo.com', '<PEGA_AQUI_EL_HASH>', 1, 2);
 
-(2 = estudiante)
+(1 = estudiante)
 Opcional (para probar ruta de profesor después):
 INSERT INTO usuario (nombre, correo_usuario, contrasena, activo, id_rol)
 VALUES ('Ana Profesora', 'profesor@demo.com', '<MISMO_HASH_Otro>', 1, 1);
@@ -110,6 +111,74 @@ len ≈ 60 (si es mucho menos, no es un hash válido).
 
 
 activo debe ser 1.
+
+
+
+5) Haz login (Thunder Client)
+POST http://localhost:3000/usuarios/login
+ Body (JSON):
+{ "correo": "estudiante@demo.com", "contrasena": "123456" }
+
+Respuesta esperada:
+{
+  "mensaje": "Login exitoso",
+  "usuario": { "id": 1, "nombre": "...", "correo": "estudiante@demo.com", "rol": "estudiante" },
+  "token": "eyJ..."
+}
+
+Copia el token.
+
+6) Demuestra autenticación y autorización por rol
+En cada request protegida agrega el header:
+Authorization: Bearer <TU_TOKEN>
+
+A) Ruta protegida para cualquier autenticado
+GET http://localhost:3000/api/licencias/mis-licencias → 200 OK
+ (Muestra que el JWT se valida correctamente).
+B) Ruta solo ESTUDIANTE
+POST http://localhost:3000/api/licencias/crear
+ Body:
+{ "fecha_inicio": "2025-10-01", "fecha_fin": "2025-10-05", "motivo": "Reposo médico" }
+
+Con token de estudiante → 200/201 
+ Con token de profesor/secretario → 403 
+ (Muestra que esEstudiante funciona).
+C) Ruta profesor/secretario
+GET http://localhost:3000/api/licencias/revisar
+ Con token de estudiante → 403 
+ Con token de profesor → 200 
+ (Muestra que tieneRol('profesor','secretario') funciona).
+
+7) Qué estás demostrando exactamente
+JWT: login devuelve un token firmado (se usa en Authorization: Bearer).
+
+
+Autenticación: sin token o con token inválido → 401.
+
+
+Autorización por rol:
+
+
+crear solo con estudiante (403 si no).
+
+
+revisar solo con profesor/secretario (403 si estudiante).
+
+
+
+Errores comunes (y solución)
+401 en login: usuario no existe / hash no coincide / BD no conectada.
+
+
+401 en rutas: faltó Authorization: Bearer <token> o token expirado.
+
+
+403: rol del token no cumple (correcto para demostrar restricciones).
+
+
+“secretOrPrivateKey must have a value”: no se cargó JWT_SECRET del .env (asegura dotenv.config en server.js).
+
+
 
 
 ##############################################################################################################################################
