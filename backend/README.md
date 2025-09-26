@@ -114,3 +114,37 @@ activo debe ser 1.
 
 ##############################################################################################################################################
 
+FABIAN 
+
+
+requisitos previos:
+  dentro del .env se tendra que agregar el:
+  JWT_SECRET=devsecret
+  JWT_EXPIRES=1d
+
+
+  despues verificar la ubicacion dentro de la consola
+  si muestra:
+  C:\Users\fhsv0\OneDrive\Escritorio\integracion 2 MedLeave\Licencias_Gestion\
+  se hace un "cd backend"
+
+  se tiene que tener un rol dentro de la base de datos y para verificar la base de datos se usa xamp o mysqlworkplace, para xampp se activa mysql y apache y se va a:
+  http://localhost/phpmyadmin/
+
+para el testeo de inicio sesion se tienen 2 formas
+
+solo inicio sesion y registro:
+  se hace un "npm start" o "npm run dev"
+
+  dentro del buscador se agrega:
+  http://localhost:3000/usuarios/login
+
+  y se prueba el registro y inicio de sesion
+  finalmente si se inicia sesion efectivamente se redirige a un index vacio
+
+prueba general:
+  se hace un npm run dev y se va a:
+  http://127.0.0.1:5500/backend/test/m_index.html
+  dentro de este se prueba todo lo relacionado al usuario
+  todo se mostrará en consola 
+  
