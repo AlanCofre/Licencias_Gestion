@@ -29,3 +29,88 @@ npm run dev
 - Resultado: Servidor operativo; conexión remota rechazada por políticas de red (ECONNREFUSED).
 - Bloqueante externo: Requiere VPN/whitelist o túnel SSH.
 - Siguiente paso: Infra (TI) o aplicar túnel; como alternativa, desarrollar contra MySQL local y luego apuntar a remoto.
+
+###################################################################################################VICTOR#####################################
+
+0) Requisitos previos (rápido)
+XAMPP con MySQL encendido.
+
+
+Backend corriendo con .env (en backend/.env) y AUTH_MOCK=false.
+
+
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_USER=root
+DB_PASSWORD=
+DB_NAME=a2019_acofre
+DB_SSL=false
+
+PORT=3000
+JWT_SECRET=SUPER_SECRET_KEY
+JWT_EXPIRES_IN=1d
+AUTH_MOCK=false
+
+
+
+1) Crea la BD y las tablas (una vez)
+En phpMyAdmin → selecciona tu BD a2019_acofre (o créala) → pestaña SQL y ejecuta:
+-- (si la BD no existe, créala y úsala)
+CREATE DATABASE IF NOT EXISTS a2019_acofre CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
+USE a2019_acofre;
+
+-- Tabla de roles
+CREATE TABLE IF NOT EXISTS rol (
+  id_rol INT PRIMARY KEY,
+  nombre VARCHAR(20) UNIQUE NOT NULL
+);
+
+-- Poblamos roles
+INSERT IGNORE INTO rol (id_rol, nombre) VALUES
+  (1,'profesor'),
+  (2,'estudiante'),
+  (3,'secretario');
+
+-- Tabla de usuarios
+CREATE TABLE IF NOT EXISTS usuario (
+  id_usuario INT AUTO_INCREMENT PRIMARY KEY,
+  nombre VARCHAR(100) NOT NULL,
+  correo_usuario VARCHAR(120) NOT NULL UNIQUE,
+  contrasena VARCHAR(255) NOT NULL,
+  activo TINYINT(1) NOT NULL DEFAULT 1,
+  id_rol INT NOT NULL,
+  FOREIGN KEY (id_rol) REFERENCES rol(id_rol)
+);
+
+
+2) Genera el hash bcrypt de la contraseña
+En una nueva terminal dentro de backend/:
+node --input-type=module -e "import('bcryptjs').then(b=>console.log(b.hashSync('123456',10)))"
+
+Copia el hash que sale (algo como $2b$10$...).
+
+3) Inserta un usuario ESTUDIANTE en SQL
+En phpMyAdmin → SQL:
+INSERT INTO usuario (nombre, correo_usuario, contrasena, activo, id_rol)
+VALUES ('Juan Estudiante', 'estudiante@demo.com', '<PEGA_AQUI_EL_HASH>', 1, 2);
+
+(2 = estudiante)
+Opcional (para probar ruta de profesor después):
+INSERT INTO usuario (nombre, correo_usuario, contrasena, activo, id_rol)
+VALUES ('Ana Profesora', 'profesor@demo.com', '<MISMO_HASH_Otro>', 1, 1);
+
+
+4) Verifica que quedó bien
+SELECT id_usuario, correo_usuario, id_rol, activo,
+       CHAR_LENGTH(contrasena) AS len
+FROM usuario
+WHERE correo_usuario IN ('estudiante@demo.com','profesor@demo.com');
+
+len ≈ 60 (si es mucho menos, no es un hash válido).
+
+
+activo debe ser 1.
+
+
+##############################################################################################################################################
+
