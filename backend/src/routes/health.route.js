@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { checkDb } from '../db/health.js';
+import { checkDb } from '../../db/health.js';
 
 const router = Router();
 

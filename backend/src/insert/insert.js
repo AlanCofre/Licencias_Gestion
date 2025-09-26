@@ -1,15 +1,8 @@
+// src/insert/insert.js
 import express from 'express';
-import mysql from 'mysql2/promise';
+import pool from '../../config/db.js'; // Asegúrate de que la ruta sea correcta
 
 const router = express.Router();
-
-// Conexión a la base de datos
-const pool = mysql.createPool({
-  host: 'localhost',
-  user: 'root',
-  password: '',
-  database: 'prueba'
-});
 
 // Ruta POST para subir archivo
 router.post('/subir-archivo', async (req, res) => {
@@ -49,7 +42,7 @@ router.post('/subir-archivo', async (req, res) => {
       id_archivo: resultado.insertId
     });
   } catch (error) {
-    console.error('Error al insertar archivo:', error);
+    console.error('❌ Error al insertar archivo:', error);
     res.status(500).json({ error: 'Error interno del servidor' });
   }
 });

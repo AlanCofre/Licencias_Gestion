@@ -1,16 +1,9 @@
-const express = require('express');
-const mysql = require('mysql2/promise');
-const router = express.Router();
+// backend/src/notification/notificacion.js  (ESM)
+import { Router } from 'express';
+import db from '../../config/db.js'; // ← ajusta la ruta si corresponde
 
-// Conexión a la base de datos
-const pool = mysql.createPool({
-  host: 'localhost',
-  user: 'root',
-  password: '',
-  database: 'prueba'
-});
+const router = Router();
 
-// Ruta para insertar una notificación
 router.post('/crear-notificacion', async (req, res) => {
   try {
     const { asunto, contenido, id_usuario } = req.body;
@@ -19,8 +12,8 @@ router.post('/crear-notificacion', async (req, res) => {
       return res.status(400).json({ error: 'Faltan campos obligatorios' });
     }
 
-    // Validar que el usuario exista
-    const [usuario] = await pool.execute(
+    // Verificar que el usuario exista
+    const [usuario] = await db.execute(
       'SELECT id_usuario FROM usuario WHERE id_usuario = ?',
       [id_usuario]
     );
@@ -34,20 +27,16 @@ router.post('/crear-notificacion', async (req, res) => {
         asunto, contenido, leido, fecha_envio, id_usuario
       ) VALUES (?, ?, 0, NOW(), ?)
     `;
-    const [resultado] = await pool.execute(sql, [
-      asunto,
-      contenido,
-      id_usuario
-    ]);
+    const [resultado] = await db.execute(sql, [asunto, contenido, id_usuario]);
 
-    res.status(201).json({
+    return res.status(201).json({
       mensaje: 'Notificación creada correctamente',
       id_notificacion: resultado.insertId
     });
   } catch (error) {
     console.error('❌ Error al crear notificación:', error);
-    res.status(500).json({ error: 'Error interno del servidor' });
+    return res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 
-module.exports = router;
+export default router;

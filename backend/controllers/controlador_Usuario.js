@@ -1,68 +1,95 @@
+// controllers/controlador_Usuario.js
 import Usuario from '../src/models/modelo_Usuario.js';
 import LicenciaMedica from '../src/models/modelo_LicenciaMedica.js';
 import { encriptarContrasena, verificarContrasena } from '../utils/encriptar.js';
 import { validarNombre, validarCorreo, validarContrasena } from '../utils/validaciones.js';
+import jwt from 'jsonwebtoken';
+import UsuarioService from '../services/servicio_Usuario.js';
 
-// Mostrar formularios
 export const mostrarLogin = (req, res) => {
   res.sendFile('login.html', { root: './frontend/public' });
 };
 
 export const mostrarRegistro = (req, res) => {
-  res.sendFile('registro.html', { root: './fronted/public' });
+  // (tenías un typo "fronted")
+  res.sendFile('registro.html', { root: './frontend/public' });
 };
 
-// Registrar usuario
-export const registro = async (req, res) => {
+export const mostrarIndex = (req, res) => {
+  // (tenías un typo "fronted")
+  res.sendFile('index.html', { root: './frontend/public' });
+};
+
+export async function registrar(req, res) {
   try {
-    const { nombre, correo, contrasena } = req.body;
-
-    // Validaciones
-    if (!validarNombre(nombre)) return res.send('❌ Nombre inválido');
-    if (!validarCorreo(correo)) return res.send('❌ Correo inválido');
-    if (!validarContrasena(contrasena)) return res.send('❌ La contraseña debe tener al menos 6 caracteres');
-
-    const existe = await Usuario.findOne({ where: { correo_usuario: correo } });
-    if (existe) return res.send('❌ Correo ya registrado');
-
-    // Encriptar contraseña antes de guardar
-    const hash = encriptarContrasena(contrasena);
-
-    await Usuario.create({
-      nombre,
-      correo_usuario: correo,
-      contrasena: hash,
-      id_rol: 1
-    });
-
-    res.redirect('/usuarios/login');
+    const { nombre, correo, contrasena, idRol } = req.body; // idRol opcional
+    await UsuarioService.registrar(nombre, correo, contrasena, idRol ?? 1);
+    return res.redirect('/usuarios/login');
   } catch (err) {
-    console.error('Error en registro:', err);
-    res.status(500).send('Error al registrar usuario');
+    console.error('[registrar] error:', err);
+    return res.status(400).json({ error: err.message || 'Error al registrar' });
   }
-};
+}
 
-// Iniciar sesión
-export const login = async (req, res) => {
+/**
+ * LOGIN
+ * - Si el cliente pide JSON (fetch / API), responde { ok, token, user }
+ * - Si es navegador, setea cookie + session y redirige a /usuarios/index
+ */
+export async function login(req, res) {
   try {
-    const { correo, contrasena } = req.body;
-    const usuario = await Usuario.findOne({ where: { correo_usuario: correo } });
-
-    if (!usuario || !verificarContrasena(contrasena, usuario.contrasena)) {
-      return res.send('<p>❌ Usuario o contraseña incorrectos</p><a href="/usuarios/login">Volver</a>');
+    const { correo, contrasena } = req.body || {};
+    if (!correo || !contrasena) {
+      return res.status(400).json({ ok: false, msg: 'correo y contrasena son requeridos' });
     }
 
-    req.session.userId = usuario.id_usuario;
-    res.redirect('/usuarios/home');
-  } catch (err) {
-    res.status(500).send('Error al iniciar sesión');
-  }
-};
+    // Autentica con tu servicio (debe lanzar error si falla)
+    const usuario = await UsuarioService.login(correo, contrasena);
+    // Normaliza ids para compatibilidad
+    const userId = usuario.id ?? usuario.id_usuario;
 
-// Página home con resumen
-export const home = async (req, res) => {
-  if (!req.session.userId) return res.redirect('/usuarios/login');
-  
+    // Genera JWT (incluye ambas claves para compatibilidad con middlewares/HTML)
+    const payload = { id: userId, id_usuario: userId, rol: usuario.rol };
+    const token = jwt.sign(payload, process.env.JWT_SECRET, {
+      expiresIn: process.env.JWT_EXPIRES_IN || '1d',
+    });
+
+    // Guarda en sesión para tu página index clásica
+    if (req.session) req.session.userId = userId;
+
+    // ¿Cliente quiere JSON?
+    const wantsJson =
+      req.headers.accept?.includes('application/json') ||
+      req.is?.('application/json') ||
+      req.get?.('x-requested-with') === 'fetch';
+
+    if (wantsJson) {
+      return res.json({
+        ok: true,
+        token,
+        user: {
+          id_usuario: userId,
+          id: userId,
+          nombre: usuario.nombre,
+          correo: usuario.correo || correo,
+          rol: usuario.rol,
+        },
+      });
+    }
+
+    // Fallback clásico: cookie httpOnly + redirect
+    res.cookie?.('token', token, { httpOnly: true, sameSite: 'lax' });
+    return res.redirect('/usuarios/index');
+  } catch (err) {
+    console.error('[login] error:', err);
+    return res.status(401).json({ ok: false, msg: err.message || 'Credenciales inválidas' });
+  }
+}
+
+// Página home con resumen (usa session.userId)
+export const index = async (req, res) => {
+  if (!req.session?.userId) return res.redirect('/usuarios/login');
+
   const id_usuario = req.session.userId;
 
   const aceptadas = await LicenciaMedica.count({ where: { id_usuario, estado: 'aceptado' } });
@@ -80,5 +107,10 @@ export const home = async (req, res) => {
 
 // Cerrar sesión
 export const logout = (req, res) => {
-  req.session.destroy(() => res.redirect('/usuarios/login'));
+  try {
+    if (req.session) req.session.destroy(() => {});
+    res.clearCookie?.('token');
+  } finally {
+    return res.redirect('/usuarios/login');
+  }
 };

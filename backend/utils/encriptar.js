@@ -1,12 +1,10 @@
-import crypto from 'crypto';
+import bcrypt from 'bcryptjs';
 
+export const encriptarContrasena = async (contrasena) => {
+  const salt = await bcrypt.genSalt(10);
+  return await bcrypt.hash(contrasena, salt);
+};
 
-export function encriptarContrasena(contrasena) {
-  return crypto.createHash('sha256').update(contrasena).digest('hex');
-}
-
-
-export function verificarContrasena(contrasena, hashGuardado) {
-  const hash = crypto.createHash('sha256').update(contrasena).digest('hex');
-  return hash === hashGuardado;
-}
+export const verificarContrasena = async (contrasena, hashGuardado) => {
+  return await bcrypt.compare(contrasena, hashGuardado);
+};

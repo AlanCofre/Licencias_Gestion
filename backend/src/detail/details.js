@@ -1,7 +1,8 @@
+// backend/src/routes/ruta_Licencia.js
 import express from 'express';
+import db from '../../db/db.js'; // asegúrate que el archivo db.js exporte por defecto la conexión
 
 const router = express.Router();
-const db = require('../db/db'); 
 
 // GET /licencias/usuario/:id
 router.get('/licencias/usuario/:id', async (req, res) => {
@@ -9,10 +10,9 @@ router.get('/licencias/usuario/:id', async (req, res) => {
 
   try {
     const [licencias] = await db.execute(
-      `SELECT * FROM licenciamedica WHERE id_usuario = ? ORDER BY fecha_emision DESC`,
+      'SELECT * FROM licenciamedica WHERE id_usuario = ? ORDER BY fecha_emision DESC',
       [idUsuario]
     );
-
     res.status(200).json({ licencias });
   } catch (err) {
     console.error('❌ Error al consultar licencias por usuario:', err);
