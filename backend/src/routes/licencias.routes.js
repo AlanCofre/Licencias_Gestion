@@ -1,6 +1,10 @@
 import { Router } from 'express';
 import { validarJWT, esEstudiante, tieneRol } from '../../middlewares/auth.js';
 import { crearLicencia, listarLicencias } from '../../controllers/licencias.controller.js';
+import { decidirLicencia } from '../../controllers/licencias.controller.js';
+import { authRequired } from '../../middlewares/requireAuth.js';
+import { requireRole } from '../../middlewares/requireRole.js';
+import { validateDecision } from '../../middlewares/validateDecision.js';
 
 const router = Router();
 
@@ -21,5 +25,13 @@ router.post('/crear', [validarJWT, esEstudiante], crearLicencia);
 router.get('/revisar', [validarJWT, tieneRol('profesor', 'secretario')], (req, res) => {
   res.json({ ok: true, msg: 'Revisando licencias...', rol: req.rol });
 });
+
+router.put(
+  '/licencias/:id/decidir',
+  authRequired,                       // verifica JWT -> req.user
+  requireRole(['Secretario']),        // solo secretaria/secretario
+  validateDecision,                   // valida body
+  decidirLicencia                     // controller
+);
 
 export default router;

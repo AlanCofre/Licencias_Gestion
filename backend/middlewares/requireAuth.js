@@ -1,19 +1,19 @@
-// backend/src/middlewares/requireAuth.js  (ESM)
+// backend/middlewares/requireAuth.js
 import jwt from 'jsonwebtoken';
 
-export default async function requireAuth(req, res, next) {
+// Middleware principal (default export)
+export default function requireAuth(req, res, next) {
+  const hdr = req.headers.authorization || '';
+  const [type, token] = hdr.split(' ');
+
+  if (type !== 'Bearer' || !token) {
+    return res.status(401).json({ ok: false, error: 'Token requerido' });
+  }
+
   try {
-    const hdr = req.headers.authorization || '';
-    const [type, token] = hdr.split(' ');
+    const payload = jwt.verify(token, process.env.JWT_SECRET || 'devsecret');
 
-    if (type !== 'Bearer' || !token) {
-      return res.status(401).json({ ok: false, mensaje: 'Token requerido' });
-    }
-
-    // Verificar token con la clave secreta del .env
-    const payload = jwt.verify(token, process.env.JWT_SECRET || 'dev_secret');
-
-    // Ajusta según los datos que guardes en tu token
+    // Ajusta según lo que guardes en tu token
     req.user = {
       id_usuario: payload.id_usuario ?? payload.id ?? 0,
       rol: payload.rol ?? 'Estudiante'
@@ -22,9 +22,9 @@ export default async function requireAuth(req, res, next) {
     return next();
   } catch (e) {
     const msg = e.name === 'TokenExpiredError' ? 'Token expirado' : 'Token inválido';
-    return res.status(401).json({ ok: false, mensaje: msg });
+    return res.status(401).json({ ok: false, error: msg });
   }
 }
 
-// (Opcional) alias con nombre para compatibilidad
+// Alias con nombre (named export) para quien prefiera llamarlo así
 export const authRequired = requireAuth;

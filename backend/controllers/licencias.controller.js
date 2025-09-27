@@ -1,5 +1,6 @@
 // backend/src/controllers/licencias.controller.js  (ESM unificado)
 import db from '../config/db.js'; // ← ajusta la ruta si corresponde
+import { decidirLicenciaSvc } from '../services/servicio_Licencias.js';
 
 // === Utilidad: generar folio tipo "F-YYYY-001==
 async function generarFolio() {
@@ -166,6 +167,49 @@ export const crearLicenciaLegacy = async (req, res) => {
     return res.status(500).json({ ok: false, mensaje: 'Error creando licencia', detalle: e.message });
   }
 };
+
+export async function decidirLicencia(req, res) {
+  try {
+    const idLicencia = Number(req.params.id);
+    const { estado, observacion } = req.body;
+
+    // ✅ tomar id del usuario autenticado (desde el JWT)
+    const idSecretario =
+      req.user?.id_usuario ??
+      req.user?.id ??              // por si el payload viene como "id"
+      null;
+
+    if (!idSecretario) {
+      return res.status(401).json({
+        ok: false,
+        error: 'Token sin id_usuario (no se puede registrar historial)'
+      });
+    }
+
+    const licencia = await decidirLicenciaSvc({
+      idLicencia,
+      estado,
+      observacion,
+      idSecretario,                // <-- ahora no será null
+    });
+
+    return res.json({
+      ok: true,
+      data: {
+        id_licencia: licencia.id_licencia,
+        estado: licencia.estado,
+        observacion: licencia.motivo_rechazo ?? null,
+      },
+    });
+  } catch (err) {
+    const msg = err?.message || 'Error al decidir licencia';
+    const code = /no encontrada/i.test(msg) ? 404
+               : /ya fue/i.test(msg)       ? 409
+               : /observaci/i.test(msg) ? 400
+               : 500;
+    return res.status(code).json({ ok: false, error: msg });
+  }
+}
 
 // Export default opcional (por si alguien importa default)
 export default { listarLicencias, crearLicencia, crearLicenciaLegacy };

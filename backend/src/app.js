@@ -36,6 +36,7 @@ app.use('/licencias', detailsRouter);
 app.use('/archivos', insertRouter);
 app.use('/notificaciones', notificationRouter);
 app.use('/usuarios', usuarioRoutes);
+app.use('/api', licenciasRouter);
 /* === 404 (no encontrado) === */
 app.use((req, res) => {
   res.status(404).json({ ok: false, mensaje: 'Ruta no encontrada' });
