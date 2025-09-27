@@ -251,8 +251,7 @@ JWT_SECRET=SUPER_SECRET_KEY
 JWT_EXPIRES_IN=1d
 AUTH_MOCK=false
 
-
-tareas adjuntar archivo de licencia y ver detalle de licencia
+TAREAS ADJUNTAR ARCHIVO DE LICENCIA Y VER DETALLE DE LICENCIA
 
 1) registrar un usuario con su respectivo rol de estudiante en la bd mediante PHPMyAdmin.
 
@@ -261,3 +260,7 @@ tareas adjuntar archivo de licencia y ver detalle de licencia
 3) levantar “adjuntarLic.html“ adjuntar un archivo de prueba (puede ser una imagen random), llenar los campos sobre los detalles, la fecha de emision y de creacion de autocompletan asi como el id de licencia al que va asociado el archivo, la licencia va asociada al usuario con el que se hizo login.
 
 4) los detalles de las licencias almacenadas se mostraran automaticamente al correr server.js en la terminal de vsc, si la bd esta vacia no se mostrara nada, por eso se recomienda reiniciar el servidor una vez se haya registrado una licencia en la bd para ver el funcionamiento completo..
+
+TAREA NOTIFICACIONES MINIMAS
+
+1) Se ingresara un registro a la tabla notificacion con informacion relevante cada vez que el usuario registre una licencia, tambien se mostrara mediante un console.log 
