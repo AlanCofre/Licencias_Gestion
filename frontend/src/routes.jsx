@@ -9,7 +9,6 @@ import AppVisualizar from "./pages/LicenciaInfo.jsx";
 import AppRegistro from "./pages/AppRegistro.jsx";
 import AppLogin from "./pages/AppLogin.jsx";
 import EditProfile from "./pages/AppEditProfile.jsx";
-import LicenseDetailView from "./pages/LicenseDetailView";
 import VerificarResultados from "./pages/VerificarResultados.jsx";
 import LicenseDetail from "./pages/LicenseDetail";
 
@@ -25,12 +24,12 @@ export default function RoutesWrapper() {
       <Route path="/verificar-resultados" element={<VerificarResultados />} />
       <Route path="/licencia-info" element={<AppVisualizar />} />
       <Route path="/license-detail/:id" element={<LicenseDetail />} />
-      <Route path="/license/:id" element={<LicenseDetailView />} />
       <Route path="/edit-profile" element={<EditProfile />} />
       <Route path="/pendientes" element={<Dashboard />} />
       <Route path="/revisadas" element={<Dashboard />} />
       <Route path="/verificadas" element={<Dashboard />} />
       <Route path="/historial" element={<Dashboard />} />
+      <Route path="/generar-revision" element={<VerificarResultados />} />
 
       {/* manejar acceso directo a /public/index.html */}
       <Route path="/public/index.html" element={<Navigate to="/" replace />} />
