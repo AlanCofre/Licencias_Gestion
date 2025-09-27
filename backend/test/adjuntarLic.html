@@ -100,12 +100,12 @@
       });
 
       const jsonLicencia = await resLicencia.json();
-      if (!jsonLicencia.licencia?.id_licencia) {
+      if (!jsonLicencia.data?.id_licencia) {
         document.getElementById('resultado').textContent = JSON.stringify(jsonLicencia, null, 2);
         return;
       }
 
-      const idLicencia = jsonLicencia.licencia.id_licencia;
+      const idLicencia = jsonLicencia.data.id_licencia;
       document.getElementById('id_licencia').value = idLicencia;
 
       // Paso 2: registrar metadata del archivo
@@ -133,7 +133,7 @@
 
       const jsonArchivo = await resArchivo.json();
       document.getElementById('resultado').textContent = JSON.stringify({
-        licencia: jsonLicencia.licencia,
+        licencia: jsonLicencia.data,
         archivo: jsonArchivo
       }, null, 2);
     }
