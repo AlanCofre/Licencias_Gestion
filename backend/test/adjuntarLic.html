@@ -6,6 +6,20 @@
   <title>Subir archivo</title>
 </head>
 <body>
+  <h2>Iniciar sesión para obtener token JWT</h2>
+
+  <label>Correo:</label>
+  <input type="email" id="correo" placeholder="correo@example.com"><br><br>
+
+  <label>Clave:</label>
+  <input type="password" id="clave" placeholder="••••••"><br><br>
+
+  <button onclick="iniciarSesion()">Iniciar sesión</button>
+
+  <pre id="loginResultado"></pre>
+
+  <hr>
+
   <h2>Subir archivo y asociar a licencia médica</h2>
 
   <input type="file" id="archivo" required><br><br>
@@ -13,7 +27,6 @@
   <label>ID Licencia Médica:</label>
   <input type="text" id="id_licencia" required><br><br>
 
-  <!-- Campos para insertar nueva licencia médica -->
   <h3>Datos de nueva licencia médica</h3>
 
   <label>Folio:</label>
@@ -49,6 +62,25 @@
   <pre id="resultado"></pre>
 
   <script>
+    async function iniciarSesion() {
+      const correo = document.getElementById('correo').value;
+      const clave = document.getElementById('clave').value;
+
+      const res = await fetch('http://localhost:3000/usuarios/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ correo, clave })
+      });
+
+      const json = await res.json();
+      if (json.token) {
+        localStorage.setItem('jwt', json.token);
+        document.getElementById('loginResultado').textContent = '✅ Token guardado correctamente';
+      } else {
+        document.getElementById('loginResultado').textContent = JSON.stringify(json, null, 2);
+      }
+    }
+
     async function calcularHashSHA256(file) {
       const arrayBuffer = await file.arrayBuffer();
       const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer);
@@ -66,8 +98,7 @@
         return;
       }
 
-      const token = localStorage.getItem('jwt'); // Asegúrate de tenerlo guardado
-
+      const token = localStorage.getItem('jwt');
       if (!token) {
         alert('Token JWT no encontrado. Inicia sesión primero.');
         return;
@@ -78,7 +109,6 @@
       const tamano = archivo.size;
       const ruta_url = `https://storage.googleapis.com/tu-bucket/${archivo.name}`;
 
-      // Datos para nueva licencia médica
       const nuevaLicencia = {
         folio: document.getElementById('folio').value,
         fecha_emision: document.getElementById('fecha_emision').value,
@@ -90,7 +120,6 @@
         id_usuario: parseInt(document.getElementById('id_usuario').value)
       };
 
-      // Inserción de licencia médica
       await fetch('http://localhost:3000/api/licencias', {
         method: 'POST',
         headers: {
@@ -100,7 +129,6 @@
         body: JSON.stringify(nuevaLicencia)
       });
 
-      // Inserción de archivo asociado
       const datosArchivo = {
         ruta_url,
         tipo_mime: tipoMime,
@@ -122,12 +150,11 @@
       document.getElementById('resultado').textContent = JSON.stringify(json, null, 2);
     }
 
-    // Autocompletar ID de licencia desde nombre de archivo
     document.getElementById('archivo').addEventListener('change', function (e) {
       const archivo = e.target.files[0];
       if (!archivo) return;
 
-      const nombre = archivo.name; // Ej: "LIC12345.pdf"
+      const nombre = archivo.name;
       const id = nombre.match(/LIC\d+/)?.[0]?.replace('LIC', '') || '';
       document.getElementById('id_licencia').value = id;
     });
