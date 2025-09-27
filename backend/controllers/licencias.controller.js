@@ -105,6 +105,21 @@ export const crearLicencia = async (req, res) => {
       [result.insertId]
     );
 
+    try {
+      const asunto = 'creacion de licencia';
+      const contenido = `Se ha creado la licencia ${folio} con fecha de inicio ${fecha_inicio} y fin ${fecha_fin}.`;
+      const sqlNotif = `
+        INSERT INTO notificacion (asunto, contenido, leido, fecha_envio, id_usuario)
+        VALUES (?, ?, 0, NOW(), ?)
+      `;
+      await db.execute(sqlNotif, [asunto, contenido, usuarioId]);
+
+      console.log(`🔔 [NOTIFICACIÓN] Usuario ${usuarioId} recibió: "${asunto}" → ${contenido}`);
+    } catch (notifError) {
+      console.warn('⚠️ No se pudo registrar la notificación:', notifError.message);
+    }
+
+
     // Mantengo la forma de respuesta “roles”: msg + licencia
     return res.status(201).json({
       msg: 'Licencia creada con éxito',
