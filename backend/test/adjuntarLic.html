@@ -9,8 +9,41 @@
   <h2>Subir archivo y asociar a licencia médica</h2>
 
   <input type="file" id="archivo" required><br><br>
+
   <label>ID Licencia Médica:</label>
-  <input type="number" id="id_licencia" required><br><br>
+  <input type="text" id="id_licencia" required><br><br>
+
+  <!-- Campos para insertar nueva licencia médica -->
+  <h3>Datos de nueva licencia médica</h3>
+
+  <label>Folio:</label>
+  <input type="text" id="folio" value="prueba123" required><br><br>
+
+  <label>Fecha Emisión:</label>
+  <input type="date" id="fecha_emision" value="2023-01-01" required><br><br>
+
+  <label>Fecha Inicio:</label>
+  <input type="date" id="fecha_inicio" value="2023-01-02" required><br><br>
+
+  <label>Fecha Fin:</label>
+  <input type="date" id="fecha_fin" value="2023-01-10" required><br><br>
+
+  <label>Estado:</label>
+  <select id="estado" required>
+    <option value="pendiente">Pendiente</option>
+    <option value="aprobada">Aprobada</option>
+    <option value="rechazada">Rechazada</option>
+  </select><br><br>
+
+  <label>Motivo Rechazo (opcional):</label>
+  <textarea id="motivo_rechazo"></textarea><br><br>
+
+  <label>Fecha Creación:</label>
+  <input type="date" id="fecha_creacion" value="2023-01-01" required><br><br>
+
+  <label>ID Usuario:</label>
+  <input type="number" id="id_usuario" value="1" required><br><br>
+
   <button onclick="procesarArchivo()">Subir</button>
 
   <pre id="resultado"></pre>
@@ -33,14 +66,42 @@
         return;
       }
 
+      const token = localStorage.getItem('jwt'); // Asegúrate de tenerlo guardado
+
+      if (!token) {
+        alert('Token JWT no encontrado. Inicia sesión primero.');
+        return;
+      }
+
       const hash = await calcularHashSHA256(archivo);
       const tipoMime = archivo.type;
       const tamano = archivo.size;
-
-        //simulacion de url de firebase (aun sin implementar) 
       const ruta_url = `https://storage.googleapis.com/tu-bucket/${archivo.name}`;
 
-      const datos = {
+      // Datos para nueva licencia médica
+      const nuevaLicencia = {
+        folio: document.getElementById('folio').value,
+        fecha_emision: document.getElementById('fecha_emision').value,
+        fecha_inicio: document.getElementById('fecha_inicio').value,
+        fecha_fin: document.getElementById('fecha_fin').value,
+        estado: document.getElementById('estado').value,
+        motivo_rechazo: document.getElementById('motivo_rechazo').value || null,
+        fecha_creacion: document.getElementById('fecha_creacion').value,
+        id_usuario: parseInt(document.getElementById('id_usuario').value)
+      };
+
+      // Inserción de licencia médica
+      await fetch('http://localhost:3000/api/licencias', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(nuevaLicencia)
+      });
+
+      // Inserción de archivo asociado
+      const datosArchivo = {
         ruta_url,
         tipo_mime: tipoMime,
         hash,
@@ -48,15 +109,28 @@
         id_licencia: parseInt(idLicencia)
       };
 
-      const res = await fetch('http://localhost:3000/subir-archivo', {
+      const res = await fetch('http://localhost:3000/api/licencias', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(datos)
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(datosArchivo)
       });
 
       const json = await res.json();
       document.getElementById('resultado').textContent = JSON.stringify(json, null, 2);
     }
+
+    // Autocompletar ID de licencia desde nombre de archivo
+    document.getElementById('archivo').addEventListener('change', function (e) {
+      const archivo = e.target.files[0];
+      if (!archivo) return;
+
+      const nombre = archivo.name; // Ej: "LIC12345.pdf"
+      const id = nombre.match(/LIC\d+/)?.[0]?.replace('LIC', '') || '';
+      document.getElementById('id_licencia').value = id;
+    });
   </script>
 </body>
 </html>
