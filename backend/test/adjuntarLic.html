@@ -90,7 +90,7 @@
         motivo: document.getElementById('motivo_rechazo').value || null
       };
 
-      const resLicencia = await fetch('http://localhost:3000/api/licencias', {
+      const resLicencia = await fetch('http://localhost:3000/api/licencias/crear', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -100,40 +100,38 @@
       });
 
       const jsonLicencia = await resLicencia.json();
-      if (!jsonLicencia.data?.id_licencia) {
+      if (!jsonLicencia.licencia?.id_licencia) {
         document.getElementById('resultado').textContent = JSON.stringify(jsonLicencia, null, 2);
         return;
       }
 
-      const idLicencia = jsonLicencia.data.id_licencia;
+      const idLicencia = jsonLicencia.licencia.id_licencia;
       document.getElementById('id_licencia').value = idLicencia;
 
-      // Paso 2: registrar metadata del archivo
+      // Paso 2: registrar archivo físico + metadata
       const hash = await calcularHashSHA256(archivo);
       const tipoMime = archivo.type;
       const tamano = archivo.size;
       const ruta_url = `https://storage.googleapis.com/tu-bucket/${archivo.name}`;
 
-      const datosArchivo = {
-        ruta_url,
-        tipo_mime: tipoMime,
-        hash,
-        tamano,
-        id_licencia: idLicencia
-      };
+      const formData = new FormData();
+      formData.append('file', archivo);
+      formData.append('ruta_url', ruta_url);
+      formData.append('tipo_mime', tipoMime);
+      formData.append('hash', hash);
+      formData.append('tamano', tamano);
 
-      const resArchivo = await fetch('http://localhost:3000/api/archivos', {
+      const resArchivo = await fetch(`http://localhost:3000/api/licencias/${idLicencia}/archivo`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify(datosArchivo)
+        body: formData
       });
 
       const jsonArchivo = await resArchivo.json();
       document.getElementById('resultado').textContent = JSON.stringify({
-        licencia: jsonLicencia.data,
+        licencia: jsonLicencia.licencia,
         archivo: jsonArchivo
       }, null, 2);
     }
