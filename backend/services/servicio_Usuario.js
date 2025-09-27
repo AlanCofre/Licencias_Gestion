@@ -48,8 +48,8 @@ class UsuarioService {
     if (!ok) throw new Error('Credenciales inválidas');
 
     let rol = 'estudiante';
-    if (user.id_rol === 1) rol = 'profesor';
-    if (user.id_rol === 2) rol = 'estudiante';
+    if (user.id_rol === 1) rol = 'estudiante';
+    if (user.id_rol === 2) rol = 'profesor';
     if (user.id_rol === 3) rol = 'secretario';
 
     return { id: user.id_usuario, nombre: user.nombre, correo: user.correo_usuario, rol };
