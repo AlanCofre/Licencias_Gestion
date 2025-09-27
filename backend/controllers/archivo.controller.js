@@ -1,7 +1,7 @@
-// src/controllers/archivo.controller.js
-const pool = require('../db/db');
 
-exports.registrarArchivo = async (req, res) => {
+import pool from '../db/db.js';
+
+async function registrarArchivo(req, res) {
   try {
     const { ruta_url, tipo_mime, hash, tamano, id_licencia } = req.body || {};
 
@@ -36,13 +36,32 @@ exports.registrarArchivo = async (req, res) => {
       INSERT INTO ArchivoLicencia
         (ruta_url, tipo_mime, hash, tamano, fecha_subida, id_licencia)
       VALUES
-        (?,        ?,         ?,    ?,      NOW(),        ?)
+        (?, ?, ?, ?, NOW(), ?)
     `;
-    const [r] = await pool.execute(sql, [ruta_url, tipo_mime, hash, Number(tamano), Number(id_licencia)]);
+    const [r] = await pool.execute(sql, [
+      ruta_url,
+      tipo_mime,
+      hash,
+      Number(tamano),
+      Number(id_licencia)
+    ]);
 
-    return res.status(201).json({ ok: true, mensaje: 'Archivo registrado', data: { id_archivo: r.insertId } });
+    return res.status(201).json({
+      ok: true,
+      mensaje: 'Archivo registrado',
+      data: { id_archivo: r.insertId }
+    });
   } catch (e) {
-    console.error('❌ Error registrando archivo:', e);
-    return res.status(500).json({ ok: false, mensaje: 'Error registrando archivo', detalle: e.message });
+    console.error('Error registrando archivo:', e);
+    return res.status(500).json({
+      ok: false,
+      mensaje: 'Error registrando archivo',
+      detalle: e.message
+    });
   }
+}
+
+// Exportación como objeto default
+export default {
+  registrarArchivo
 };

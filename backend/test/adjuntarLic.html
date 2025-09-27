@@ -1,4 +1,3 @@
-<!-- Este formulario es para probar la subida de archivos -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -6,16 +5,62 @@
   <title>Subir archivo</title>
 </head>
 <body>
+  <h2>Iniciar sesión para obtener token JWT</h2>
+
+  <label>Correo:</label>
+  <input type="email" id="correo" placeholder="correo@example.com"><br><br>
+
+  <label>Clave:</label>
+  <input type="password" id="clave" placeholder="••••••"><br><br>
+
+  <button onclick="iniciarSesion()">Iniciar sesión</button>
+
+  <pre id="loginResultado"></pre>
+
+  <hr>
+
   <h2>Subir archivo y asociar a licencia médica</h2>
 
   <input type="file" id="archivo" required><br><br>
+
   <label>ID Licencia Médica:</label>
-  <input type="number" id="id_licencia" required><br><br>
+  <input type="text" id="id_licencia" readonly><br><br>
+
+  <h3>Datos de nueva licencia médica</h3>
+
+  <label>Fecha Inicio:</label>
+  <input type="date" id="fecha_inicio" value="2023-01-02" required><br><br>
+
+  <label>Fecha Fin:</label>
+  <input type="date" id="fecha_fin" value="2023-01-10" required><br><br>
+
+  <label>Motivo Rechazo (opcional):</label>
+  <textarea id="motivo_rechazo"></textarea><br><br>
+
   <button onclick="procesarArchivo()">Subir</button>
 
   <pre id="resultado"></pre>
 
   <script>
+    async function iniciarSesion() {
+      const correo = document.getElementById('correo').value;
+      const clave = document.getElementById('clave').value;
+
+      const res = await fetch('http://localhost:3000/usuarios/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ correo, contrasena: clave })
+      });
+
+      const json = await res.json();
+      if (json.token) {
+        localStorage.setItem('jwt', json.token);
+        document.getElementById('loginResultado').textContent = '✅ Token guardado correctamente';
+      } else {
+        document.getElementById('loginResultado').textContent = JSON.stringify(json, null, 2);
+      }
+    }
+
     async function calcularHashSHA256(file) {
       const arrayBuffer = await file.arrayBuffer();
       const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer);
@@ -25,37 +70,72 @@
 
     async function procesarArchivo() {
       const archivoInput = document.getElementById('archivo');
-      const idLicencia = document.getElementById('id_licencia').value;
       const archivo = archivoInput.files[0];
 
-      if (!archivo || !idLicencia) {
-        alert('Selecciona un archivo y completa el ID de licencia');
+      if (!archivo) {
+        alert('Selecciona un archivo');
         return;
       }
 
+      const token = localStorage.getItem('jwt');
+      if (!token) {
+        alert('Token JWT no encontrado. Inicia sesión primero.');
+        return;
+      }
+
+      // Paso 1: crear licencia médica
+      const licenciaPayload = {
+        fecha_inicio: document.getElementById('fecha_inicio').value,
+        fecha_fin: document.getElementById('fecha_fin').value,
+        motivo: document.getElementById('motivo_rechazo').value || null
+      };
+
+      const resLicencia = await fetch('http://localhost:3000/api/licencias', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(licenciaPayload)
+      });
+
+      const jsonLicencia = await resLicencia.json();
+      if (!jsonLicencia.data?.id_licencia) {
+        document.getElementById('resultado').textContent = JSON.stringify(jsonLicencia, null, 2);
+        return;
+      }
+
+      const idLicencia = jsonLicencia.data.id_licencia;
+      document.getElementById('id_licencia').value = idLicencia;
+
+      // Paso 2: registrar metadata del archivo
       const hash = await calcularHashSHA256(archivo);
       const tipoMime = archivo.type;
       const tamano = archivo.size;
-
-        //simulacion de url de firebase (aun sin implementar) 
       const ruta_url = `https://storage.googleapis.com/tu-bucket/${archivo.name}`;
 
-      const datos = {
+      const datosArchivo = {
         ruta_url,
         tipo_mime: tipoMime,
         hash,
         tamano,
-        id_licencia: parseInt(idLicencia)
+        id_licencia: idLicencia
       };
 
-      const res = await fetch('http://localhost:3000/subir-archivo', {
+      const resArchivo = await fetch('http://localhost:3000/api/archivos', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(datos)
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(datosArchivo)
       });
 
-      const json = await res.json();
-      document.getElementById('resultado').textContent = JSON.stringify(json, null, 2);
+      const jsonArchivo = await resArchivo.json();
+      document.getElementById('resultado').textContent = JSON.stringify({
+        licencia: jsonLicencia.data,
+        archivo: jsonArchivo
+      }, null, 2);
     }
   </script>
 </body>

@@ -217,3 +217,17 @@ prueba general:
   dentro de este se prueba todo lo relacionado al usuario
   todo se mostrará en consola 
   
+
+##############################################################################################################################################
+
+FRANCO
+
+tareas adjuntar archivo de licencia y ver detalle de licencia
+
+1) registrar un usuario con su respectivo rol de estudiante en la bd mediante PHPMyAdmin.
+
+2) levantar el servidor con “node ./ruta/server.js“ en la terminal (muy probablemente de error al querer iniciar porque no encuentre los paquetes, simplemente ve instalando uno por uno los que te pida hasta que inicie correctamente).
+
+3) levantar “adjuntarLic.html“ adjuntar un archivo de prueba (puede ser una imagen random), llenar los campos sobre los detalles, la fecha de emision y de creacion de autocompletan asi como el id de licencia al que va asociado el archivo, la licencia va asociada al usuario con el que se hizo login.
+
+4) los detalles de las licencias almacenadas se mostraran automaticamente al correr server.js en la terminal de vsc, si la bd esta vacia no se mostrara nada, por eso se recomienda reiniciar el servidor una vez se haya registrado una licencia en la bd para ver el funcionamiento completo.
