@@ -221,6 +221,36 @@ prueba general:
 ##############################################################################################################################################
 
 FRANCO
+Requisitos previos:
+1) .env debe tener esta estructura:
+
+DB_HOST=localhost
+DB_PORT=3306
+DB_USER=root
+DB_PASSWORD=
+DB_NAME=A2019_acofre
+DB_SSL=false
+
+# SMTP
+SMTP_HOST=
+SMTP_PORT=
+SMTP_SECURE=false
+SMTP_USER=
+SMTP_PASS=
+SMTP_FROM=Soporte MedLeave no-reply@medleave.local
+
+# Seguridad
+RESET_CODE_TTL_MIN=10
+RESET_MAX_ATTEMPTS=5
+RATE_LIMIT_WINDOW_MS=60000
+RATE_LIMIT_MAX=10
+
+# JWT
+PORT=3000
+JWT_SECRET=SUPER_SECRET_KEY
+JWT_EXPIRES_IN=1d
+AUTH_MOCK=false
+
 
 tareas adjuntar archivo de licencia y ver detalle de licencia
 
