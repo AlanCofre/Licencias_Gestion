@@ -9,30 +9,31 @@ import AppVisualizar from "./pages/LicenciaInfo.jsx";
 import AppRegistro from "./pages/AppRegistro.jsx";
 import AppLogin from "./pages/AppLogin.jsx";
 import EditProfile from "./pages/AppEditProfile.jsx";
-import LicenseDetail from "./pages/LicenseDetail.jsx";
+import LicenseDetailView from "./pages/LicenseDetailView";
 import VerificarResultados from "./pages/VerificarResultados.jsx";
+import LicenseDetail from "./pages/LicenseDetail";
 
 export default function RoutesWrapper() {
   return (
     <Routes>
-      <Route path="/" element={<App />} />
-      <Route path="/como-usar" element={<ComoUsar />} />
-      <Route path="/dashboard" element={<Dashboard />} />
-
-      {/* nuevas rutas */}
-      <Route path="/lincencia-info" element={<AppVisualizar />} />
-      <Route path="/registro" element={<AppRegistro />} />
+      <Route path="/" element={<Dashboard />} />
       <Route path="/login" element={<AppLogin />} />
-      <Route path="/edit-profile" element={<EditProfile />} />
-      <Route path="/license/:id" element={<LicenseDetail />} />
+      <Route path="/registro" element={<AppRegistro />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/como-usar" element={<ComoUsar />} />
       <Route path="/verificar-resultados" element={<VerificarResultados />} />
+      <Route path="/licencia-info" element={<AppVisualizar />} />
+      <Route path="/license-detail/:id" element={<LicenseDetail />} />
+      <Route path="/license/:id" element={<LicenseDetailView />} />
+      <Route path="/edit-profile" element={<EditProfile />} />
+      <Route path="/pendientes" element={<Dashboard />} />
+      <Route path="/revisadas" element={<Dashboard />} />
+      <Route path="/verificadas" element={<Dashboard />} />
+      <Route path="/historial" element={<Dashboard />} />
 
       {/* manejar acceso directo a /public/index.html */}
       <Route path="/public/index.html" element={<Navigate to="/" replace />} />
-
-      {/* rutas de recuperación de contraseña */}
-      <Route path="/reset-password" element={<ResetPassword />} />
-      <Route path="/forgot-password" element={<ForgotPassword />} />
 
       {/* cualquier path no encontrado */}
       <Route path="*" element={<Navigate to="/" replace />} />
