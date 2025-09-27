@@ -2,6 +2,7 @@ import React from "react";
 import { Link } from "react-router-dom";
 import bannerImg from "../assets/banner-inicio.png";
 
+
 const BannerSection = () => (
   <section className="relative bg-gradient-to-r from-[var(--blue-600)] to-[var(--blue-400)] h-[480px] overflow-hidden">
     {/* --- restaura imagen de fondo del banner (estaba faltando) --- */}
