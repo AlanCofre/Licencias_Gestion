@@ -1,14 +1,42 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
+import { CheckCircleIcon, BellIcon } from "@heroicons/react/24/outline";
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
+  const [openDropdown, setOpenDropdown] = useState(null);
+  const [mobileBellOpen, setMobileBellOpen] = useState(false);
+  const [mobileTab, setMobileTab] = useState("pendientes");
+
+  // Estado de notificaciones
+  const [notifications, setNotifications] = useState({
+    pendientes: [
+      { id: 1, text: 'La licencia "Resfrío con gripe" se encuentra pendiente de revisión', read: false },
+    ],
+    revisadas: [
+      { id: 2, text: 'La licencia de "Alergias" está siendo revisada', read: false },
+    ],
+    verificadas: [
+      { id: 3, text: 'La licencia "Covid" ha sido verificada y aceptada', read: false },
+      { id: 4, text: 'La licencia "Infección estomacal" ha sido verificada y rechazada', read: false },
+    ],
+  });
+
+  // Marcar como leído
+  const markAsRead = (category, id) => {
+    setNotifications(prev => ({
+      ...prev,
+      [category]: prev[category].map(n =>
+        n.id === id ? { ...n, read: true } : n
+      ),
+    }));
+  };
 
   const toggleMenu = () => setIsOpen(!isOpen);
   const closeMenu = () => setIsOpen(false);
 
   return (
-    <header className="bg-[#048FD4] text-white shadow-md" role="banner">
+    <header className="bg-[#048FD4] text-white shadow-md relative" role="banner">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-20">
           {/* Logo */}
@@ -25,7 +53,7 @@ export default function Navbar() {
 
           {/* Navigation desktop */}
           <nav 
-            className="hidden md:flex flex-1 justify-center" 
+            className="hidden md:flex flex-1 justify-center relative" 
             role="navigation" 
             aria-label="Navegación principal"
           >
@@ -33,58 +61,132 @@ export default function Navbar() {
               <li>
                 <Link 
                   to="/" 
-                  className="px-3 py-2 hover:bg-white/10 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-[#048FD4]"
+                  className="px-3 py-2 hover:bg-white/10 rounded transition-colors"
                 >
                   Inicio
                 </Link>
               </li>
-              <li>
-                <Link 
-                  to="/pendientes" 
-                  className="px-3 py-2 hover:bg-white/10 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-[#048FD4]"
-                >
-                  Pendientes
-                </Link>
-              </li>
-              <li>
-                <Link 
-                  to="/revisadas" 
-                  className="px-3 py-2 hover:bg-white/10 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-[#048FD4]"
-                >
-                  Revisadas
-                </Link>
-              </li>
-              <li>
-                <Link 
-                  to="/verificadas" 
-                  className="px-3 py-2 hover:bg-white/10 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-[#048FD4]"
-                >
-                  Verificadas
-                </Link>
-              </li>
+
+              {/* Botones con notificaciones en desktop */}
+              {["pendientes", "revisadas", "verificadas"].map(category => (
+                <li key={category} className="relative">
+                  <button
+                    onClick={() =>
+                      setOpenDropdown(openDropdown === category ? null : category)
+                    }
+                    className="px-3 py-2 hover:bg-white/10 rounded transition-colors relative"
+                  >
+                    {category.charAt(0).toUpperCase() + category.slice(1)}
+                    {notifications[category].filter(n => !n.read).length > 0 && (
+                      <span className="absolute -top-1 -right-2 bg-red-600 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                        {notifications[category].filter(n => !n.read).length}
+                      </span>
+                    )}
+                  </button>
+
+                  {openDropdown === category && (
+                    <div className="absolute top-full mt-3 w-80 bg-white text-black shadow-lg rounded-lg z-50">
+                      <div className="absolute -top-2 left-6 w-4 h-4 bg-white rotate-45 shadow-md rounded-sm"></div>
+                      <ul className="relative z-10">
+                        {notifications[category].map(n => (
+                          <li
+                            key={n.id}
+                            className={`px-4 py-3 text-sm border-b last:border-none flex justify-between items-center ${
+                              n.read ? "bg-gray-100 text-gray-500" : "bg-white"
+                            }`}
+                          >
+                            <span>{n.text}</span>
+                            {!n.read && (
+                              <button
+                                onClick={() => markAsRead(category, n.id)}
+                                className="ml-2 flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 border border-blue-600 hover:border-blue-800 px-2 py-1 rounded transition"
+                              >
+                                <CheckCircleIcon className="w-4 h-4" />
+                                Leer
+                              </button>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </li>
+              ))}
             </ul>
           </nav>
 
-          {/* User info + mobile menu button */}
+          {/* User info + mobile actions */}
           <div className="flex items-center gap-4">
-            {/* User info - hidden on small screens */}
             <div className="text-right hidden sm:block">
               <div className="text-xs opacity-90">Usuario</div>
               <div className="font-semibold text-sm">Juan Pérez</div>
             </div>
 
-            {/* Login button - shown on medium+ screens */}
             <Link
               to="/login"
-              className="hidden md:inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 px-4 py-2 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-white text-sm font-medium"
+              className="hidden md:inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 px-4 py-2 rounded transition-colors text-sm font-medium"
             >
               Iniciar sesión
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
-              </svg>
             </Link>
 
-            {/* Mobile menu toggle */}
+            {/* Campana de notificaciones en móvil */}
+            <div className="relative md:hidden">
+              <button
+                onClick={() => setMobileBellOpen(!mobileBellOpen)}
+                className="p-2 rounded-md hover:bg-white/10 transition-colors relative"
+                aria-label="Notificaciones"
+              >
+                <BellIcon className="w-6 h-6" />
+                {Object.values(notifications).flat().filter(n => !n.read).length > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                    {Object.values(notifications).flat().filter(n => !n.read).length}
+                  </span>
+                )}
+              </button>
+
+              {mobileBellOpen && (
+                <div className="absolute right-0 mt-2 w-80 bg-white text-black shadow-lg rounded-lg z-50">
+                  {/* Tabs */}
+                  <div className="flex border-b">
+                    {["pendientes", "revisadas", "verificadas"].map(cat => (
+                      <button
+                        key={cat}
+                        onClick={() => setMobileTab(cat)}
+                        className={`flex-1 px-3 py-2 text-sm font-medium ${
+                          mobileTab === cat ? "bg-gray-100 border-b-2 border-[#048FD4]" : "hover:bg-gray-50"
+                        }`}
+                      >
+                        {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                      </button>
+                    ))}
+                  </div>
+                  {/* Notificaciones */}
+                  <ul className="max-h-60 overflow-y-auto">
+                    {notifications[mobileTab].map(n => (
+                      <li
+                        key={n.id}
+                        className={`px-4 py-3 text-sm border-b last:border-none flex justify-between items-center ${
+                          n.read ? "bg-gray-100 text-gray-500" : "bg-white"
+                        }`}
+                      >
+                        <span>{n.text}</span>
+                        {!n.read && (
+                          <button
+                            onClick={() => markAsRead(mobileTab, n.id)}
+                            className="ml-2 flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 border border-blue-600 hover:border-blue-800 px-2 py-1 rounded transition"
+                          >
+                            <CheckCircleIcon className="w-4 h-4" />
+                            Leer
+                          </button>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+
+            {/* Botón menú hamburguesa */}
             <button
               onClick={toggleMenu}
               className="md:hidden p-2 rounded-md hover:bg-white/10 transition-colors focus:outline-none focus:ring-2 focus:ring-white"
@@ -92,7 +194,7 @@ export default function Navbar() {
               aria-expanded={isOpen}
               aria-label={isOpen ? "Cerrar menú" : "Abrir menú"}
             >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 {isOpen ? (
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 ) : (
@@ -103,7 +205,7 @@ export default function Navbar() {
           </div>
         </div>
 
-        {/* Mobile menu */}
+        {/* Mobile menu (sin notificaciones aquí) */}
         <nav 
           id="mobile-menu" 
           className={`md:hidden transition-all duration-200 ease-in-out overflow-hidden ${isOpen ? "max-h-96 pb-4" : "max-h-0"}`}
@@ -114,43 +216,16 @@ export default function Navbar() {
             <li>
               <Link 
                 to="/" 
-                className="block px-4 py-3 rounded-md hover:bg-white/10 transition-colors focus:outline-none focus:ring-2 focus:ring-white focus:ring-inset"
+                className="block px-4 py-3 rounded-md hover:bg-white/10 transition-colors"
                 onClick={closeMenu}
               >
                 Inicio
               </Link>
             </li>
-            <li>
-              <Link 
-                to="/pendientes" 
-                className="block px-4 py-3 rounded-md hover:bg-white/10 transition-colors focus:outline-none focus:ring-2 focus:ring-white focus:ring-inset"
-                onClick={closeMenu}
-              >
-                Pendientes
-              </Link>
-            </li>
-            <li>
-              <Link 
-                to="/revisadas" 
-                className="block px-4 py-3 rounded-md hover:bg-white/10 transition-colors focus:outline-none focus:ring-2 focus:ring-white focus:ring-inset"
-                onClick={closeMenu}
-              >
-                Revisadas
-              </Link>
-            </li>
-            <li>
-              <Link 
-                to="/verificadas" 
-                className="block px-4 py-3 rounded-md hover:bg-white/10 transition-colors focus:outline-none focus:ring-2 focus:ring-white focus:ring-inset"
-                onClick={closeMenu}
-              >
-                Verificadas
-              </Link>
-            </li>
             <li className="border-t border-white/20 mt-2 pt-2">
               <Link 
                 to="/login" 
-                className="block px-4 py-3 rounded-md hover:bg-white/10 transition-colors focus:outline-none focus:ring-2 focus:ring-white focus:ring-inset font-medium"
+                className="block px-4 py-3 rounded-md hover:bg-white/10 transition-colors font-medium"
                 onClick={closeMenu}
               >
                 Iniciar sesión
