@@ -178,6 +178,207 @@ Errores comunes (y solución)
 
 “secretOrPrivateKey must have a value”: no se cargó JWT_SECRET del .env (asegura dotenv.config en server.js).
 
+xxxxxxxxxxxxxxxxxxxxxxx
+como probar tarea de persistencia de perfil + avatar
+1. Preparación
+Asegúrate de que el servidor está corriendo:
+
+ npm run dev
+ o
+
+ nodemon src/app.js
+
+
+Obtén un token JWT válido (por medio del login).
+
+
+Copia el token, lo necesitarás para las pruebas.
+
+
+
+2. Configuración en Thunder Client
+Abre Thunder Client en VS Code.
+
+
+Crea un Environment:
+
+
+Nombre: Local
+
+
+Variables:
+
+
+base → http://localhost:3000
+
+
+jwt → pega tu token sin la palabra Bearer.
+
+
+Guarda el environment.
+
+
+
+3. Crear colección de pruebas
+Haz clic en Collections → New Collection.
+
+
+Ponle nombre: Perfil.
+
+
+En la colección, agrega estos headers por defecto:
+
+
+Authorization → Bearer {{jwt}}
+
+
+Content-Type → application/json
+
+
+
+4. Casos de prueba
+4.1. Obtener perfil (sin perfil creado)
+Método: GET
+
+
+URL: {{base}}/api/perfil/me
+
+
+✅ Esperado:
+ Devuelve datos de usuario y perfil: null.
+
+4.2. Crear perfil (upsert)
+Método: PUT
+
+
+URL: {{base}}/api/perfil/me
+
+
+Body (JSON):
+
+ {
+  "correo_alt": "mi.otro.correo@example.com",
+  "telefono": "+56 9 1234 5678",
+  "direccion": "Av. Alemania 0456, Temuco",
+  "foto_url": "https://example.com/foto.png"
+}
+
+
+✅ Esperado:
+ok: true
+
+
+created: true
+
+
+Datos guardados en perfil.
+
+
+
+4.3. Consultar perfil ya creado
+Método: GET
+
+
+URL: {{base}}/api/perfil/me
+
+
+✅ Esperado:
+ El campo perfil aparece poblado con los datos insertados.
+
+4.4. Editar perfil (actualización)
+Método: PUT
+
+
+URL: {{base}}/api/perfil/me
+
+
+Body (JSON):
+
+ {
+  "correo_alt": "perfil.editado@example.com",
+  "telefono": "+56 9 1111 2222",
+  "direccion": "Nueva dirección 456",
+  "foto_url": "https://example.com/foto_editada.png"
+}
+
+
+✅ Esperado:
+ok: true
+
+
+created: false (porque ya existía)
+
+
+Datos actualizados en BD.
+
+
+
+4.5. Intento de editar campos de usuario
+Método: PUT
+
+
+URL: {{base}}/api/perfil/me
+
+
+Body (JSON):
+
+ {
+  "correo_alt": "otro@example.com",
+  "telefono": "+56 9 9999 0000",
+  "nombre": "Hackeado",
+  "correo_usuario": "x@y.cl"
+}
+
+
+✅ Esperado:
+Solo se actualizan campos de perfil.
+
+
+Los campos de usuario permanecen iguales (ineditables).
+
+
+
+4.6. Validaciones
+Email inválido:
+
+ { "correo_alt": "no-email" }
+ → 422 con error "correo_alt inválido".
+
+
+Teléfono inválido:
+
+ { "telefono": "abc123" }
+ → 422 con error "telefono inválido".
+
+
+URL inválida:
+
+ { "foto_url": "no-url" }
+ → 422 con error "foto_url inválida".
+
+
+
+4.7. Limpiar campo (setear en NULL)
+Enviar un campo vacío:
+
+ { "foto_url": "" }
+
+
+✅ Esperado:
+ foto_url queda en null en la BD.
+
+5. Verificación en la base de datos
+En phpMyAdmin o consola MySQL:
+SELECT u.id_usuario, u.nombre, u.correo_usuario, p.*
+FROM usuario u
+LEFT JOIN perfil p ON p.id_usuario = u.id_usuario
+WHERE u.id_usuario = <ID_TU_USUARIO>;
+
+✅ Esperado:
+ Los datos de usuario se mantienen iguales, los de perfil reflejan lo creado/editado.
+
+
+
 
 
 
