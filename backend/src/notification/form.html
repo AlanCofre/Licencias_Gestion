@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Crear Notificación</title>
+</head>
+<body>
+  <h2>Crear Notificación</h2>
+
+  <label>Asunto:</label><br>
+  <input type="text" id="asunto"><br><br>
+
+  <label>Contenido:</label><br>
+  <textarea id="contenido" rows="4" cols="50"></textarea><br><br>
+
+  <label>ID Usuario:</label><br>
+  <input type="number" id="id_usuario"><br><br>
+
+  <button onclick="crearNotificacion()">Enviar</button>
+
+  <pre id="resultado"></pre>
+
+  <script>
+    async function crearNotificacion() {
+      const asunto = document.getElementById('asunto').value;
+      const contenido = document.getElementById('contenido').value;
+      const id_usuario = document.getElementById('id_usuario').value;
+
+      if (!asunto || !contenido || !id_usuario) {
+        alert('Completa todos los campos');
+        return;
+      }
+
+      try {
+        const res = await fetch('http://localhost:3000/notificaciones/crear-notificacion', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ asunto, contenido, id_usuario: parseInt(id_usuario) })
+        });
+
+        const json = await res.json();
+        document.getElementById('resultado').textContent = JSON.stringify(json, null, 2);
+      } catch (err) {
+        document.getElementById('resultado').textContent = '❌ Error al conectar con el servidor';
+        console.error(err);
+      }
+    }
+  </script>
+</body>
+</html>
