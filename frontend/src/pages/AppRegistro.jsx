@@ -1,7 +1,9 @@
 import React from "react";
 import bannerLogin from "../assets/banner-login.png";
+import { useNavigate } from "react-router-dom";
 
 function AppRegistro() {
+  const navigate = useNavigate();
   return (
     <div className="relative min-h-screen bg-white flex flex-col items-center justify-start py-12">
       {/* Fondo */}
@@ -12,7 +14,7 @@ function AppRegistro() {
       />
 
       {/* Título principal */}
-      <h1 className="relative z-10 text-white text-center text-[clamp(2rem,8vw,8rem)] drop-shadow-[0_8px_9px_rgba(0,0,0,0.5)] mb-12 font-extrabold">
+      <h1 className="relative z-10 text-white text-center text-[clamp(2rem,8vw,8rem)] drop-shadow-[0_8px_9px_rgba(0,0,0,0.5)] mb-2 font-display font-extrabold bottom-5">
         MedManager
       </h1>
 
@@ -66,7 +68,9 @@ function AppRegistro() {
       {/* Registro debajo del contenedor */}
       <div className="relative z-10 mt-10 text-center text-black text-base">
         <span>¿Ya tienes una cuenta? </span>
-        <span className="text-[#76F1FF] font-bold cursor-pointer hover:underline">Inicia sesión aquí.</span>
+        <span className="text-[#76F1FF] font-bold cursor-pointer hover:underline"
+          onClick={() => navigate("/login")}>Inicia sesión aquí.
+          </span>
       </div>
     </div>
   );

@@ -6,7 +6,7 @@ function AppLogin() {
   const navigate = useNavigate(); // hook para navegar
 
   return (
-    <div className="relative min-h-screen bg-white flex flex-col items-center justify-start py-12">
+    <div className="max -h-screen bg-white flex flex-col items-center justify-start">
       {/* Fondo */}
       <img
         src={bannerLogin}
@@ -15,7 +15,7 @@ function AppLogin() {
       />
 
       {/* Título principal */}
-      <h1 className="relative z-10 text-white text-center font-extrabold text-[clamp(2rem,8vw,8rem)] drop-shadow-[0_8px_9px_rgba(0,0,0,0.5)] mb-12">
+      <h1 className="relative z-10 text-white text-center font-display font-extrabold text-[clamp(2rem,8vw,8rem)] drop-shadow-[0_8px_9px_rgba(0,0,0,0.5)] py-6">
         MedManager
       </h1>
 
@@ -68,8 +68,7 @@ function AppLogin() {
       <div className="relative z-10 mt-10 text-center text-black text-base">
         <span>¿No tienes una cuenta? </span>
         <span className="text-[#76F1FF] font-bold cursor-pointer hover:underline"
-          onClick={() => navigate("/register")}
-        >
+          onClick={() => navigate("/register")}>
           Regístrate aquí.
         </span>
       </div>

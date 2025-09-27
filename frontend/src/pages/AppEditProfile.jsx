@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import Navbar from "../components/Navbar";
 
 function EditProfile() {
   const navigate = useNavigate(); // hook para navegación
@@ -8,7 +7,11 @@ function EditProfile() {
   const [profilePic, setProfilePic] = useState(null);
   const [preview, setPreview] = useState(null);
 
+  // Datos simulados
   const [formData, setFormData] = useState({
+    nombre: "Juan Pérez López ",
+    rut: "12.345.678-9",
+    correoInstitucional: "juan@example.com",
     telefono: "",
     correoAlternativo: "",
     direccion: "",
@@ -41,10 +44,9 @@ function EditProfile() {
   };
 
   return (
-    <div className="relative min-h-screen bg-blue-100 flex flex-col items-center py-12 gap-6">
-      <Navbar />
-      <br />
-      <h1 className="text-4xl font-bold text-center mb-12 py-20">Editar Perfil</h1>
+    <div className="relative min-h-screen bg-blue-100 flex flex-col items-center py-12">
+
+      <h1 className="text-4xl font-bold text-center mb-12 py-2"> Perfil</h1>
 
       <form
         className="w-[90%] max-w-[50rem] bg-white rounded-lg shadow-md p-10 flex flex-col gap-8 border-white border-30"
@@ -63,6 +65,29 @@ function EditProfile() {
           </div>
           <input type="file" accept="image/*" onChange={handleImageChange} className="text-sm" />
         </div>
+        {/* Nombre */}
+        <div className="flex flex-col">
+          <label className="mb-2 font-medium text-black">Nombre completo:</label> 
+          <input
+            type="text"
+            name="nombre"
+            value={formData.nombre}
+            readOnly
+            className="w-full p-4 rounded-md border border-gray-300 bg-gray-100 text-gray-700"
+          />
+        </div>
+        {/* RUT */}
+        <div className="flex flex-col">
+          <label className="mb-2 font-medium text-black">RUT:</label>
+          <input 
+            type="text"
+            name="rut"
+            value={formData.rut}
+            pattern="\d{1,2}\.\d{3}\.\d{3}-[\dkK]"
+            readOnly
+            className="w-full p-4 rounded-md border border-gray-300 bg-gray-100 text-gray-700"
+          />
+        </div>
 
         {/* Telefono */}
         <div className="flex flex-col">
@@ -76,6 +101,17 @@ function EditProfile() {
             pattern="[+0-9\s\-]{8,15}"
             required
             className="w-full p-4 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
+          />
+        </div>
+        {/* Correo institucional */}
+        <div className="flex flex-col">
+          <label className="mb-2 font-medium text-black">Correo institucional:</label>  
+          <input
+            type="email"
+            name="correoInstitucional"
+            value={formData.correoInstitucional}
+            readOnly
+            className="w-full p-4 rounded-md border border-gray-300 bg-gray-100 text-gray-700"
           />
         </div>
 
