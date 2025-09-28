@@ -1,8 +1,10 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { CheckCircleIcon, BellIcon } from "@heroicons/react/24/outline";
+import { useAuth } from "../context/AuthContext";
 
 export default function Navbar() {
+  const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState(null);
   const [mobileBellOpen, setMobileBellOpen] = useState(false);
@@ -34,6 +36,11 @@ export default function Navbar() {
 
   const toggleMenu = () => setIsOpen(!isOpen);
   const closeMenu = () => setIsOpen(false);
+
+  const role = String(user?.role || "").toLowerCase();
+  const displayName = user
+    ? (role === "secretaria" || role === "secretary" ? "Sec. Juana Perez" : (user.name || user.role))
+    : "Invitado";
 
   return (
     <header className="bg-[#048FD4] text-white shadow-md relative" role="banner">
@@ -119,7 +126,7 @@ export default function Navbar() {
           <div className="flex items-center gap-4">
             <div className="text-right hidden sm:block">
               <div className="text-xs opacity-90">Usuario</div>
-              <div className="font-semibold text-sm">Juan Pérez</div>
+              <div className="font-semibold text-sm">{displayName}</div>
             </div>
 
             <Link
