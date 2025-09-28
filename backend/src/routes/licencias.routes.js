@@ -3,9 +3,9 @@ import { Router } from 'express';
 import multer from 'multer';
 
 import { validarJWT, esEstudiante, tieneRol } from '../../middlewares/auth.js';
-import { crearLicencia, listarLicencias } from '../../controllers/licencias.controller.js';
+import { crearLicencia, listarLicencias} from '../../controllers/licencias.controller.js';
 import { decidirLicencia } from '../../controllers/licencias.controller.js';
-
+import { getLicenciasEnRevision } from '../../controllers/licencias.controller.js';
 import { authRequired } from '../../middlewares/requireAuth.js';
 import { requireRole } from '../../middlewares/requireRole.js';
 import { validateDecision } from '../../middlewares/validateDecision.js';
@@ -21,6 +21,7 @@ import {
 import LicenciaMedica from '../models/modelo_LicenciaMedica.js';
 
 const router = Router();
+
 
 // Multer: archivo en memoria (luego tu controller lo sube a Firebase/S3 si aplica)
 const upload = multer({ storage: multer.memoryStorage() });
@@ -49,6 +50,7 @@ async function cargarLicencia(req, res, next) {
 
 // Autenticado (cualquier rol)
 router.get('/mis-licencias', validarJWT, listarLicencias);
+router.get('/en-revision', validarJWT, getLicenciasEnRevision);
 
 // SOLO Estudiante (creación con validaciones de negocio)
 router.post(

@@ -131,6 +131,52 @@ export const crearLicencia = async (req, res) => {
   }
 };
 
+
+export const getLicenciasEnRevision = async (req, res) => {
+  try {
+    const usuarioId = req.user?.id_usuario ?? req.id ?? null;
+    const rol = (req.user?.rol ?? req.rol ?? '').toString().toLowerCase();
+
+    if (!usuarioId) {
+      return res.status(401).json({ error: 'No autenticado' });
+    }
+
+    let sql, params;
+    if (rol === 'secretario') {
+      // El secretario ve todas las licencias pendientes
+      sql = `
+        SELECT id_licencia, folio, fecha_emision, fecha_inicio, fecha_fin, estado, motivo_rechazo, fecha_creacion, id_usuario
+        FROM LicenciaMedica
+        WHERE estado = 'pendiente'
+        ORDER BY fecha_emision DESC, id_licencia DESC
+        LIMIT ? OFFSET ?
+      `;
+      params = [parseInt(req.query.limit) || 10, ((parseInt(req.query.page) || 1) - 1) * (parseInt(req.query.limit) || 10)];
+    } else {
+      // Otros roles ven solo sus propias licencias pendientes
+      sql = `
+        SELECT id_licencia, folio, fecha_emision, fecha_inicio, fecha_fin, estado, motivo_rechazo, fecha_creacion, id_usuario
+        FROM LicenciaMedica
+        WHERE estado = 'pendiente' AND id_usuario = ?
+        ORDER BY fecha_emision DESC, id_licencia DESC
+        LIMIT ? OFFSET ?
+      `;
+      params = [usuarioId, parseInt(req.query.limit) || 10, ((parseInt(req.query.page) || 1) - 1) * (parseInt(req.query.limit) || 10)];
+    }
+
+    const [rows] = await db.execute(sql, params);
+
+    return res.json({
+      msg: 'Licencias en revisión',
+      usuarioId,
+      rol,
+      data: rows,
+    });
+  } catch (error) {
+    console.error('[licencias:getLicenciasEnRevision] error:', error);
+    return res.status(500).json({ error: 'Error al obtener licencias en revisión' });
+  }
+};
 // =====================================================
 // POST (legacy): versión original con validaciones básicas
 // (antes en licencia.controller.js con CommonJS)
@@ -248,4 +294,4 @@ export async function decidirLicencia(req, res) {
 }
 
 // Export default opcional (por si alguien importa default)
-export default { listarLicencias, crearLicencia, crearLicenciaLegacy };
+export default { listarLicencias, crearLicencia, crearLicenciaLegacy, getLicenciasEnRevision, decidirLicencia };

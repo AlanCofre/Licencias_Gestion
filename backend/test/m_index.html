@@ -159,12 +159,19 @@
       <button id="btnCrearJSON">Crear (JSON)</button>
       <div class="muted">Usa Authorization: Bearer & crea vía controlador de roles (esEstudiante).</div>
     </fieldset>
-
     <fieldset>
       <legend>Listar Mis Licencias (GET /api/licencias/mis-licencias)</legend>
       <button id="btnListar">Obtener</button>
       <div id="tablaLicencias"></div>
     </fieldset>
+    <fieldset>
+      <legend>Licencias en Revisión (GET /api/licencias/en-revision)</legend>
+      <label>Página <input id="rev_page" type="number" value="1" min="1" style="width:60px"/></label>
+      <label>Límite <input id="rev_limit" type="number" value="5" min="1" max="50" style="width:60px"/></label>
+      <button id="btnListarRevision">Obtener</button>
+      <div id="tablaLicenciasRevision"></div>
+    </fieldset>
+        
   </div>
 </div>
 
@@ -486,6 +493,24 @@
       log(`POST /usuarios/password-reset/confirm → ${res.status}\n${JSON.stringify(data, null, 2)}`, res.ok?'ok':'error');
     } catch (e) {
       log(`Error reset confirm: ${e.message}`, 'error');
+    }
+  };
+
+  $('btnListarRevision').onclick = async () => {
+    const page = Number($('rev_page').value) || 1;
+    const limit = Number($('rev_limit').value) || 5;
+    try {
+      const res = await fetch(`${BASE_URL}/api/licencias/en-revision?page=${page}&limit=${limit}`, {
+        headers: { 'Accept': 'application/json', ...authHeaders() }
+      });
+      const data = await safeJson(res);
+      log(`GET api/licencias/en-revision → ${res.status}\n${JSON.stringify(data, null, 2)}`, res.ok?'ok':'error');
+      const cont = $('tablaLicenciasRevision');
+      const arr = Array.isArray(data) ? data : (data && Array.isArray(data.data) ? data.data : []);
+      cont.innerHTML = renderTablaLicencias(arr);
+      if (res.status === 401) log('No hay token en la petición. Guarda un JWT y reintenta.', 'error');
+    } catch (e) {
+      log(`Error listar licencias en revisión: ${e.message}`, 'error');
     }
   };
 
