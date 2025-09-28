@@ -119,6 +119,32 @@ export const crearLicencia = async (req, res) => {
       console.warn('⚠️ No se pudo registrar la notificación:', notifError.message);
     }
 
+    try {
+      const archivo = req.file;
+      const { ruta_url, tipo_mime, hash, tamano } = req.body;
+      const idLicencia = result.insertId;
+
+      if (archivo && ruta_url && tipo_mime && hash && tamano) {
+        const sqlArchivo = `
+          INSERT INTO ArchivoLicencia
+            (ruta_url, tipo_mime, hash, tamano, fecha_subida, id_licencia)
+          VALUES (?, ?, ?, ?, NOW(), ?)
+        `;
+        await db.execute(sqlArchivo, [
+          ruta_url,
+          tipo_mime,
+          hash,
+          Number(tamano),
+          idLicencia
+        ]);
+
+        console.log(`📎 [ARCHIVO] Registrado para licencia ${idLicencia}: ${archivo.originalname}`);
+      } else {
+        console.warn('⚠️ Archivo no registrado: faltan campos o archivo no adjunto');
+      }
+    } catch (archivoError) {
+      console.error('❌ Error al registrar archivo:', archivoError.message);
+    }
 
     // Mantengo la forma de respuesta “roles”: msg + licencia
     return res.status(201).json({

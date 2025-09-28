@@ -97,20 +97,26 @@ const ymdSchema = z
 
 export const licenciaSchema = z
   .object({
+    // ✅ Se inyecta desde JWT, no debe exigirse en el body
     id_usuario: z
-      .coerce.number({ invalid_type_error: 'id_usuario debe ser numérico' })
+      .number({ invalid_type_error: 'id_usuario debe ser numérico' })
       .int()
-      .positive(),
-    folio: z.string().min(1, 'folio es requerido').max(50, 'folio muy largo'),
-    // REQUERIDA por tu BD (NOT NULL)
-    fecha_emision: ymdSchema,
+      .positive()
+      .optional(),
+
+    // ✅ Se genera en el backend, no debe validarse aquí
+    folio: z.string().max(50).optional(),
+
+    fecha_emision: ymdSchema.optional(), // ← se autocompleta si falta
     fecha_inicio: ymdSchema,
     fecha_fin: ymdSchema,
-    // Estado final siempre mapeado a BD: pendiente | aceptado | rechazado
+
     estado: z
       .string()
       .transform((v) => normalizaEstado(v))
-      .refine((v) => ESTADOS_DB.includes(v), 'estado no válido'),
+      .refine((v) => ESTADOS_DB.includes(v), 'estado no válido')
+      .optional(), // ← se normaliza a 'pendiente' si no viene
+
     motivo_rechazo: z.string().trim().max(300).nullable().optional(),
   })
   .superRefine((data, ctx) => {
@@ -123,6 +129,7 @@ export const licenciaSchema = z
         message: 'La fecha de inicio no puede ser posterior a la fecha de fin',
       });
     }
+
     const MS = 24 * 60 * 60 * 1000;
     const dias = Math.ceil((fin - ini) / MS) + 1;
     if (dias > 90) {
@@ -132,6 +139,7 @@ export const licenciaSchema = z
         message: 'La licencia no puede exceder 90 días',
       });
     }
+
     if (data.estado === 'rechazado' && !data.motivo_rechazo) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -139,6 +147,7 @@ export const licenciaSchema = z
         message: 'Debe indicar un motivo de rechazo',
       });
     }
+
     if (data.estado !== 'rechazado' && data.motivo_rechazo) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -147,6 +156,7 @@ export const licenciaSchema = z
       });
     }
   });
+
 
 export const licenseSchema = z
   .object({

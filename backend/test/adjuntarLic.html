@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Subir archivo</title>
+  <title>Subir archivo y crear licencia médica</title>
 </head>
 <body>
   <h2>Iniciar sesión para obtener token JWT</h2>
@@ -21,7 +21,7 @@
 
   <h2>Subir archivo y asociar a licencia médica</h2>
 
-  <input type="file" id="archivo" required><br><br>
+  <input type="file" id="archivo" name="archivo" required><br><br>
 
   <label>ID Licencia Médica:</label>
   <input type="text" id="id_licencia" readonly><br><br>
@@ -29,10 +29,10 @@
   <h3>Datos de nueva licencia médica</h3>
 
   <label>Fecha Inicio:</label>
-  <input type="date" id="fecha_inicio" value="2023-01-02" required><br><br>
+  <input type="date" id="fecha_inicio" value="2025-10-01" required><br><br>
 
   <label>Fecha Fin:</label>
-  <input type="date" id="fecha_fin" value="2023-01-10" required><br><br>
+  <input type="date" id="fecha_fin" value="2025-10-10" required><br><br>
 
   <label>Motivo Rechazo (opcional):</label>
   <textarea id="motivo_rechazo"></textarea><br><br>
@@ -83,45 +83,23 @@
         return;
       }
 
-      // Paso 1: crear licencia médica
-      const licenciaPayload = {
-        fecha_inicio: document.getElementById('fecha_inicio').value,
-        fecha_fin: document.getElementById('fecha_fin').value,
-        motivo: document.getElementById('motivo_rechazo').value || null
-      };
-
-      const resLicencia = await fetch('http://localhost:3000/api/licencias/crear', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(licenciaPayload)
-      });
-
-      const jsonLicencia = await resLicencia.json();
-      if (!jsonLicencia.licencia?.id_licencia) {
-        document.getElementById('resultado').textContent = JSON.stringify(jsonLicencia, null, 2);
-        return;
-      }
-
-      const idLicencia = jsonLicencia.licencia.id_licencia;
-      document.getElementById('id_licencia').value = idLicencia;
-
-      // Paso 2: registrar archivo físico + metadata
       const hash = await calcularHashSHA256(archivo);
       const tipoMime = archivo.type;
       const tamano = archivo.size;
       const ruta_url = `https://storage.googleapis.com/tu-bucket/${archivo.name}`;
 
       const formData = new FormData();
-      formData.append('file', archivo);
+      formData.append('archivo', archivo);
+      formData.append('fecha_inicio', document.getElementById('fecha_inicio').value);
+      formData.append('fecha_fin', document.getElementById('fecha_fin').value);
+      formData.append('motivo', document.getElementById('motivo_rechazo').value || '');
+      formData.append('requiere_archivo', 'true');
       formData.append('ruta_url', ruta_url);
       formData.append('tipo_mime', tipoMime);
       formData.append('hash', hash);
       formData.append('tamano', tamano);
 
-      const resArchivo = await fetch(`http://localhost:3000/api/licencias/${idLicencia}/archivo`, {
+      const res = await fetch('http://localhost:3000/api/licencias/crear', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -129,11 +107,12 @@
         body: formData
       });
 
-      const jsonArchivo = await resArchivo.json();
-      document.getElementById('resultado').textContent = JSON.stringify({
-        licencia: jsonLicencia.licencia,
-        archivo: jsonArchivo
-      }, null, 2);
+      const json = await res.json();
+      document.getElementById('resultado').textContent = JSON.stringify(json, null, 2);
+
+      if (json.licencia?.id_licencia) {
+        document.getElementById('id_licencia').value = json.licencia.id_licencia;
+      }
     }
   </script>
 </body>
