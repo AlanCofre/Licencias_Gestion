@@ -171,7 +171,17 @@
       <button id="btnListarRevision">Obtener</button>
       <div id="tablaLicenciasRevision"></div>
     </fieldset>
-        
+    <fieldset>
+      <legend>Detalle de Licencia (GET /api/licencias/detalle/:id)</legend>
+      <label>ID Licencia <input id="detalle_id" type="number" min="1" style="width:80px"/></label>
+      <button id="btnDetalleLicencia">Obtener Detalle</button>
+      <div id="detalleLicenciaBox"></div>
+      <legend>Acciones sobre Licencia Médica</legend>
+      <label>ID Licencia <input id="accion_id" type="number" min="1" style="width:80px"/></label>
+      <button id="btnAceptarLicencia" type="button">Aceptar</button>
+      <button id="btnRechazarLicencia" type="button">Rechazar</button>
+      <input id="motivoRechazo" type="text" placeholder="Motivo de rechazo" style="width:220px; display:none; margin-left:8px"/>
+    </fieldset>     
   </div>
 </div>
 
@@ -514,6 +524,100 @@
     }
   };
 
+  $('btnDetalleLicencia').onclick = async () => {
+    const id = Number($('detalle_id').value);
+    if (!id) {
+      log('Debes ingresar un ID de licencia válido.', 'error');
+      return;
+    }
+    try {
+      const res = await fetch(`${BASE_URL}/api/licencias/detalle/${id}`, {
+        headers: { 'Accept': 'application/json', ...authHeaders() }
+      });
+      const data = await safeJson(res);
+      log(`GET /api/licencias/detalle/${id} → ${res.status}\n${JSON.stringify(data, null, 2)}`, res.ok?'ok':'error');
+      $('detalleLicenciaBox').innerHTML = renderDetalleLicencia(data.detalle || []);
+      if (res.status === 401) log('No hay token en la petición. Guarda un JWT y reintenta.', 'error');
+      if (res.status === 404) log('Licencia no encontrada o sin permiso.', 'error');
+    } catch (e) {
+      log(`Error al obtener detalle de licencia: ${e.message}`, 'error');
+    }
+  };
+
+  function renderDetalleLicencia(arr) {
+    if (!arr.length) return '<div class="muted">Sin datos de licencia.</div>';
+    // Muestra todas las columnas relevantes
+    const cols = [
+      'id_licencia','folio','fecha_emision','fecha_inicio','fecha_fin','estado','motivo_rechazo','fecha_creacion',
+      'id_usuario','nombre','correo_usuario','id_rol',
+      'id_archivo','ruta_url','tipo_mime','hash','tamano','fecha_subida'
+    ];
+    const head = '<tr>' + cols.map(c=>`<th>${c}</th>`).join('') + '</tr>';
+    const rows = arr.map(it => '<tr>' + cols.map(c => `<td>${it?.[c] ?? ''}</td>`).join('') + '</tr>').join('');
+    return `<table>${head}${rows}</table>`;
+}
+
+  // Mostrar caja de texto solo al rechazar
+  $('btnRechazarLicencia').onclick = () => {
+    $('motivoRechazo').style.display = 'inline-block';
+    $('motivoRechazo').focus();
+  };
+
+  // Aceptar licencia
+  $('btnAceptarLicencia').onclick = async () => {
+    const id = Number($('accion_id').value);
+    if (!id) {
+      log('Debes ingresar un ID de licencia válido.', 'error');
+      return;
+    }
+    try {
+      const res = await fetch(`${BASE_URL}/api/licencias/${id}/decidir`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ estado: 'aceptado' })
+      });
+      const data = await safeJson(res);
+      log(`POST /api/licencias/decidir/${id} (aceptar) → ${res.status}\n${JSON.stringify(data, null, 2)}`, res.ok?'ok':'error');
+      $('motivoRechazo').style.display = 'none';
+    } catch (e) {
+      log(`Error al aceptar licencia: ${e.message}`, 'error');
+    }
+  };
+
+  // Rechazar licencia
+  $('motivoRechazo').onkeydown = async (ev) => {
+    if (ev.key === 'Enter') {
+      await rechazarLicencia();
+    }
+  };
+  $('btnRechazarLicencia').ondblclick = rechazarLicencia; // doble click para enviar
+
+  async function rechazarLicencia() {
+    const id = Number($('accion_id').value);
+    const motivo = $('motivoRechazo').value.trim();
+    if (!id) {
+      log('Debes ingresar un ID de licencia válido.', 'error');
+      return;
+    }
+    if (!motivo) {
+      log('Debes ingresar un motivo de rechazo.', 'error');
+      $('motivoRechazo').focus();
+      return;
+    }
+    try {
+      const res = await fetch(`${BASE_URL}/api/licencias/${id}/decidir`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ estado: 'rechazado',  motivo_rechazo: motivo })
+      });
+      const data = await safeJson(res);
+      log(`POST /api/licencias/decidir/${id} (rechazar) → ${res.status}\n${JSON.stringify(data, null, 2)}`, res.ok?'ok':'error');
+      $('motivoRechazo').style.display = 'none';
+      $('motivoRechazo').value = '';
+    } catch (e) {
+      log(`Error al rechazar licencia: ${e.message}`, 'error');
+    }
+  }
   // Anti-abuso: muchos intentos fallidos (login)
   $('btnAbuso').onclick = async () => {
     const correo = $('abuso_correo').value;

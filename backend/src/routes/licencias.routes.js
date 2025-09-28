@@ -9,7 +9,7 @@ import { getLicenciasEnRevision } from '../../controllers/licencias.controller.j
 import { authRequired } from '../../middlewares/requireAuth.js';
 import { requireRole } from '../../middlewares/requireRole.js';
 import { validateDecision } from '../../middlewares/validateDecision.js';
-
+import { detalleLicencia } from '../../controllers/licencias.controller.js';
 // 🔗 Middlewares de validación de negocio (mismo archivo unificado)
 import {
   validateLicenciaBody,        // Zod: fechas, id_usuario, estado normalizado, etc.
@@ -51,7 +51,7 @@ async function cargarLicencia(req, res, next) {
 // Autenticado (cualquier rol)
 router.get('/mis-licencias', validarJWT, listarLicencias);
 router.get('/en-revision', validarJWT, getLicenciasEnRevision);
-
+router.get('/detalle/:id', validarJWT, detalleLicencia);
 // SOLO Estudiante (creación con validaciones de negocio)
 router.post(
   '/crear',
@@ -77,7 +77,7 @@ router.get('/revisar', [validarJWT, tieneRol('profesor', 'secretario')], (req, r
 router.put(
   '/licencias/:id/decidir',
   authRequired,                    // verifica JWT -> req.user
-  requireRole(['Secretario']),     // solo secretario/a
+  requireRole(['secretario']),     // solo secretario/a
   validateDecision,                // valida body de la decisión
   cargarLicencia,                  // req.licencia disponible
   (req, res, next) =>              // valida transición según estado actual

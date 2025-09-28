@@ -203,6 +203,61 @@ export const getLicenciasEnRevision = async (req, res) => {
     return res.status(500).json({ error: 'Error al obtener licencias en revisión' });
   }
 };
+
+export const detalleLicencia = async (req, res) => {
+  try {
+    const usuarioId = req.user?.id_usuario ?? req.id ?? null;
+    const rol = (req.user?.rol ?? req.rol ?? '').toString().toLowerCase();
+    const idLicencia = Number(req.params.id);
+
+    if (!usuarioId) {
+      return res.status(401).json({ error: 'No autenticado' });
+    }
+    if (!idLicencia) {
+      return res.status(400).json({ error: 'ID de licencia inválido' });
+    }
+
+    let sql, params;
+    if (rol === 'secretario') {
+      //Secretario ve todas
+      sql = `
+        SELECT
+          lm.id_licencia, lm.folio, lm.fecha_emision, lm.fecha_inicio, lm.fecha_fin, lm.estado,
+          lm.motivo_rechazo, lm.fecha_creacion,
+          u.id_usuario, u.nombre, u.correo_usuario, u.id_rol,
+          al.id_archivo, al.ruta_url, al.tipo_mime, al.hash, al.tamano, al.fecha_subida
+        FROM LicenciaMedica lm
+        JOIN Usuario u ON lm.id_usuario = u.id_usuario
+        LEFT JOIN ArchivoLicencia al ON al.id_licencia = lm.id_licencia
+        WHERE lm.id_licencia = ?
+      `;
+      params = [idLicencia];
+    } else {
+      //los demas ven las suyas
+      sql = `
+        SELECT
+          lm.id_licencia, lm.folio, lm.fecha_emision, lm.fecha_inicio, lm.fecha_fin, lm.estado,
+          lm.motivo_rechazo, lm.fecha_creacion,
+          u.id_usuario, u.nombre, u.correo_usuario, u.id_rol,
+          al.id_archivo, al.ruta_url, al.tipo_mime, al.hash, al.tamano, al.fecha_subida
+        FROM LicenciaMedica lm
+        JOIN Usuario u ON lm.id_usuario = u.id_usuario
+        LEFT JOIN ArchivoLicencia al ON al.id_licencia = lm.id_licencia
+        WHERE lm.id_licencia = ? AND lm.id_usuario = ?
+      `;
+      params = [idLicencia, usuarioId];
+    }
+
+    const [rows] = await db.execute(sql, params);
+    if (!rows.length) {
+      return res.status(404).json({ error: 'Licencia no encontrada o sin permiso' });
+    }
+    return res.json({ detalle: rows });
+  } catch (error) {
+    console.error('[licencias:detalleLicencia] error:', error);
+    return res.status(500).json({ error: 'Error al obtener detalle de licencia' });
+  }
+};
 // =====================================================
 // POST (legacy): versión original con validaciones básicas
 // (antes en licencia.controller.js con CommonJS)
@@ -259,7 +314,7 @@ export async function decidirLicencia(req, res) {
   try {
     const idLicencia = Number(req.params.id);
     // Acepta motivo_rechazo (preferido) o observacion (alias)
-    const motivo_rechazo = req.body.motivo_rechazo ?? req.body.observacion ?? null;
+    const motivo_rechazo = req.body.motivo_rechazo ?? null;
     const { estado, force } = req.body || {};
 
     // ✅ tomar id del usuario autenticado (desde el JWT)
@@ -312,7 +367,7 @@ export async function decidirLicencia(req, res) {
     const msg = err?.message || 'Error al decidir licencia';
     const code = /no encontrada/i.test(msg) ? 404
                : /ya fue/i.test(msg)       ? 409
-               : /motivo_rechazo|observaci/i.test(msg) ? 400
+               : /motivo_rechazo/i.test(msg) ? 400
                : /no permitida|transición/i.test(msg) ? 400
                : 500;
     return res.status(code).json({ ok: false, error: msg });
@@ -320,4 +375,4 @@ export async function decidirLicencia(req, res) {
 }
 
 // Export default opcional (por si alguien importa default)
-export default { listarLicencias, crearLicencia, crearLicenciaLegacy, getLicenciasEnRevision, decidirLicencia };
+export default { listarLicencias, crearLicencia, crearLicenciaLegacy, getLicenciasEnRevision, decidirLicencia, detalleLicencia };

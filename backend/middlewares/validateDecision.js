@@ -11,7 +11,7 @@ const MAP_ESTADOS = {
 };
 
 export function validateDecision(req, res, next) {
-  let { estado, observacion } = req.body || {};
+  let { estado, motivo_rechazo } = req.body || {};
   if (!estado) {
     return res.status(400).json({ ok:false, error:'Debe indicar un estado (aceptado|rechazado)' });
   }
@@ -19,8 +19,8 @@ export function validateDecision(req, res, next) {
   if (!normalizado) {
     return res.status(400).json({ ok:false, error:'Estado inválido, use aceptado|rechazado' });
   }
-  if (normalizado === 'rechazado' && !observacion?.trim()) {
-    return res.status(400).json({ ok:false, error:'Debe incluir observación al rechazar' });
+  if (normalizado === 'rechazado' && !motivo_rechazo?.trim()) {
+    return res.status(400).json({ ok:false, error:'Debe incluir motivo_rechazo al rechazar' });
   }
   req.body.estado = normalizado; // 'aceptado' | 'rechazado'
   next();
