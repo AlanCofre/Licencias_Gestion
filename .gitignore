@@ -11,6 +11,6 @@ package.json
 # Nunca subas secretos
 /backend/.env
 /backend/.env.*
-/frontend/.env*
+/frontend/.env.*
 !frontend/.env.example
 !backend/.env.example
