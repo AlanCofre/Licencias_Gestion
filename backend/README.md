@@ -178,7 +178,7 @@ Errores comunes (y solución)
 
 “secretOrPrivateKey must have a value”: no se cargó JWT_SECRET del .env (asegura dotenv.config en server.js).
 
-xxxxxxxxxxxxxxxxxxxxxxx
+xxxxxxxxxxxxxxxxxxxxxxx victor separacion
 como probar la persistencia de datos(creacion y edicion de perfiles)
 1. Preparación
 Asegúrate de que el servidor está corriendo:
@@ -190,7 +190,7 @@ Asegúrate de que el servidor está corriendo:
 
 
 Obtén un token JWT válido (por medio del login). 
-mediante el siguiente json en thunder client en metodo post            { "correo": "estudiante@demo.com", "contraseña": "123456" }
+mediante el siguiente json en thunder client en metodo post            { "correo": "estudiante@demo.com", "contrasena": "123456" }
 
 
 Copia el token, lo necesitarás para las pruebas.
@@ -223,7 +223,7 @@ Guarda el environment.
 
 3. Casos de prueba
 
-4.2. Crear perfil (upsert)
+. Crear perfil (upsert)
 Método: PUT
 
 
@@ -233,8 +233,8 @@ URL: {{base}}/api/perfil/me
 Body (JSON):
 
  {
-  "correo_alt": "mi.otro.correo@example.com",
-  "telefono": "+56 9 1234 5678",
+  "email_alt": "mi.otro.correo@example.com",
+  "numero_telef": "+56 9 1234 5678",
   "direccion": "Av. Alemania 0456, Temuco",
   "foto_url": "https://example.com/foto.png"
 }
@@ -261,8 +261,8 @@ URL: {{base}}/api/perfil/me
 Body (JSON):
 
  {
-  "correo_alt": "perfil.editado@example.com",
-  "telefono": "+56 9 1111 2222",
+  "email_alt": "perfil.editado@example.com",
+  "numero_telef": "+56 9 1111 2222",
   "direccion": "Nueva dirección 456",
   "foto_url": "https://example.com/foto_editada.png"
 }
@@ -281,6 +281,7 @@ Datos actualizados en BD.
 
 
 5. Verificación en la base de datos
+
 
 
 
