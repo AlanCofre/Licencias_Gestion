@@ -4,15 +4,15 @@ export function validarPerfilPayload(body = {}) {
   const errores = [];
   const out = {};
 
-  if (body.correo_alt != null && body.correo_alt !== '') {
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.correo_alt)) errores.push('correo_alt inválido');
-    else out.correo_alt = String(body.correo_alt).trim();
-  } else out.correo_alt = null;
+  if (body.email_alt != null && body.email_alt !== '') {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email_alt)) errores.push('email_alt inválido');
+    else out.email_alt = String(body.email_alt).trim();
+  } else out.email_alt = null;
 
-  if (body.telefono != null && body.telefono !== '') {
-    if (!REG_TEL.test(body.telefono)) errores.push('telefono inválido');
-    else out.telefono = String(body.telefono).trim();
-  } else out.telefono = null;
+  if (body.numero_telefono != null && body.numero_telefono !== '') {
+    if (!REG_TEL.test(body.numero_telefono)) errores.push('numero_telefono inválido');
+    else out.numero_telefono = String(body.numero_telefono).trim();
+  } else out.numero_telefono = null;
 
   out.direccion = body.direccion ? String(body.direccion).trim().slice(0, 255) : null;
 
