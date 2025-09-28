@@ -1,10 +1,20 @@
-// backend/src/middlewares/validarLicenciaMedica.js  (ESM unificado)
+// backend/src/middlewares/validarLicenciaMedica.js  (ESM, unificado)
 import { z } from 'zod';
 
-/* ========== Helpers de normalización ========== */
+/* ============================================================
+   Estados permitidos en BD y utilidades de normalización
+   ============================================================ */
 const ESTADOS_DB = ['pendiente', 'aceptado', 'rechazado'];
 
-function normalizaEstado(raw) {
+export const ESTADOS = Object.freeze({
+  PENDIENTE: 'pendiente',
+  ACEPTADO: 'aceptado',
+  RECHAZADO: 'rechazado',
+});
+
+export const estadosPermitidos = ESTADOS_DB;
+
+export function normalizaEstado(raw) {
   if (!raw) return 'pendiente';
   const v = String(raw).toLowerCase().trim().replace(/\s+/g, '_');
 
@@ -17,14 +27,12 @@ function normalizaEstado(raw) {
     'en revisión': 'pendiente',
     'enrev': 'pendiente',
     'espera': 'pendiente',
-
-    // aceptado (antes "aprobada/o/aceptada")
+    // aceptado
     'aprobada': 'aceptado',
     'aprobado': 'aceptado',
     'aceptada': 'aceptado',
     'aceptado': 'aceptado',
-
-    // rechazado (antes "rechazada")
+    // rechazado
     'rechazada': 'rechazado',
     'rechazado': 'rechazado',
   };
@@ -33,17 +41,17 @@ function normalizaEstado(raw) {
   return ESTADOS_DB.includes(norm) ? norm : 'pendiente';
 }
 
-function toYYYYMMDD(raw) {
+export function toYYYYMMDD(raw) {
   if (!raw) return null;
   const s = String(raw).trim();
-  // YYYY-MM-DD → ok
+  // YYYY-MM-DD
   if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
 
   // DD-MM-YYYY o DD/MM/YYYY → YYYY-MM-DD
   const m = s.match(/^(\d{2})[\/-](\d{2})[\/-](\d{4})$/);
   if (m) return `${m[3]}-${m[2]}-${m[1]}`;
 
-  // Último intento: Date parseable → YYYY-MM-DD
+  // Date parseable → YYYY-MM-DD
   const d = new Date(s);
   if (!isNaN(d.getTime())) {
     const y = d.getFullYear();
@@ -54,7 +62,9 @@ function toYYYYMMDD(raw) {
   return null;
 }
 
-/* ========== Validación LEGACY (sin Zod) ========== */
+/* ============================================================
+   Validación LEGACY (sin Zod) — útil para endpoints antiguos
+   ============================================================ */
 export function validarLicencia(req, res, next) {
   const { fecha_inicio, fecha_fin } = req.body || {};
   const isISO = (d) => /^\d{4}-\d{2}-\d{2}$/.test(d);
@@ -77,7 +87,9 @@ export function validarLicencia(req, res, next) {
   return next();
 }
 
-/* ===================== Schemas Zod ===================== */
+/* ============================================================
+   Schemas Zod (validación fuerte y mensajes claros)
+   ============================================================ */
 // Para DATEONLY en Sequelize es más seguro validar como string YYYY-MM-DD.
 const ymdSchema = z
   .string({ required_error: 'Fecha requerida' })
@@ -102,7 +114,6 @@ export const licenciaSchema = z
     motivo_rechazo: z.string().trim().max(300).nullable().optional(),
   })
   .superRefine((data, ctx) => {
-    // Comparación de strings YYYY-MM-DD → convierto a Date
     const ini = new Date(data.fecha_inicio);
     const fin = new Date(data.fecha_fin);
     if (ini > fin) {
@@ -171,7 +182,9 @@ export const licenseSchema = z
     }
   });
 
-/* ===================== Normalizador + Middlewares ===================== */
+/* ============================================================
+   Helpers Zod + normalizador de body
+   ============================================================ */
 function sendZodErrors(result, res) {
   const errores = (result.error?.issues || []).map((e) => ({
     campo: (Array.isArray(e.path) && e.path.join('.')) || 'body',
@@ -240,9 +253,70 @@ export function validateLicenseBody(req, res, next) {
   return next();
 }
 
-/* ===================== Exports útiles ===================== */
-export const estadosPermitidos = ESTADOS_DB;
+/* ============================================================
+   Validación de archivo adjunto (multer) y transiciones
+   ============================================================ */
+const MIMES = new Set(['application/pdf', 'image/jpeg', 'image/png']);
+const MAX_BYTES = 5 * 1024 * 1024; // 5MB
 
+/**
+ * Valida archivo adjunto en creación.
+ * Usa req.file (multer). Si en tu flujo aceptas URL ya subida, permite req.body.archivo_url.
+ */
+export function validarArchivoAdjunto(req, res, next) {
+  const requiere = req.body?.requiere_archivo ?? true;
+  const archivo = req.file;
+  const url = req.body?.archivo_url;
+
+  if (!requiere) return next();
+
+  if (!archivo && !url) {
+    return res.status(400).json({ ok: false, error: 'Archivo adjunto es obligatorio' });
+  }
+  if (archivo) {
+    if (!MIMES.has(archivo.mimetype)) {
+      return res.status(400).json({ ok: false, error: 'Tipo de archivo no permitido' });
+    }
+    if (archivo.size > MAX_BYTES) {
+      return res.status(400).json({ ok: false, error: 'Archivo excede 5MB' });
+    }
+  }
+  return next();
+}
+
+/**
+ * Valida transición de estado según reglas de negocio:
+ * - Estados permitidos: pendiente | aceptado | rechazado
+ * - Creación: debe quedar 'pendiente' (ya lo normaliza Zod)
+ * - Transiciones: pendiente→(aceptado|rechazado) ✅; otras ❌
+ */
+export function validarTransicionEstado(estadoActual) {
+  return (req, res, next) => {
+    const nuevo = normalizaEstado(req.body?.estado);
+
+    // si no viene estado, no validamos transición
+    if (!req.body || req.body.estado == null) return next();
+
+    if (!estadosPermitidos.includes(nuevo)) {
+      return res.status(400).json({ ok: false, error: 'Estado no válido' });
+    }
+
+    if (estadoActual === ESTADOS.PENDIENTE &&
+        (nuevo === ESTADOS.ACEPTADO || nuevo === ESTADOS.RECHAZADO)) {
+      return next(); // permitido
+    }
+
+    if (estadoActual === nuevo) {
+      return next(); // sin cambios
+    }
+
+    return res.status(400).json({ ok: false, error: 'Transición de estado no permitida' });
+  };
+}
+
+/* ============================================================
+   Export por defecto (consolidado)
+   ============================================================ */
 export default {
   validarLicencia,
   validateLicenciaBody,
@@ -252,4 +326,7 @@ export default {
   estadosPermitidos,
   normalizaEstado,
   toYYYYMMDD,
+  validarArchivoAdjunto,
+  validarTransicionEstado,
+  ESTADOS,
 };
