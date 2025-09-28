@@ -186,7 +186,9 @@ export const crearLicenciaLegacy = async (req, res) => {
 export async function decidirLicencia(req, res) {
   try {
     const idLicencia = Number(req.params.id);
-    const { estado, observacion } = req.body;
+    // Acepta motivo_rechazo (preferido) o observacion (alias)
+    const motivo_rechazo = req.body.motivo_rechazo ?? req.body.observacion ?? null;
+    const { estado, force } = req.body || {};
 
     // ✅ tomar id del usuario autenticado (desde el JWT)
     const idSecretario =
@@ -201,26 +203,45 @@ export async function decidirLicencia(req, res) {
       });
     }
 
+    // Validaciones básicas en controller (mejorar UX y errores claros)
+    const nuevoEstado = (estado || '').toString().trim();
+    if (!['pendiente', 'aceptado', 'rechazado'].includes(nuevoEstado)) {
+      return res.status(400).json({ ok: false, error: 'estado no válido' });
+    }
+
+    // Si se intenta rechazar, exigir motivo_rechazo (o alias observacion)
+    if (nuevoEstado === 'rechazado') {
+      if (!motivo_rechazo || String(motivo_rechazo).trim() === '') {
+        return res.status(400).json({ ok: false, error: 'Debe incluir motivo_rechazo al rechazar' });
+      }
+    }
+
+    // Llamamos al servicio pasando los parámetros normalizados:
+    // - motivo_rechazo (string|null)
+    // - force (boolean) para overrides si el servicio lo soporta
     const licencia = await decidirLicenciaSvc({
       idLicencia,
-      estado,
-      observacion,
-      idSecretario,                // <-- ahora no será null
+      estado: nuevoEstado,
+      motivo_rechazo: nuevoEstado === 'rechazado' ? String(motivo_rechazo).trim() : null,
+      idSecretario,
+      force: !!force,
     });
 
+    // El servicio debe devolver la licencia actualizada o lanzar errores descriptivos.
     return res.json({
       ok: true,
       data: {
         id_licencia: licencia.id_licencia,
         estado: licencia.estado,
-        observacion: licencia.motivo_rechazo ?? null,
+        motivo_rechazo: licencia.motivo_rechazo ?? null,
       },
     });
   } catch (err) {
     const msg = err?.message || 'Error al decidir licencia';
     const code = /no encontrada/i.test(msg) ? 404
                : /ya fue/i.test(msg)       ? 409
-               : /observaci/i.test(msg) ? 400
+               : /motivo_rechazo|observaci/i.test(msg) ? 400
+               : /no permitida|transición/i.test(msg) ? 400
                : 500;
     return res.status(code).json({ ok: false, error: msg });
   }

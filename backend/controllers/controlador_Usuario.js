@@ -41,30 +41,68 @@ export async function registrar(req, res) {
 // ===== Login (emite JWT con { id, rol }) =====
 export async function login(req, res) {
   try {
-    const { correo, contrasena } = req.body || {};
-    if (!correo || !contrasena) {
+    // Acepta varios nombres de campo por compatibilidad con distintos clientes
+    const body = req.body || {};
+    const correoIn =
+      body.correo_usuario ||
+      body.correo ||
+      body.email ||
+      body.username ||
+      body.user;
+    const contrasena =
+      body.contrasena || body.password || body.pass || body.pwd;
+
+    if (!correoIn || !contrasena) {
       return res.status(400).json({ ok: false, msg: 'correo y contrasena son requeridos' });
     }
 
-    const usuario = await UsuarioService.login(correo, contrasena); // { id, nombre, correo, rol }
+    // UsuarioService.login espera (correo, contrasena)
+    const usuario = await UsuarioService.login(correoIn, contrasena);
+    // UsuarioService.login debe lanzar error o devolver null si credenciales inválidas
+    if (!usuario) {
+      return res.status(401).json({ ok: false, msg: 'Credenciales inválidas' });
+    }
+
+    // Normalizar propiedades del usuario retornado (por si usa id_usuario / id_rol)
+    const id = usuario.id ?? usuario.id_usuario ?? usuario.idUsuario ?? usuario.userId;
+    const rol =
+      usuario.rol ?? usuario.id_rol ?? usuario.role ?? usuario.roleId ?? usuario.idRol;
+    // opcionales
+    const correo_usuario =
+      usuario.correo_usuario ?? usuario.correo ?? usuario.email ?? usuario.username;
+    const nombre =
+      usuario.nombre ?? usuario.nombre_completo ?? usuario.name ?? usuario.fullname;
+
+    if (!id) {
+      // Si el servicio no retorna id, es un problema: devolver error controlado
+      console.error('[login] usuario retornado sin id:', usuario);
+      return res.status(500).json({ ok: false, msg: 'Error interno: usuario inválido' });
+    }
 
     const secret = process.env.JWT_SECRET || 'DEV_SECRET_CHANGE_ME';
-    const token = jwt.sign(
-      { id: usuario.id, rol: usuario.rol },           // <-- rol STRING
-      secret,
-      { expiresIn: process.env.JWT_EXPIRES_IN || '1d' }
-    );
+    const expiresIn = process.env.JWT_EXPIRES_IN || '1d';
 
-    // Respuesta API amigable
+    // Firma el token con la forma que ya usabas: { id, rol }
+    const token = jwt.sign({ id, rol }, secret, { expiresIn });
+
+    const usuarioSafe = {
+      id_usuario: id,
+      correo_usuario,
+      nombre,
+      id_rol: rol,
+    };
+
     return res.json({
       ok: true,
       mensaje: 'Login exitoso',
-      usuario,
+      usuario: usuarioSafe,
       token,
     });
   } catch (err) {
     console.error('[login] error:', err);
-    return res.status(401).json({ ok: false, msg: err.message || 'Credenciales inválidas' });
+    // Si el servicio lanzó un error con mensaje (p. ej. credenciales), devuélvelo como 401
+    const msg = err?.message || 'Credenciales inválidas';
+    return res.status(401).json({ ok: false, msg });
   }
 }
 
