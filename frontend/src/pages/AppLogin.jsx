@@ -6,19 +6,45 @@ import { useAuth } from "../context/AuthContext";
 function AppLogin() {
   const { login } = useAuth();
   const navigate = useNavigate(); // hook para navegar
-  const [roleSelect, setRoleSelect] = useState("alumno");
+
+  // estado para inputs y UI
+  const [correo, setCorreo] = useState("");
+  const [contrasena, setContrasena] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError("");
     setLoading(true);
-    // Simular autenticación - reemplazar por llamada real a API
-    setTimeout(() => {
-      const userData = { name: "Juan Pérez", role: roleSelect };
-      login(userData);
+
+    try {
+      const base = import.meta.env.VITE_API_BASE_URL;
+      const res = await fetch(`${base}/usuarios/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ correo_usuario: correo, contrasena }),
+      });
+      const data = await res.json();
+
+      if (!res.ok || !data?.ok || !data?.token || !data?.usuario) {
+        throw new Error(data?.error || "Credenciales inválidas");
+      }
+
+      // persistir sesión mínima en el cliente
+      sessionStorage.setItem("token", data.token);
+      sessionStorage.setItem("user", JSON.stringify(data.usuario));
+
+      // avisar a tu AuthContext (mantengo tu API: login(userData))
+      login(data.user);
+
+      // redirección por rol (ajusta rutas si usas otras)
+      navigate("/alumno");
+    } catch (err) {
+      setError(err.message || "No se pudo iniciar sesión");
+    } finally {
       setLoading(false);
-      navigate("/", { replace: true });
-    }, 700);
+    }
   };
 
   return (
@@ -42,20 +68,37 @@ function AppLogin() {
         </h2>
 
         <form onSubmit={handleSubmit} className="w-full flex flex-col gap-4">
-          {/* campos reales: correo/contraseña aquí */}
           <div>
             <label className="block text-black font-normal mb-2">
-              Tipo de cuenta (solo pruebas)
+              Correo Electrónico:
             </label>
-            <select
-              value={roleSelect}
-              onChange={(e) => setRoleSelect(e.target.value)}
-              className="w-full mb-4 p-2 border rounded"
-            >
-              <option value="alumno">Alumno</option>
-              <option value="secretaria">Secretaria</option>
-            </select>
+            <input
+              type="email"
+              placeholder="usuario@uct.cl"
+              className="w-full bg-[#95B5C4] rounded-md border-none p-4 text-black"
+              value={correo}
+              onChange={(e) => setCorreo(e.target.value)}
+              required
+            />
           </div>
+
+          <div>
+            <label className="block text-black font-normal mb-2">
+              Contraseña:
+            </label>
+            <input
+              type="password"
+              placeholder="••••••••"
+              className="w-full bg-[#95B5C4] rounded-md border-none p-4 text-black"
+              value={contrasena}
+              onChange={(e) => setContrasena(e.target.value)}
+              required
+            />
+          </div>
+
+          {error && (
+            <p className="text-red-600 text-sm text-center -mt-2">{error}</p>
+          )}
 
           {/* Enlace Olvidé mi contraseña */}
           <div className="flex justify-center mt-2">

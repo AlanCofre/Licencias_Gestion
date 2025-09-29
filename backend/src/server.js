@@ -16,14 +16,9 @@ dotenv.config({ path: path.join(__dirname, '..', '.env') });
 import detailsRouter from './detail/details.js';
 import insertRouter from './insert/insert.js';
 import notificationRouter from './notification/notificacion.js';
-import licenciaRoutes from './routes/licencias.routes.js';
+import licenciaRoutes from './routes/licencia.routes.js';
 import archivoRoutes from './routes/archivo.routes.js';
-import usuarioRoutes from './routes/usuario.route.js';
-import licenciaArchivoRouter from './routes/licencia-archivo.js';
-
-
-
-
+import usuarioRoutes from './routes/ruta_Usuario.js';
 
 // Pool de mysql2/promise exportado desde ./db/db.js
 // (si tu módulo exporta `module.exports = pool`, esto sigue funcionando como default en ESM)
@@ -49,8 +44,6 @@ app.use('/licencias', detailsRouter);
 app.use('/archivos', insertRouter);
 app.use('/notificaciones', notificationRouter);
 app.use('/api/archivos', archivoRoutes);
-app.use('/api', licenciaArchivoRouter);
-
 
 /* === 404 (no encontrado) === */
 app.use((req, res) => {
