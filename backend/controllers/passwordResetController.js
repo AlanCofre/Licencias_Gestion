@@ -1,10 +1,9 @@
 // src/controllers/passwordResetController.js
-const crypto = require('crypto');
-const bcrypt = require('bcryptjs');
-const { Usuario, PasswordResetCode, sequelize } = require('../models');
-const { sendPasswordResetEmail } = require('../utils/mailer');
+import crypto from 'crypto';
+import bcrypt from 'bcryptjs';
+import db from '../config/db.js'; // mysql2/promise pool
 
-const TTL_MIN = Number(process.env.RESET_CODE_TTL_MIN || 10);
+const TTL_MIN = Number(process.env.RESET_CODE_TTL_MIN || 10); // minutos
 const MAX_ATTEMPTS = Number(process.env.RESET_MAX_ATTEMPTS || 5);
 
 const NEUTRAL_MSG =
@@ -15,38 +14,38 @@ function generateNumericCode(len = 6) {
   return n.toString().padStart(len, '0');
 }
 
-exports.requestPasswordReset = async (req, res) => {
+// POST /usuarios/password-reset/request  { email }
+export const requestPasswordReset = async (req, res) => {
   const { email } = req.body || {};
   if (!email) return res.status(400).json({ message: 'Faltan datos.' });
 
   try {
-    // Busca por tu columna real en la tabla usuario
-    const user = await Usuario.findOne({ where: { correo_usuario: email } });
+    // buscar usuario por correo_usuario (tabla: usuario)
+    const [rows] = await db.execute(
+      'SELECT id_usuario FROM usuario WHERE correo_usuario = ? LIMIT 1',
+      [email]
+    );
 
-    if (user) {
+    if (rows.length) {
+      const { id_usuario } = rows[0];
+
       const code = generateNumericCode(6);
       const code_hash = await bcrypt.hash(code, 10);
       const expires_at = new Date(Date.now() + TTL_MIN * 60 * 1000);
 
-      // Guarda el código con TTL
-      await PasswordResetCode.create({
-        user_id: user.id_usuario,
-        code_hash,
-        expires_at,
-      });
+      // guardar código (tabla: password_reset_codes)
+      await db.execute(
+        'INSERT INTO password_reset_codes (user_id, code_hash, expires_at, attempts, used_at) VALUES (?,?,?,?,NULL)',
+        [id_usuario, code_hash, expires_at, 0]
+      );
 
-      // En DEV imprime el código y usa Ethereal si no hay SMTP
       if (process.env.NODE_ENV !== 'production') {
         console.log('🔐 RESET CODE DEV →', code, 'para', email);
       }
-      try {
-        await sendPasswordResetEmail(email, code);
-      } catch (e) {
-        // No rompemos la neutralidad si falla el correo
-        console.warn('⚠️ Mailer:', e.message);
-      }
+      // si tienes mailer, puedes enviar el code por correo aquí (opcional)
     }
 
+    // respuesta neutral siempre (no revelar existencia)
     return res.status(200).json({ message: NEUTRAL_MSG });
   } catch (e) {
     console.error('[password-reset/request] ERROR:', e);
@@ -54,56 +53,84 @@ exports.requestPasswordReset = async (req, res) => {
   }
 };
 
-const { Op } = require('sequelize');
-
-exports.confirmPasswordReset = async (req, res) => {
+// POST /usuarios/password-reset/confirm  { email, code, newPassword }
+export const confirmPasswordReset = async (req, res) => {
   const { email, code, newPassword } = req.body || {};
   if (!email || !code || !newPassword) {
     return res.status(400).json({ message: 'Faltan datos.' });
   }
 
   try {
-    const user = await Usuario.findOne({ where: { correo_usuario: email } });
-    if (!user) return res.status(200).json({ message: NEUTRAL_MSG });
+    // buscar usuario
+    const [u] = await db.execute(
+      'SELECT id_usuario FROM usuario WHERE correo_usuario = ? LIMIT 1',
+      [email]
+    );
+    if (!u.length) return res.status(200).json({ message: NEUTRAL_MSG });
 
-    // FIX: usar Op en vez de literal + replacements
-    const pr = await PasswordResetCode.findOne({
-      where: {
-        user_id: user.id_usuario,
-        used_at: { [Op.is]: null },
-        expires_at: { [Op.gt]: new Date() },
-      },
-      order: [['id', 'DESC']],
-    });
+    const { id_usuario } = u[0];
 
-    if (!pr) return res.status(400).json({ message: 'Código inválido o expirado.' });
+    // último código activo no usado y no expirado
+    const [prRows] = await db.execute(
+      `SELECT id, code_hash, attempts
+         FROM password_reset_codes
+        WHERE user_id = ?
+          AND used_at IS NULL
+          AND expires_at > NOW()
+        ORDER BY id DESC
+        LIMIT 1`,
+      [id_usuario]
+    );
+    if (!prRows.length) {
+      return res.status(400).json({ message: 'Código inválido o expirado.' });
+    }
+
+    const pr = prRows[0];
     if (pr.attempts >= MAX_ATTEMPTS) {
-      return res.status(429).json({ message: 'Demasiados intentos. Solicita un nuevo código.' });
+      return res
+        .status(429)
+        .json({ message: 'Demasiados intentos. Solicita un nuevo código.' });
     }
 
     const ok = await bcrypt.compare(code, pr.code_hash);
     if (!ok) {
-      await pr.update({ attempts: pr.attempts + 1 });
+      await db.execute('UPDATE password_reset_codes SET attempts = attempts + 1 WHERE id = ?', [
+        pr.id,
+      ]);
       return res.status(400).json({ message: 'Código inválido o expirado.' });
     }
 
     const newHash = await bcrypt.hash(newPassword, 10);
 
-    await sequelize.transaction(async (t) => {
-      await Usuario.update(
-        { contrasena: newHash, password_changed_at:sequelize.fn('NOW'),},
-        { where: { id_usuario: user.id_usuario }, transaction: t }
+    // ===== Transacción usando una conexión del pool =====
+    const conn = await db.getConnection();
+    try {
+      await conn.beginTransaction();
+
+      await conn.execute(
+        'UPDATE usuario SET contrasena = ?, password_changed_at = NOW() WHERE id_usuario = ?',
+        [newHash, id_usuario]
       );
 
-      await pr.update({ used_at: sequelize.fn('NOW') }, { transaction: t });
+      await conn.execute('UPDATE password_reset_codes SET used_at = NOW() WHERE id = ?', [pr.id]);
 
-      await PasswordResetCode.update(
-        { used_at: sequelize.fn('NOW') },
-        { where: { user_id: user.id_usuario, used_at: null }, transaction: t }
+      // opcional: invalidar otros códigos activos del mismo usuario
+      await conn.execute(
+        'UPDATE password_reset_codes SET used_at = NOW() WHERE user_id = ? AND used_at IS NULL',
+        [id_usuario]
       );
-    });
 
-    return res.status(200).json({ message: 'La contraseña se ha actualizado correctamente.' });
+      await conn.commit();
+      return res
+        .status(200)
+        .json({ message: 'La contraseña se ha actualizado correctamente.' });
+    } catch (err) {
+      await conn.rollback();
+      throw err;
+    } finally {
+      conn.release();
+    }
+    // ===== Fin transacción =====
   } catch (e) {
     console.error('[password-reset/confirm] ERROR:', e);
     return res.status(500).json({ message: 'Error interno' });

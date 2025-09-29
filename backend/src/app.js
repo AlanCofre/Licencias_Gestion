@@ -1,4 +1,3 @@
-
 import express from 'express';
 import cors from 'cors';
 import detailsRouter from './detail/details.js';
@@ -8,6 +7,10 @@ import licenciasRouter from './routes/licencias.routes.js';
 import db from './../config/db.js';
 import healthRouter from './routes/health.route.js';
 import usuarioRoutes from './routes/usuario.route.js';
+
+// === Perfil === (NUEVO)
+import perfilRouter from './routes/perfil.routes.js';
+
 // Pool de mysql2/promise exportado desde ./db/db.js
 // (si tu módulo exporta `module.exports = pool`, esto sigue funcionando como default en ESM)
 // === App + Config ===
@@ -20,6 +23,7 @@ console.log('[DB CONFIG]', {
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME
 });
+
 /* === Middlewares globales === */
 app.use(cors());
 app.use(express.json());
@@ -36,6 +40,11 @@ app.use('/licencias', detailsRouter);
 app.use('/archivos', insertRouter);
 app.use('/notificaciones', notificationRouter);
 app.use('/usuarios', usuarioRoutes);
+app.use('/api', licenciasRouter);
+
+// === Perfil === (NUEVO) → expone /api/perfil/me, /api/perfil/usuario/:id_usuario
+app.use('/api', perfilRouter);
+
 /* === 404 (no encontrado) === */
 app.use((req, res) => {
   res.status(404).json({ ok: false, mensaje: 'Ruta no encontrada' });
