@@ -1,9 +1,25 @@
-import React from "react";
+import React, { useState } from "react";
 import bannerLogin from "../assets/banner-login.png";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 
 function AppLogin() {
+  const { login } = useAuth();
   const navigate = useNavigate(); // hook para navegar
+  const [roleSelect, setRoleSelect] = useState("alumno");
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    // Simular autenticación - reemplazar por llamada real a API
+    setTimeout(() => {
+      const userData = { name: "Juan Pérez", role: roleSelect };
+      login(userData);
+      setLoading(false);
+      navigate("/", { replace: true });
+    }, 700);
+  };
 
   return (
     <div className="relative min-h-screen bg-white flex flex-col items-center justify-start py-12">
@@ -25,27 +41,20 @@ function AppLogin() {
           Inicio de sesión
         </h2>
 
-        <div className="flex flex-col gap-4">
+        <form onSubmit={handleSubmit} className="w-full flex flex-col gap-4">
+          {/* campos reales: correo/contraseña aquí */}
           <div>
             <label className="block text-black font-normal mb-2">
-              Correo Electrónico:
+              Tipo de cuenta (solo pruebas)
             </label>
-            <input
-              type="email"
-              placeholder="Ingresa tu correo electrónico"
-              className="w-full bg-[#95B5C4] rounded-md border-none p-4 text-black"
-            />
-          </div>
-
-          <div>
-            <label className="block text-black font-normal mb-2">
-              Contraseña:
-            </label>
-            <input
-              type="password"
-              placeholder="Ingresa tu contraseña"
-              className="w-full bg-[#95B5C4] rounded-md border-none p-4 text-black"
-            />
+            <select
+              value={roleSelect}
+              onChange={(e) => setRoleSelect(e.target.value)}
+              className="w-full mb-4 p-2 border rounded"
+            >
+              <option value="alumno">Alumno</option>
+              <option value="secretaria">Secretaria</option>
+            </select>
           </div>
 
           {/* Enlace Olvidé mi contraseña */}
@@ -57,17 +66,22 @@ function AppLogin() {
               Olvidé mi contraseña.
             </span>
           </div>
-        </div>
 
-        <button className="w-3/5 h-14 bg-[#00AAFF] text-white text-xl font-semibold rounded-md shadow-md hover:brightness-110 transition self-center mt-4">
-          Iniciar sesión
-        </button>
+          <button
+            type="submit"
+            className="w-full h-14 bg-[#00AAFF] text-white text-xl font-semibold rounded-md shadow-md hover:brightness-110 transition self-center mt-4 disabled:opacity-50"
+            disabled={loading}
+          >
+            {loading ? "Entrando..." : "Iniciar sesión"}
+          </button>
+        </form>
       </div>
 
       {/* Registro debajo del contenedor */}
       <div className="relative z-10 mt-10 text-center text-black text-base">
         <span>¿No tienes una cuenta? </span>
-        <span className="text-[#76F1FF] font-bold cursor-pointer hover:underline"
+        <span
+          className="text-[#76F1FF] font-bold cursor-pointer hover:underline"
           onClick={() => navigate("/register")}
         >
           Regístrate aquí.

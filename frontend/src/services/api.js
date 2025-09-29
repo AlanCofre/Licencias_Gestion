@@ -233,6 +233,73 @@ export async function fetchAttachment(path) {
   }
 }
 
+// Función para obtener detalles de una licencia específica
+export const getLicenseDetails = async (licenseId) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/licenses/${licenseId}`, {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Error fetching license details');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error in getLicenseDetails:', error);
+    throw error;
+  }
+};
+
+// Función para aceptar una licencia
+export const acceptLicense = async (licenseId, data) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/licenses/${licenseId}/accept`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      throw new Error('Error accepting license');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error in acceptLicense:', error);
+    throw error;
+  }
+};
+
+// Función para rechazar una licencia
+export const rejectLicense = async (licenseId, data) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/licenses/${licenseId}/reject`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      throw new Error('Error rejecting license');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error in rejectLicense:', error);
+    throw error;
+  }
+};
+
 export default { 
   request: mockRequest, 
   fetchLicenses, 

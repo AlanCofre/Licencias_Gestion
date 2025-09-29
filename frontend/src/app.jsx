@@ -1,23 +1,19 @@
 import React from "react";
-import Navbar from "./components/Navbar";
-import Footer from "./components/Footer";
-import Dashboard from "./pages/Dashboard";
-import NavbarC from "./components/NavbarCalendar";
-import EditProfile from "./pages/AppEditProfile";
-import AppLogin from "./pages/AppLogin";
-import AppRegistro from "./pages/AppRegistro";
-import ForgotPassword from "./pages/ForgotPassword";
-import ResetPassword from "./pages/ResetPassword";
-import AppVisualizar from "./pages/LicenciaInfo";
+import { BrowserRouter } from "react-router-dom";
+import AppRoutes from "./routes";
+import SkipLink from "./components/SkipLink";
+import { AuthProvider } from "./context/AuthContext";
 
 function App() {
   return (
-    <div className="min-h-screen flex flex-col bg-blue-100">
-      <NavbarC />
-      <AppVisualizar />
-      <div className="flex-grow" />
-      <Footer />
-    </div>
+    <BrowserRouter>
+      <AuthProvider>
+        <div className="min-h-screen">
+          <SkipLink />
+          <AppRoutes />
+        </div>
+      </AuthProvider>
+    </BrowserRouter>
   );
 }
 
