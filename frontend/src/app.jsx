@@ -1,16 +1,19 @@
 import React from "react";
-import Navbar from "./components/Navbar";
-import Footer from "./components/Footer";
-import Dashboard from "./pages/Dashboard";
+import { BrowserRouter } from "react-router-dom";
+import AppRoutes from "./routes";
+import SkipLink from "./components/SkipLink";
+import { AuthProvider } from "./context/AuthContext";
 
 function App() {
   return (
-    <div className="min-h-screen flex flex-col bg-blue-100">
-      <Navbar />
-      <Dashboard/>
-      <div className="flex-grow" />
-      <Footer />
-    </div>
+    <BrowserRouter>
+      <AuthProvider>
+        <div className="min-h-screen">
+          <SkipLink />
+          <AppRoutes />
+        </div>
+      </AuthProvider>
+    </BrowserRouter>
   );
 }
 
