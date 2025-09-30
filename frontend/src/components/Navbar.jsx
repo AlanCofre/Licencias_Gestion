@@ -70,19 +70,16 @@ export default function Navbar() {
   };
 
   return (
-    <header className="bg-[#048FD4] text-white shadow-md relative" role="banner">
+    <header className="bg-gradient-to-b from-[var(--blue-600)] to-[var(--blue-700)] text-white shadow-sm">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-20">
-          {/* Logo */}
+          {/* Logo a la izquierda */}
           <div className="flex items-center">
-            <Link 
-              to="/" 
-              className="flex items-center focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-[#048FD4] rounded-sm p-1" 
-              aria-label="MedManager - Ir al inicio"
-              onClick={closeMenu}
+            <h1 className="text-2xl font-display font-bold tracking-wide cursor-pointer"
+              onClick={() => navigate("/dashboard")}
             >
-              <span className="text-2xl font-bold tracking-wide font-display">MedManager</span>
-            </Link>
+              MedManager
+            </h1>
           </div>
 
           {/* Navigation desktop */}
@@ -233,55 +230,29 @@ export default function Navbar() {
                 </div>
               )}
             </div>
-
-            {/* Botón menú hamburguesa */}
             <button
-              onClick={toggleMenu}
-              className="md:hidden p-2 rounded-md hover:bg-white/10 transition-colors focus:outline-none focus:ring-2 focus:ring-white"
-              aria-controls="mobile-menu"
-              aria-expanded={isOpen}
-              aria-label={isOpen ? "Cerrar menú" : "Abrir menú"}
+              className="bg-blue-700 hover:bg-blue-600 p-2 rounded transition-colors"
+              onClick={() => navigate("/")} // ejemplo: cerrar sesión
             >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                {isOpen ? (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                ) : (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                )}
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M17 16l4-4m0 0l-4-4m4 4H7"
+                />
               </svg>
             </button>
           </div>
         </div>
-
-        {/* Mobile menu (sin notificaciones aquí) */}
-        <nav 
-          id="mobile-menu" 
-          className={`md:hidden transition-all duration-200 ease-in-out overflow-hidden ${isOpen ? "max-h-96 pb-4" : "max-h-0"}`}
-          aria-label="Navegación móvil"
-          role="navigation"
-        >
-          <ul className="flex flex-col gap-1 text-sm">
-            <li>
-              <Link 
-                to="/" 
-                className="block px-4 py-3 rounded-md hover:bg-white/10 transition-colors"
-                onClick={closeMenu}
-              >
-                Inicio
-              </Link>
-            </li>
-            <li className="border-t border-white/20 mt-2 pt-2">
-              <Link 
-                to="/login" 
-                className="block px-4 py-3 rounded-md hover:bg-white/10 transition-colors font-medium"
-                onClick={closeMenu}
-              >
-                Iniciar sesión
-              </Link>
-            </li>
-          </ul>
-        </nav>
       </div>
     </header>
   );
-}
+};
+
+export default Navbar;
