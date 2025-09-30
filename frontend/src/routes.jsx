@@ -10,7 +10,7 @@ import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import ComoUsar from "./pages/ComoUsar";
 import VerificarResultados from "./pages/VerificarResultados";
-import LicenciaInfo from "./pages/LicenciaInfo";
+import AppVisualizar from "./pages/LicenciaInfo";
 import LicenseDetail from "./pages/LicenseDetail";
 import LicenseDetailView from "./pages/LicenseDetailView";
 import AppEditProfile from "./pages/AppEditProfile";
@@ -47,7 +47,7 @@ export default function AppRoutes() {
       {/* Páginas comunes */}
       <Route path="/como-usar" element={<ComoUsar />} />
       <Route path="/verificar-resultados" element={<VerificarResultados />} />
-      <Route path="/licencia-info" element={<LicenciaInfo />} />
+      <Route path="/licencia-info" element={<AppVisualizar />} />
       <Route path="/generar-revision" element={<GenerarRevision />} />
       <Route path="/license-detail/:id" element={<LicenseDetail />} />
       <Route path="/license/:id" element={<LicenseDetailView />} />
@@ -59,7 +59,7 @@ export default function AppRoutes() {
       <Route path="/pendientes" element={<Dashboard />} />
       <Route path="/revisadas" element={<Dashboard />} />
       <Route path="/verificadas" element={<Dashboard />} />
-      <Route path="/historial" element={<Dashboard />} />
+      <Route path="/historial" element={<AppVisualizar />} />
 
       {/* Fallback */}
       <Route path="*" element={<Navigate to="/" replace />} />
