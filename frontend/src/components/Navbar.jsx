@@ -12,17 +12,17 @@ export default function Navbar() {
   const dropdownRef = useRef(null);
   const mobileBellRef = useRef(null);
 
-  // Estado de notificaciones con fechas
+  // Estado de notificaciones con fechas (como objetos Date)
   const [notifications, setNotifications] = useState({
     pendientes: [
-      { id: 1, text: 'La licencia "Resfrío con gripe" se encuentra pendiente de revisión', read: false, date: "25/09/2025 14:30" },
+      { id: 1, text: 'La licencia "Resfrío con gripe" se encuentra pendiente de revisión', read: false, date: new Date("2025-09-25T14:30:00") },
     ],
     revisadas: [
-      { id: 2, text: 'La licencia de "Alergias" está siendo revisada', read: false, date: "24/09/2025 10:15" },
+      { id: 2, text: 'La licencia de "Alergias" está siendo revisada', read: false, date: new Date("2025-09-24T10:15:00") },
     ],
     verificadas: [
-      { id: 3, text: 'La licencia "Covid" ha sido verificada y aceptada', read: false, date: "23/09/2025 18:45" },
-      { id: 4, text: 'La licencia "Infección estomacal" ha sido verificada y rechazada', read: false, date: "22/09/2025 09:20" },
+      { id: 3, text: 'La licencia "Covid" ha sido verificada y aceptada', read: false, date: new Date("2025-09-23T18:45:00") },
+      { id: 4, text: 'La licencia "Infección estomacal" ha sido verificada y rechazada', read: false, date: new Date("2025-09-27T09:20:00") },
     ],
   });
 
@@ -47,16 +47,10 @@ export default function Navbar() {
   // Cerrar dropdowns al hacer click fuera
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target)
-      ) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setOpenDropdown(null);
       }
-      if (
-        mobileBellRef.current &&
-        !mobileBellRef.current.contains(event.target)
-      ) {
+      if (mobileBellRef.current && !mobileBellRef.current.contains(event.target)) {
         setMobileBellOpen(false);
       }
     };
@@ -129,7 +123,7 @@ export default function Navbar() {
                       <div className="absolute -top-2 left-6 w-4 h-4 bg-white rotate-45 shadow-md rounded-sm"></div>
                       <ul className="relative z-10">
                         {[...notifications[category]]
-                          .sort((a, b) => b.id - a.id)
+                          .sort((a, b) => new Date(b.date) - new Date(a.date))
                           .map(n => (
                           <li
                             key={n.id}
@@ -149,7 +143,9 @@ export default function Navbar() {
                                 </button>
                               )}
                             </div>
-                            <span className="text-xs text-gray-400">{n.date}</span>
+                            <span className="text-xs text-gray-400">
+                              {n.date.toLocaleString("es-CL")}
+                            </span>
                           </li>
                         ))}
                       </ul>
@@ -208,7 +204,7 @@ export default function Navbar() {
                   {/* Notificaciones */}
                   <ul className="max-h-60 overflow-y-auto">
                     {[...notifications[mobileTab]]
-                      .sort((a, b) => b.id - a.id)
+                      .sort((a, b) => new Date(b.date) - new Date(a.date))
                       .map(n => (
                       <li
                         key={n.id}
@@ -228,7 +224,9 @@ export default function Navbar() {
                             </button>
                           )}
                         </div>
-                        <span className="text-xs text-gray-400">{n.date}</span>
+                        <span className="text-xs text-gray-400">
+                          {n.date.toLocaleString("es-CL")}
+                        </span>
                       </li>
                     ))}
                   </ul>
