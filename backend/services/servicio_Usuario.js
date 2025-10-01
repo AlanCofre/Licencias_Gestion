@@ -27,8 +27,8 @@ class UsuarioService {
     // Si quieres poder probar sin BD, activa AUTH_MOCK=true en .env
     if (process.env.AUTH_MOCK === 'true') {
       const usuarios = [
-        { id: 1, nombre: 'Estu',  correo: 'estudiante@demo.com', contrasena: '123456', rol: 'estudiante' },
-        { id: 2, nombre: 'Profe', correo: 'profesor@demo.com',   contrasena: '123456', rol: 'profesor'   },
+        { id: 2, nombre: 'Estu',  correo: 'estudiante@demo.com', contrasena: '123456', rol: 'estudiante' },
+        { id: 1, nombre: 'Profe', correo: 'profesor@demo.com',   contrasena: '123456', rol: 'profesor'   },
         { id: 3, nombre: 'Secre', correo: 'secretario@demo.com', contrasena: '123456', rol: 'secretario' },
       ];
       const u = usuarios.find(u => u.correo === correo && u.contrasena === contrasena);
@@ -48,8 +48,8 @@ class UsuarioService {
     if (!ok) throw new Error('Credenciales inválidas');
 
     let rol = 'estudiante';
-    if (user.id_rol === 1) rol = 'profesor';
     if (user.id_rol === 2) rol = 'estudiante';
+    if (user.id_rol === 1) rol = 'profesor';
     if (user.id_rol === 3) rol = 'secretario';
 
     return { id: user.id_usuario, nombre: user.nombre, correo: user.correo_usuario, rol };

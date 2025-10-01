@@ -1,9 +1,51 @@
-import React from "react";
+import React, { useState } from "react";
 import bannerLogin from "../assets/banner-login.png";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 
 function AppLogin() {
+  const { login } = useAuth();
   const navigate = useNavigate(); // hook para navegar
+
+  // estado para inputs y UI
+  const [correo, setCorreo] = useState("");
+  const [contrasena, setContrasena] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+
+    try {
+      const base = import.meta.env.VITE_API_BASE_URL;
+      const res = await fetch(`${base}/usuarios/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ correo_usuario: correo, contrasena }),
+      });
+      const data = await res.json();
+
+      if (!res.ok || !data?.ok || !data?.token || !data?.usuario) {
+        throw new Error(data?.error || "Credenciales inválidas");
+      }
+
+      // persistir sesión mínima en el cliente
+      sessionStorage.setItem("token", data.token);
+      sessionStorage.setItem("user", JSON.stringify(data.usuario));
+
+      // avisar a tu AuthContext (mantengo tu API: login(userData))
+      login(data.user);
+
+      // redirección por rol (ajusta rutas si usas otras)
+      navigate("/alumno");
+    } catch (err) {
+      setError(err.message || "No se pudo iniciar sesión");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="relative min-h-screen bg-white flex flex-col items-center justify-start py-12">
@@ -25,15 +67,18 @@ function AppLogin() {
           Inicio de sesión
         </h2>
 
-        <div className="flex flex-col gap-4">
+        <form onSubmit={handleSubmit} className="w-full flex flex-col gap-4">
           <div>
             <label className="block text-black font-normal mb-2">
               Correo Electrónico:
             </label>
             <input
               type="email"
-              placeholder="Ingresa tu correo electrónico"
+              placeholder="usuario@uct.cl"
               className="w-full bg-[#95B5C4] rounded-md border-none p-4 text-black"
+              value={correo}
+              onChange={(e) => setCorreo(e.target.value)}
+              required
             />
           </div>
 
@@ -43,10 +88,17 @@ function AppLogin() {
             </label>
             <input
               type="password"
-              placeholder="Ingresa tu contraseña"
+              placeholder="••••••••"
               className="w-full bg-[#95B5C4] rounded-md border-none p-4 text-black"
+              value={contrasena}
+              onChange={(e) => setContrasena(e.target.value)}
+              required
             />
           </div>
+
+          {error && (
+            <p className="text-red-600 text-sm text-center -mt-2">{error}</p>
+          )}
 
           {/* Enlace Olvidé mi contraseña */}
           <div className="flex justify-center mt-2">
@@ -57,17 +109,22 @@ function AppLogin() {
               Olvidé mi contraseña.
             </span>
           </div>
-        </div>
 
-        <button className="w-3/5 h-14 bg-[#00AAFF] text-white text-xl font-semibold rounded-md shadow-md hover:brightness-110 transition self-center mt-4">
-          Iniciar sesión
-        </button>
+          <button
+            type="submit"
+            className="w-full h-14 bg-[#00AAFF] text-white text-xl font-semibold rounded-md shadow-md hover:brightness-110 transition self-center mt-4 disabled:opacity-50"
+            disabled={loading}
+          >
+            {loading ? "Entrando..." : "Iniciar sesión"}
+          </button>
+        </form>
       </div>
 
       {/* Registro debajo del contenedor */}
       <div className="relative z-10 mt-10 text-center text-black text-base">
         <span>¿No tienes una cuenta? </span>
-        <span className="text-[#76F1FF] font-bold cursor-pointer hover:underline"
+        <span
+          className="text-[#76F1FF] font-bold cursor-pointer hover:underline"
           onClick={() => navigate("/register")}
         >
           Regístrate aquí.

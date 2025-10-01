@@ -1,151 +1,394 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
+import Footer from "../components/Footer";
 
-function EditProfile() {
-  const navigate = useNavigate(); // hook para navegación
-
-  const [profilePic, setProfilePic] = useState(null);
+function EditarPerfil() {
+  const navigate = useNavigate();
+  const [cargando, setCargando] = useState(false);
+  const [fotoPerfil, setFotoPerfil] = useState(null);
   const [preview, setPreview] = useState(null);
 
-  const [formData, setFormData] = useState({
-    telefono: "",
+  const [datos, setDatos] = useState({
+    nombre: "",
+    apellido: "",
+    rut: "",
+    correoInstitucional: "",
     correoAlternativo: "",
+    telefono: "",
     direccion: "",
-    idioma: "",
-    recuperarContrasena: "",
+    departamento: "",
+    cargo: "",
+    contrasenaActual: "",
+    contrasenaNueva: "",
+    confirmarContrasena: "",
   });
 
-  // Manejar cambios en inputs
+  const [errores, setErrores] = useState({});
+  const [mensajeExito, setMensajeExito] = useState("");
+
+  // Cargar datos iniciales simulados
+  useEffect(() => {
+    const usuario = {
+      nombre: "Juliana",
+      apellido: "Pérez",
+      rut: "12.345.678-9",
+      correoInstitucional: "juliana.perez@universidad.cl",
+      correoAlternativo: "",
+      telefono: "+56 9 1234 5678",
+      direccion: "",
+      departamento: "Gestión Académica",
+      cargo: "Coordinadora de Licencias",
+    };
+    setDatos((prev) => ({ ...prev, ...usuario }));
+  }, []);
+
+  // Manejo de inputs
   const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
+    const { name, value } = e.target;
+    setDatos((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+    if (errores[name]) {
+      setErrores((prev) => ({
+        ...prev,
+        [name]: "",
+      }));
+    }
   };
 
-  // Manejar cambio de imagen
+  // Manejo de imagen
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
       setPreview(URL.createObjectURL(file));
-      setProfilePic(file);
+      setFotoPerfil(file);
     }
   };
 
-  // Guardar datos (por ahora solo consola)
-  const handleSave = (e) => {
+  const validarFormulario = () => {
+    const nuevosErrores = {};
+
+    if (datos.correoAlternativo && !/\S+@\S+\.\S+/.test(datos.correoAlternativo)) {
+      nuevosErrores.correoAlternativo = "El correo alternativo no es válido";
+    }
+
+    if (datos.contrasenaNueva && !datos.contrasenaActual) {
+      nuevosErrores.contrasenaActual = "Ingresa tu contraseña actual para cambiarla";
+    }
+    if (datos.contrasenaNueva && datos.contrasenaNueva.length < 6) {
+      nuevosErrores.contrasenaNueva = "La nueva contraseña debe tener al menos 6 caracteres";
+    }
+    if (datos.contrasenaNueva && datos.contrasenaNueva !== datos.confirmarContrasena) {
+      nuevosErrores.confirmarContrasena = "Las contraseñas no coinciden";
+    }
+
+    setErrores(nuevosErrores);
+    return Object.keys(nuevosErrores).length === 0;
+  };
+
+  const handleGuardar = async (e) => {
     e.preventDefault();
-    console.log("Datos a guardar:", formData, profilePic);
-    alert("Datos guardados");
+
+    if (!validarFormulario()) return;
+
+    setCargando(true);
+    setMensajeExito("");
+
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      setMensajeExito("Perfil actualizado correctamente");
+
+      setDatos((prev) => ({
+        ...prev,
+        contrasenaActual: "",
+        contrasenaNueva: "",
+        confirmarContrasena: "",
+      }));
+    } catch (error) {
+      console.error("Error al actualizar:", error);
+      setErrores({ general: "Error al actualizar el perfil. Intenta nuevamente." });
+    } finally {
+      setCargando(false);
+    }
+  };
+
+  const handleCancelar = () => {
+    navigate(-1);
   };
 
   return (
-    <div className="relative min-h-screen bg-blue-100 flex flex-col items-center py-12 gap-6">
-      <br />
-      <h1 className="text-4xl font-bold text-center mb-12 py-20">Editar Perfil</h1>
+    <div className="min-h-screen flex flex-col bg-gradient-to-b from-blue-50 to-blue-100">
+      <Navbar />
 
-      <form
-        className="w-[90%] max-w-[50rem] bg-white rounded-lg shadow-md p-10 flex flex-col gap-8 border-white border-30"
-        onSubmit={handleSave}
-      >
-        {/* Foto */}
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-32 h-32 rounded-full bg-gray-200 overflow-hidden">
-            {preview ? (
-              <img src={preview} alt="Preview" className="w-full h-full object-cover" />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-gray-500">
-                Foto
-              </div>
-            )}
+      <main id="contenido-principal" className="flex-1 container mx-auto px-4 py-8">
+        <div className="max-w-4xl mx-auto">
+          {/* Volver y título */}
+          <div className="mb-6">
+            <button
+              onClick={handleCancelar}
+              className="flex items-center text-blue-600 hover:text-blue-800 transition-colors mb-4"
+            >
+              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+              Volver
+            </button>
+            <h1 className="text-3xl font-bold text-gray-800">Editar Perfil</h1>
+            <p className="text-gray-600 mt-2">Actualiza tu información personal y preferencias</p>
           </div>
-          <input type="file" accept="image/*" onChange={handleImageChange} className="text-sm" />
-        </div>
 
-        {/* Telefono */}
-        <div className="flex flex-col">
-          <label className="mb-2 font-medium text-black">Teléfono de contacto:</label>
-          <input
-            type="tel"
-            name="telefono"
-            value={formData.telefono}
-            onChange={handleChange}
-            placeholder="+56 9 1234 5678"
-            pattern="[+0-9\s\-]{8,15}"
-            required
-            className="w-full p-4 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
-          />
-        </div>
+          {/* Foto de perfil */}
+          <div className="flex flex-col items-center mb-8">
+            <div className="w-32 h-32 rounded-full bg-gray-200 overflow-hidden">
+              {preview ? (
+                <img src={preview} alt="Preview" className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-gray-500">
+                  Foto
+                </div>
+              )}
+            </div>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleImageChange}
+              className="mt-4 text-sm"
+            />
+          </div>
 
-        {/* Correo alternativo */}
-        <div className="flex flex-col">
-          <label className="mb-2 font-medium text-black">Correo alternativo:</label>
-          <input
-            type="email"
-            name="correoAlternativo"
-            value={formData.correoAlternativo}
-            onChange={handleChange}
-            placeholder="correo@alternativo.com"
-            required
-            className="w-full p-4 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
-          />
-        </div>
+          {/* Mensajes */}
+          {mensajeExito && (
+            <div className="mb-6 bg-green-50 border border-green-200 rounded-lg p-4">
+              <p className="text-green-800">{mensajeExito}</p>
+            </div>
+          )}
+          {errores.general && (
+            <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
+              <p className="text-red-800">{errores.general}</p>
+            </div>
+          )}
 
-        {/* Dirección */}
-        <div className="flex flex-col">
-          <label className="mb-2 font-medium text-black">Dirección particular:</label>
-          <input
-            type="text"
-            name="direccion"
-            value={formData.direccion}
-            onChange={handleChange}
-            placeholder="Calle, número, ciudad"
-            required
-            className="w-full p-4 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
-          />
-        </div>
+          {/* Formulario */}
+          <form onSubmit={handleGuardar} className="space-y-8">
+            {/* Información Personal */}
+            <div className="bg-white rounded-lg shadow-md p-6 space-y-4">
+              <h2 className="text-xl font-semibold text-gray-800 mb-4">Información Personal</h2>
 
-        {/* Idioma */}
-        <div className="flex flex-col">
-          <label className="mb-2 font-medium text-black">Idioma:</label>
-          <select
-            name="idioma"
-            value={formData.idioma}
-            onChange={handleChange}
-            required
-            className="w-full p-4 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
-          >
-            <option value="">Selecciona idioma</option>
-            <option value="es">Español</option>
-            <option value="en">Inglés</option>
-            <option value="fr">Francés</option>
-          </select>
-        </div>
+              {/* Nombre */}
+              <div>
+                <label className="block text-sm font-medium mb-2">Nombre</label>
+                <input
+                  type="text"
+                  name="nombre"
+                  value={datos.nombre}
+                  readOnly
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700"
+                />
+                {errores.nombre && <p className="text-sm text-red-600">{errores.nombre}</p>}
+              </div>
 
-        {/* Recuperar contraseña con diseño mejorado */}
-        <div className="flex flex-col">
-          <label className="mb-2 font-medium text-black">Recuperar contraseña:</label>
-          <button
-            type="button"
-            onClick={() => navigate("/reset-password")}
-            className="
-              w-full flex items-center justify-center gap-2 p-3 bg-gradient-to-r from-blue-500 to-blue-400 text-white font-semibold rounded-lg shadow-md hover:shadow-lg transition-all duration-200"
-          >
-            Cambiar / Recuperar contraseña
-          </button>
-        </div>
+              {/* Apellido */}
+              <div>
+                <label className="block text-sm font-medium mb-2">Apellido</label>
+                <input
+                  type="text"
+                  name="apellido"
+                  value={datos.apellido}
+                  readOnly
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700" ></input>
+              </div>
 
-        {/* Guardar cambios */}
-        <button
-          type="submit"
-          className="w-3/5 self-center h-14 bg-[#00AAFF] text-white font-semibold rounded-md shadow-md hover:brightness-110 transition transform hover:-translate-y-0.5"
-        >
-          Guardar cambios
-        </button>
-      </form>
+              {/* RUT (solo lectura) */}
+              <div>
+                <label className="block text-sm font-medium mb-2">RUT</label>
+                <input
+                  type="text"
+                  name="rut"
+                  value={datos.rut}
+                  readOnly
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700"
+                />
+              </div>
+
+              {/* Correo institucional (solo lectura) */}
+              <div>
+                <label className="block text-sm font-medium mb-2">Correo institucional</label>
+                <input
+                  type="email"
+                  name="correoInstitucional"
+                  value={datos.correoInstitucional}
+                  readOnly
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700"
+                />
+              </div>
+
+              {/* Correo alternativo */}
+              <div>
+                <label className="block text-sm font-medium mb-2">Correo alternativo</label>
+                <input
+                  type="email"
+                  name="correoAlternativo"
+                  value={datos.correoAlternativo}
+                  onChange={handleChange}
+                  className={`w-full px-4 py-2 border rounded-lg ${
+                    errores.correoAlternativo ? "border-red-500" : "border-gray-300"
+                  }`}
+                  placeholder="correo@ejemplo.com"
+                />
+                {errores.correoAlternativo && (
+                  <p className="text-sm text-red-600">{errores.correoAlternativo}</p>
+                )}
+              </div>
+
+              {/* Teléfono */}
+              <div>
+                <label className="block text-sm font-medium mb-2">Teléfono</label>
+                <input
+                  type="tel"
+                  name="telefono"
+                  value={datos.telefono}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                  placeholder="+56 9 1234 5678"
+                />
+              </div>
+
+              {/* Dirección */}
+              <div>
+                <label className="block text-sm font-medium mb-2">Dirección</label>
+                <input
+                  type="text"
+                  name="direccion"
+                  value={datos.direccion}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                  placeholder="Calle, número, ciudad"
+                />
+              </div>
+
+              {/* Departamento */}
+              <div>
+                <label className="block text-sm font-medium mb-2">Departamento</label>
+                <select
+                  name="departamento"
+                  value={datos.departamento}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                >
+                  <option value="">Selecciona un departamento</option>
+                  <option value="Gestión Académica">Gestión Académica</option>
+                  <option value="Salud Estudiantil">Salud Estudiantil</option>
+                  <option value="Bienestar Estudiantil">Bienestar Estudiantil</option>
+                  <option value="Administración">Administración</option>
+                </select>
+              </div>
+
+              {/* Cargo */}
+              <div>
+                <label className="block text-sm font-medium mb-2">Cargo</label>
+                <input
+                  type="text"
+                  name="cargo"
+                  value={datos.cargo}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                  placeholder="Tu cargo en la institución"
+                />
+              </div>
+            </div>
+
+            {/* Recuperar contraseña */}
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <button
+                type="button"
+                onClick={() => navigate("/reset-password")}
+                className="w-full p-3 bg-gradient-to-r from-blue-500 to-blue-400 text-white font-semibold rounded-lg shadow-md hover:shadow-lg transition-all"
+              >
+                Cambiar / Recuperar contraseña
+              </button>
+            </div>
+
+            {/* Cambiar Contraseña */}
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h2 className="text-xl font-semibold text-gray-800 mb-4">Cambiar Contraseña</h2>
+              <div className="grid md:grid-cols-3 gap-6">
+                <div>
+                  <label className="block text-sm font-medium mb-2">Contraseña actual</label>
+                  <input
+                    type="password"
+                    name="contrasenaActual"
+                    value={datos.contrasenaActual}
+                    onChange={handleChange}
+                    className={`w-full px-4 py-2 border rounded-lg ${
+                      errores.contrasenaActual ? "border-red-500" : "border-gray-300"
+                    }`}
+                  />
+                  {errores.contrasenaActual && (
+                    <p className="text-sm text-red-600">{errores.contrasenaActual}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Nueva contraseña</label>
+                  <input
+                    type="password"
+                    name="contrasenaNueva"
+                    value={datos.contrasenaNueva}
+                    onChange={handleChange}
+                    className={`w-full px-4 py-2 border rounded-lg ${
+                      errores.contrasenaNueva ? "border-red-500" : "border-gray-300"
+                    }`}
+                  />
+                  {errores.contrasenaNueva && (
+                    <p className="text-sm text-red-600">{errores.contrasenaNueva}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Confirmar contraseña</label>
+                  <input
+                    type="password"
+                    name="confirmarContrasena"
+                    value={datos.confirmarContrasena}
+                    onChange={handleChange}
+                    className={`w-full px-4 py-2 border rounded-lg ${
+                      errores.confirmarContrasena ? "border-red-500" : "border-gray-300"
+                    }`}
+                  />
+                  {errores.confirmarContrasena && (
+                    <p className="text-sm text-red-600">{errores.confirmarContrasena}</p>
+                  )}
+                </div>
+              </div>
+              <p className="mt-4 text-sm text-blue-700">
+                Solo completa estos campos si deseas cambiar tu contraseña. Déjalos en blanco para mantener la actual.
+              </p>
+            </div>
+
+            {/* Botones */}
+            <div className="flex justify-end space-x-4">
+              <button
+                type="button"
+                onClick={handleCancelar}
+                className="px-6 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={cargando}
+                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center"
+              >
+                {cargando ? "Guardando..." : "Guardar cambios"}
+              </button>
+            </div>
+          </form>
+        </div>
+      </main>
+
+      <Footer />
     </div>
   );
 }
 
-export default EditProfile;
+export default EditarPerfil;

@@ -1,4 +1,4 @@
-node_modules/
+/node_modules/
 .env
 dist/
 .vscode/
@@ -8,3 +8,9 @@ yarn-error.log
 package-lock.json
 package.json
 .ini
+# Nunca subas secretos
+/backend/.env
+/backend/.env.*
+/frontend/.env.*
+!frontend/.env.example
+!backend/.env.example

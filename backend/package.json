@@ -9,11 +9,12 @@
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",
+    "cors": "^2.8.5",
     "dotenv": "^16.6.1",
-    "express": "^4.19.2",
+    "express": "^4.21.2",
     "jsonwebtoken": "^9.0.2",
     "multer": "^2.0.2",
-    "mysql2": "^3.10.0",
+    "mysql2": "^3.15.1",
     "sequelize": "^6.37.3",
     "zod": "^4.1.11"
   },

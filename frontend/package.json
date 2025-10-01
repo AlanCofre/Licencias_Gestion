@@ -8,6 +8,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@heroicons/react": "^2.2.0",
+    "heroicons": "^2.2.0",
+    "lucide-react": "^0.544.0",
     "react": "^18.3.1",
     "react-day-picker": "^9.11.0",
     "react-dom": "^18.3.1",

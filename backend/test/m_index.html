@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Lab de Pruebas – MedLeaveManager</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 24px; max-width: 1100px; }
+    h2 { margin-top: 28px; }
+    fieldset { margin: 16px 0; padding: 16px; }
+    label { display:block; margin-top:8px; }
+    input, select, button, textarea { margin-top:4px; }
+    .row { display:flex; gap:24px; flex-wrap:wrap; }
+    .box { flex:1 1 480px; min-width:340px; }
+    #console { white-space:pre-wrap; background:#0b1020; color:#e9f0ff; padding:12px; border-radius:8px; min-height:160px; }
+    table { border-collapse:collapse; width:100%; margin-top:8px; }
+    th, td { border:1px solid #ddd; padding:6px; font-size:14px; }
+    .muted { color:#666; font-size:13px; }
+    .ok { color: #0a7a28; }
+    .err { color: #b00020; }
+    .tag { display:inline-block; padding:2px 6px; border-radius:4px; background:#edf2ff; margin-left:6px; font-size:12px; }
+    .row-2col { display:grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    @media (max-width: 900px){ .row-2col{ grid-template-columns: 1fr; } }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+  </style>
+</head>
+<body>
+<h1>Lab de Pruebas – MedLeaveManager <span id="env" class="tag">BASE_URL: <code>http://localhost:3000</code></span></h1>
+
+<!-- Configuración -->
+<fieldset>
+  <legend>Configuración</legend>
+  <label>BASE_URL (backend raíz, ej. http://localhost:3000):
+    <input id="baseUrl" type="text" value="http://localhost:3000" style="width:380px"/>
+  </label>
+  <button id="applyBase">Aplicar</button>
+  <span class="muted">Auth/Reset usan /usuarios/* y licencias usan /api/licencias/* sobre esta base.</span>
+  <div class="muted">JWT guardado: <span id="jwtStatus">—</span></div>
+
+  <!-- Controles JWT -->
+  <div class="muted" style="margin-top:8px">
+    JWT manual:
+    <input id="manual_jwt" type="text" class="mono" style="width:360px" placeholder="pega aquí tu JWT" />
+    <button id="saveJwt" type="button">Guardar JWT</button>
+    <button id="clearJwt" type="button">Borrar JWT</button>
+    <button id="showPayload" type="button">Ver payload</button>
+  </div>
+  <div id="payloadBox" class="muted mono" style="margin-top:8px"></div>
+</fieldset>
+
+<div class="row">
+  <!-- Autenticación -->
+  <div class="box">
+    <h2>Autenticación</h2>
+
+    <fieldset>
+      <legend>Registro</legend>
+      <label>Nombre <input id="reg_nombre" type="text" required /></label>
+      <label>Correo <input id="reg_correo" type="email" required /></label>
+      <label>Contraseña <input id="reg_pass" type="password" required /></label>
+      <button id="btnRegister">Registrar</button>
+    </fieldset>
+
+    <fieldset>
+      <legend>Inicio de Sesión</legend>
+      <label>Correo <input id="log_correo" type="email" required /></label>
+      <label>Contraseña <input id="log_pass" type="password" required /></label>
+      <button id="btnLogin">Iniciar Sesión</button>
+      <button id="btnLogout" type="button">Cerrar Sesión</button>
+    </fieldset>
+
+    <fieldset>
+      <legend>Reset de Contraseña (código por email)</legend>
+      <label>Email
+        <input id="reset_email" type="email" />
+      </label>
+      <button id="btnResetRequest">Solicitar código</button>
+      <hr/>
+      <label>Código recibido (6 dígitos)
+        <input id="reset_code" type="text" placeholder="p.ej. 123456" />
+      </label>
+      <label>Nueva contraseña
+        <input id="reset_newpass" type="password" />
+      </label>
+      <button id="btnResetConfirm">Confirmar reset</button>
+    </fieldset>
+
+    <fieldset>
+      <legend>Anti-abuso (rate-limit / lockout)</legend>
+      <label>Correo (fallar) <input id="abuso_correo" type="email" placeholder="usuario@ejemplo.com"/></label>
+      <label>Contraseña errónea <input id="abuso_pass" type="password" value="Xx_wrong_xX"/></label>
+      <label>Intentos <input id="abuso_num" type="number" value="10" min="1" max="50"/></label>
+      <button id="btnAbuso">Disparar intentos fallidos</button>
+      <div class="muted">Espera ver 429/423 o mensaje de bloqueo tras N intentos, luego intenta un login correcto.</div>
+    </fieldset>
+  </div>
+
+  <!-- Licencias -->
+  <div class="box">
+    <h2>Licencias del Alumno</h2>
+
+    <fieldset>
+      <legend>Crear Licencia – Médica (multipart /medica)</legend>
+      <form id="formLicencia" enctype="multipart/form-data">
+        <div class="row-2col">
+          <label>Folio (requerido para /medica)
+            <input id="med_folio" name="folio" type="text" placeholder="FOL-2025-0001" required/>
+          </label>
+
+          <label>Estado
+            <select id="med_estado" name="estado">
+              <option value="pendiente">pendiente</option>
+              <option value="aceptado">aceptado</option>
+              <option value="rechazado">rechazado</option>
+            </select>
+          </label>
+          <label>
+            <input id="med_sendEstado" type="checkbox" />
+            Enviar este estado (si lo desmarcas, el backend asigna el default)
+          </label>
+
+          <label>Fecha emisión (requerida por BD)
+            <input id="med_emision" name="fecha_emision" type="date" required/>
+          </label>
+          <label>Fecha inicio <input name="fecha_inicio" type="date" required/></label>
+          <label>Fecha fin <input name="fecha_fin" type="date" required/></label>
+        </div>
+
+        <div class="row-2col">
+          <label>Usar id_usuario del JWT
+            <input id="med_useJwt" type="checkbox" checked />
+          </label>
+          <label>id_usuario (manual si no hay JWT o no trae id)
+            <input id="med_id_usuario" type="number" placeholder="7"/>
+          </label>
+        </div>
+
+        <label>Archivo (PDF/JPG/PNG, máx 2MB)
+          <input name="archivo" type="file" accept=".pdf,.jpg,.jpeg,.png" />
+        </label>
+        <button type="submit">Crear (POST /api/licencias/medica)</button>
+      </form>
+      <div class="muted">Este endpoint espera: folio, (opcional estado), fecha_emision (requerida), fecha_inicio, fecha_fin, id_usuario y archivo.</div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Crear Licencia – JSON con roles (POST /api/licencias/crear)</legend>
+      <div class="row-2col">
+        <label>Motivo <input id="json_motivo" type="text" placeholder="Enfermedad común" /></label>
+        <label>Tipo
+          <select id="json_tipo">
+            <option value="medica">Médica</option>
+            <option value="otra">Otra</option>
+          </select>
+        </label>
+        <label>Fecha inicio <input id="json_fi" type="date" /></label>
+        <label>Fecha fin <input id="json_ff" type="date" /></label>
+      </div>
+      <button id="btnCrearJSON">Crear (JSON)</button>
+      <div class="muted">Usa Authorization: Bearer & crea vía controlador de roles (esEstudiante).</div>
+    </fieldset>
+    <fieldset>
+      <legend>Listar Mis Licencias (GET /api/licencias/mis-licencias)</legend>
+      <button id="btnListar">Obtener</button>
+      <div id="tablaLicencias"></div>
+    </fieldset>
+    <fieldset>
+      <legend>Licencias en Revisión (GET /api/licencias/en-revision)</legend>
+      <label>Página <input id="rev_page" type="number" value="1" min="1" style="width:60px"/></label>
+      <label>Límite <input id="rev_limit" type="number" value="5" min="1" max="50" style="width:60px"/></label>
+      <button id="btnListarRevision">Obtener</button>
+      <div id="tablaLicenciasRevision"></div>
+    </fieldset>
+    <fieldset>
+      <legend>Detalle de Licencia (GET /api/licencias/detalle/:id)</legend>
+      <label>ID Licencia <input id="detalle_id" type="number" min="1" style="width:80px"/></label>
+      <button id="btnDetalleLicencia">Obtener Detalle</button>
+      <div id="detalleLicenciaBox"></div>
+      <legend>Acciones sobre Licencia Médica</legend>
+      <label>ID Licencia <input id="accion_id" type="number" min="1" style="width:80px"/></label>
+      <button id="btnAceptarLicencia" type="button">Aceptar</button>
+      <button id="btnRechazarLicencia" type="button">Rechazar</button>
+      <input id="motivoRechazo" type="text" placeholder="Motivo de rechazo" style="width:220px; display:none; margin-left:8px"/>
+    </fieldset>     
+  </div>
+</div>
+
+<h2>Consola de Respuestas</h2>
+<pre id="console">Listo para probar…</pre>
+
+<script>
+  let BASE_URL = document.getElementById('baseUrl').value; // raíz (http://localhost:3000)
+  let JWT = localStorage.getItem('jwt') || null;
+  const $ = (id) => document.getElementById(id);
+  const log = (msg, type='') => {
+    const el = $('console');
+    const prefix = type==='error' ? '❌ ' : type==='ok' ? '✅ ' : '• ';
+    el.textContent += `\n${prefix}${msg}`;
+    el.scrollTop = el.scrollHeight;
+  };
+  const setJwt = (token) => {
+    JWT = token;
+    if (token) {
+      localStorage.setItem('jwt', token);
+      $('jwtStatus').innerHTML = `<span class="ok">Guardado</span>`;
+      const mj = $('manual_jwt'); if (mj) mj.value = token;
+    } else {
+      localStorage.removeItem('jwt');
+      $('jwtStatus').innerHTML = `<span class="err">No</span>`;
+      const mj = $('manual_jwt'); if (mj) mj.value = '';
+    }
+    renderPayload();
+  };
+
+  // Enviamos Authorization y x-token (ambos)
+  const authHeaders = () => (JWT ? { 'Authorization': 'Bearer ' + JWT, 'x-token': JWT } : {});
+
+  const safeJson = async (res) => { const text = await res.text(); try { return JSON.parse(text);} catch { return text; } };
+
+  const updateEnvBadge = () => { $('env').innerHTML = `BASE_URL: <code>${BASE_URL}</code>`; };
+
+  $('applyBase').onclick = () => {
+    BASE_URL = $('baseUrl').value.trim().replace(/\/+$/,'');
+    updateEnvBadge();
+    log(`BASE_URL aplicado: ${BASE_URL}`, 'ok');
+  };
+  updateEnvBadge();
+  $('jwtStatus').textContent = JWT ? 'Guardado' : '—';
+
+  // Controles JWT manual
+  $('saveJwt').onclick = () => {
+    const v = $('manual_jwt').value.trim();
+    if (!v) return;
+    setJwt(v);
+    log('JWT guardado manualmente.', 'ok');
+  };
+  $('clearJwt').onclick = () => {
+    setJwt(null);
+    log('JWT borrado.', 'ok');
+  };
+
+  // ==== Helpers: decodificar y mostrar payload ====
+  function decodeJwtPayload(token) {
+    try {
+      const [,payload] = token.split('.');
+      const b64 = payload.replace(/-/g,'+').replace(/_/g,'/');
+      const padded = b64 + '='.repeat((4 - b64.length % 4) % 4);
+      return JSON.parse(atob(padded));
+    } catch { return null; }
+  }
+  function renderPayload() {
+    const box = $('payloadBox');
+    if (!JWT) { box.textContent = '(sin JWT)'; return; }
+    const p = decodeJwtPayload(JWT) || {};
+    box.textContent = JSON.stringify({
+      id_usuario: p.id_usuario ?? p.user_id ?? p.uid ?? p.id ?? p.userId ?? p.idUsuario ?? null,
+      roles: p.roles ?? p.rol ?? p.role ?? null,
+      exp: p.exp ?? null,
+      iat: p.iat ?? null,
+      raw: p
+    }, null, 2);
+  }
+  $('showPayload').onclick = renderPayload;
+  renderPayload();
+
+  function getUserIdFromJWT() {
+    if (!JWT) return null;
+    const p = decodeJwtPayload(JWT);
+    if (!p || typeof p !== 'object') return null;
+    const candidates = ['id_usuario','user_id','uid','id','userId','idUsuario'];
+    for (const k of candidates) {
+      if (p[k] != null && !Number.isNaN(Number(p[k]))) return Number(p[k]);
+    }
+    return null;
+  }
+
+  // ===== Registro =====
+  $('btnRegister').onclick = async () => {
+    const body = {
+      nombre: $('reg_nombre').value,
+      correo: $('reg_correo').value,
+      contrasena: $('reg_pass').value
+    };
+    try {
+      const res = await fetch(`${BASE_URL}/usuarios/registro`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      const data = await safeJson(res);
+      log(`POST /usuarios/registro → ${res.status}\n${JSON.stringify(data, null, 2)}`, res.ok?'ok':'error');
+    } catch (e) {
+      log(`Error registro: ${e.message}`, 'error');
+    }
+  };
+
+  // ===== Login =====
+  $('btnLogin').onclick = async () => {
+    const body = { correo: $('log_correo').value, contrasena: $('log_pass').value };
+    try {
+      const res = await fetch(`${BASE_URL}/usuarios/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      const data = await safeJson(res);
+      log(`POST /usuarios/login → ${res.status}\n${JSON.stringify(data, null, 2)}`, res.ok?'ok':'error');
+
+      // Captura robusta del token (token/jwt/access_token o anidado)
+      if (res.ok) {
+        const candidates = [data?.token, data?.jwt, data?.access_token, data?.accessToken, data?.tokenJWT, data?.t];
+        let tok = candidates.find(v => typeof v === 'string' && v.split('.').length === 3);
+        if (!tok && typeof data === 'string' && data.split('.').length === 3) tok = data;
+        if (!tok && data && typeof data === 'object') {
+          for (const k of Object.keys(data)) {
+            const v = data[k];
+            if (typeof v === 'string' && v.split('.').length === 3) { tok = v; break; }
+          }
+        }
+        if (tok) {
+          setJwt(tok);
+          log('Token guardado y se enviará en Authorization y x-token.', 'ok');
+        } else {
+          log('Login OK pero no encontré el token en la respuesta. Pega el JWT manualmente.', 'error');
+        }
+      }
+    } catch (e) {
+      log(`Error login: ${e.message}`, 'error');
+    }
+  };
+
+  $('btnLogout').onclick = () => {
+    setJwt(null);
+    log('Sesión cerrada y JWT eliminado', 'ok');
+  };
+
+  // ===== Licencias =====
+
+  // Crear licencia (MÉDICA multipart → POST /api/licencias/medica)
+  $('formLicencia').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const fd = new FormData(ev.target);
+
+    // Campos obligatorios
+    const folio = $('med_folio').value.trim();
+
+    // Estado (opcional)
+    const sendEstado = $('med_sendEstado').checked;
+    let estado = $('med_estado').value.trim();
+    if (sendEstado) {
+      let e = estado.toLowerCase().replace(/\s+/g, '_');
+      const map = {
+        'aprobada':'aceptado', 'aprobado':'aceptado', 'aceptada':'aceptado',
+        'en_revision':'pendiente', 'en-revision':'pendiente', 'en revisión':'pendiente',
+        'rechazada':'rechazado'
+      };
+      e = map[e] || e;
+      const permitidos = new Set(['pendiente','aceptado','rechazado']);
+      if (!permitidos.has(e)) {
+        log(`Estado "${estado}" no permitido; usando "pendiente".`, 'error');
+        e = 'pendiente';
+      }
+      fd.delete('estado');
+      fd.set('estado', e);
+    } else {
+      fd.delete('estado'); // deja default 'pendiente'
+    }
+
+    // Fecha de emisión (obligatoria): si no hay, usa fecha_inicio
+    let em = $('med_emision').value.trim() || (fd.get('fecha_inicio') || '').toString();
+    const ddmmyyyy = /^(\d{2})[\/-](\d{2})[\/-](\d{4})$/;
+    if (ddmmyyyy.test(em)) em = em.replace(ddmmyyyy, '$3-$2-$1');
+    fd.delete('fecha_emision');
+    fd.set('fecha_emision', em);
+
+    // id_usuario desde JWT o manual
+    let idUsuario = null;
+    if ($('med_useJwt').checked) {
+      idUsuario = getUserIdFromJWT();
+      if (!idUsuario) log('No pude leer id_usuario del JWT; usa el campo manual.', 'error');
+    }
+    if (!idUsuario) {
+      const n = Number($('med_id_usuario').value);
+      if (Number.isNaN(n)) {
+        log('Debes indicar id_usuario (número) o habilitar "usar id de JWT".', 'error');
+        return;
+      }
+      idUsuario = n;
+    }
+
+    // Validaciones rápidas cliente
+    const ini = new Date(fd.get('fecha_inicio'));
+    const fin = new Date(fd.get('fecha_fin'));
+    if (!folio) { log('Falta folio (requerido por /medica).', 'error'); return; }
+    if (isNaN(ini) || isNaN(fin) || ini > fin) {
+      log('Validación cliente: fecha_inicio debe ser ≤ fecha_fin', 'error');
+      return;
+    }
+    const file = fd.get('archivo');
+    if (file && file.size > 2 * 1024 * 1024) {
+      log('Validación cliente: archivo supera 2MB', 'error');
+      return;
+    }
+
+    // Asegura campos “limpios”
+    fd.delete('folio');      fd.set('folio', folio);
+    fd.delete('id_usuario'); fd.set('id_usuario', String(idUsuario));
+
+    try {
+      const res = await fetch(`${BASE_URL}/api/licencias/medica`, {
+        method: 'POST',
+        headers: { ...authHeaders() }, // NO setear Content-Type con FormData
+        body: fd
+      });
+      const data = await safeJson(res);
+      log(`POST /api/licencias/medica → ${res.status}\n${JSON.stringify(data, null, 2)}`, res.ok?'ok':'error');
+    } catch (e) {
+      log(`Error crear licencia (medica): ${e.message}`, 'error');
+    }
+  });
+
+  // Crear licencia (JSON con roles → POST /api/licencias/crear)
+  $('btnCrearJSON').onclick = async () => {
+    const body = {
+      motivo: $('json_motivo').value,
+      tipo: $('json_tipo').value,
+      fecha_inicio: $('json_fi').value,
+      fecha_fin: $('json_ff').value
+    };
+    const ini = new Date(body.fecha_inicio);
+    const fin = new Date(body.fecha_fin);
+    if (isNaN(ini) || isNaN(fin) || ini > fin) {
+      log('Validación cliente (JSON): fecha_inicio ≤ fecha_fin', 'error');
+      return;
+    }
+    try {
+      const res = await fetch(`${BASE_URL}/api/licencias/crear`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify(body)
+      });
+      const data = await safeJson(res);
+      log(`POST /api/licencias/crear → ${res.status}\n${JSON.stringify(data, null, 2)}`, res.ok?'ok':'error');
+      if (res.status === 401) log('Asegúrate de haber guardado un JWT y que se envía en los headers.', 'error');
+      if (res.status === 403) log('Tu usuario no tiene el rol requerido (esEstudiante). Revisa el payload del JWT.', 'error');
+    } catch (e) {
+      log(`Error crear licencia (JSON): ${e.message}`, 'error');
+    }
+  };
+
+  // Listar mis licencias (GET /api/licencias/mis-licencias)
+  $('btnListar').onclick = async () => {
+    try {
+      const res = await fetch(`${BASE_URL}/api/licencias/mis-licencias`, {
+        headers: { 'Accept': 'application/json', ...authHeaders() }
+      });
+      const data = await safeJson(res);
+      log(`GET /api/licencias/mis-licencias → ${res.status}\n${JSON.stringify(data, null, 2)}`, res.ok?'ok':'error');
+      const cont = $('tablaLicencias');
+      const arr = Array.isArray(data) ? data : (data && Array.isArray(data.data) ? data.data : []);
+      cont.innerHTML = renderTablaLicencias(arr);
+      if (res.status === 401) log('No hay token en la petición. Guarda un JWT y reintenta.', 'error');
+    } catch (e) {
+      log(`Error listar licencias: ${e.message}`, 'error');
+    }
+  };
+
+  function renderTablaLicencias(arr) {
+    if (!arr.length) return '<div class="muted">Sin licencias.</div>';
+    const cols = ['id_licencia','folio','fecha_emision','fecha_inicio','fecha_fin','estado','motivo_rechazo','fecha_creacion','id_usuario'];
+    const head = '<tr>' + cols.map(c=>`<th>${c}</th>`).join('') + '</tr>';
+    const rows = arr.map(it => '<tr>' + cols.map(c => `<td>${it?.[c] ?? ''}</td>`).join('') + '</tr>').join('');
+    return `<table>${head}${rows}</table>`;
+  }
+
+  // ===== Reset por código (usa /usuarios/...) =====
+  $('btnResetRequest').onclick = async () => {
+    try {
+      const email = $('reset_email').value.trim();
+      const res = await fetch(`${BASE_URL}/usuarios/password-reset/request`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+      const data = await safeJson(res);
+      log(`POST /usuarios/password-reset/request → ${res.status}\n${JSON.stringify(data, null, 2)}`, res.ok?'ok':'error');
+    } catch (e) {
+      log(`Error reset request: ${e.message}`, 'error');
+    }
+  };
+
+  $('btnResetConfirm').onclick = async () => {
+    try {
+      const email = $('reset_email').value.trim();
+      const code = $('reset_code').value.trim();
+      const newPassword = $('reset_newpass').value;
+      const res = await fetch(`${BASE_URL}/usuarios/password-reset/confirm`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, code, newPassword })
+      });
+      const data = await safeJson(res);
+      log(`POST /usuarios/password-reset/confirm → ${res.status}\n${JSON.stringify(data, null, 2)}`, res.ok?'ok':'error');
+    } catch (e) {
+      log(`Error reset confirm: ${e.message}`, 'error');
+    }
+  };
+
+  $('btnListarRevision').onclick = async () => {
+    const page = Number($('rev_page').value) || 1;
+    const limit = Number($('rev_limit').value) || 5;
+    try {
+      const res = await fetch(`${BASE_URL}/api/licencias/en-revision?page=${page}&limit=${limit}`, {
+        headers: { 'Accept': 'application/json', ...authHeaders() }
+      });
+      const data = await safeJson(res);
+      log(`GET api/licencias/en-revision → ${res.status}\n${JSON.stringify(data, null, 2)}`, res.ok?'ok':'error');
+      const cont = $('tablaLicenciasRevision');
+      const arr = Array.isArray(data) ? data : (data && Array.isArray(data.data) ? data.data : []);
+      cont.innerHTML = renderTablaLicencias(arr);
+      if (res.status === 401) log('No hay token en la petición. Guarda un JWT y reintenta.', 'error');
+    } catch (e) {
+      log(`Error listar licencias en revisión: ${e.message}`, 'error');
+    }
+  };
+
+  $('btnDetalleLicencia').onclick = async () => {
+    const id = Number($('detalle_id').value);
+    if (!id) {
+      log('Debes ingresar un ID de licencia válido.', 'error');
+      return;
+    }
+    try {
+      const res = await fetch(`${BASE_URL}/api/licencias/detalle/${id}`, {
+        headers: { 'Accept': 'application/json', ...authHeaders() }
+      });
+      const data = await safeJson(res);
+      log(`GET /api/licencias/detalle/${id} → ${res.status}\n${JSON.stringify(data, null, 2)}`, res.ok?'ok':'error');
+      $('detalleLicenciaBox').innerHTML = renderDetalleLicencia(data.detalle || []);
+      if (res.status === 401) log('No hay token en la petición. Guarda un JWT y reintenta.', 'error');
+      if (res.status === 404) log('Licencia no encontrada o sin permiso.', 'error');
+    } catch (e) {
+      log(`Error al obtener detalle de licencia: ${e.message}`, 'error');
+    }
+  };
+
+  function renderDetalleLicencia(arr) {
+    if (!arr.length) return '<div class="muted">Sin datos de licencia.</div>';
+    // Muestra todas las columnas relevantes
+    const cols = [
+      'id_licencia','folio','fecha_emision','fecha_inicio','fecha_fin','estado','motivo_rechazo','fecha_creacion',
+      'id_usuario','nombre','correo_usuario','id_rol',
+      'id_archivo','ruta_url','tipo_mime','hash','tamano','fecha_subida'
+    ];
+    const head = '<tr>' + cols.map(c=>`<th>${c}</th>`).join('') + '</tr>';
+    const rows = arr.map(it => '<tr>' + cols.map(c => `<td>${it?.[c] ?? ''}</td>`).join('') + '</tr>').join('');
+    return `<table>${head}${rows}</table>`;
+}
+
+  // Mostrar caja de texto solo al rechazar
+  $('btnRechazarLicencia').onclick = () => {
+    $('motivoRechazo').style.display = 'inline-block';
+    $('motivoRechazo').focus();
+  };
+
+  // Aceptar licencia
+  $('btnAceptarLicencia').onclick = async () => {
+    const id = Number($('accion_id').value);
+    if (!id) {
+      log('Debes ingresar un ID de licencia válido.', 'error');
+      return;
+    }
+    try {
+      const res = await fetch(`${BASE_URL}/api/licencias/${id}/decidir`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ estado: 'aceptado' })
+      });
+      const data = await safeJson(res);
+      log(`POST /api/licencias/decidir/${id} (aceptar) → ${res.status}\n${JSON.stringify(data, null, 2)}`, res.ok?'ok':'error');
+      $('motivoRechazo').style.display = 'none';
+    } catch (e) {
+      log(`Error al aceptar licencia: ${e.message}`, 'error');
+    }
+  };
+
+  // Rechazar licencia
+  $('motivoRechazo').onkeydown = async (ev) => {
+    if (ev.key === 'Enter') {
+      await rechazarLicencia();
+    }
+  };
+  $('btnRechazarLicencia').ondblclick = rechazarLicencia; // doble click para enviar
+
+  async function rechazarLicencia() {
+    const id = Number($('accion_id').value);
+    const motivo = $('motivoRechazo').value.trim();
+    if (!id) {
+      log('Debes ingresar un ID de licencia válido.', 'error');
+      return;
+    }
+    if (!motivo) {
+      log('Debes ingresar un motivo de rechazo.', 'error');
+      $('motivoRechazo').focus();
+      return;
+    }
+    try {
+      const res = await fetch(`${BASE_URL}/api/licencias/${id}/decidir`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ estado: 'rechazado',  motivo_rechazo: motivo })
+      });
+      const data = await safeJson(res);
+      log(`POST /api/licencias/decidir/${id} (rechazar) → ${res.status}\n${JSON.stringify(data, null, 2)}`, res.ok?'ok':'error');
+      $('motivoRechazo').style.display = 'none';
+      $('motivoRechazo').value = '';
+    } catch (e) {
+      log(`Error al rechazar licencia: ${e.message}`, 'error');
+    }
+  }
+  // Anti-abuso: muchos intentos fallidos (login)
+  $('btnAbuso').onclick = async () => {
+    const correo = $('abuso_correo').value;
+    const contrasena = $('abuso_pass').value;
+    const n = Math.max(1, Math.min(50, Number($('abuso_num').value)));
+    log(`Enviando ${n} intentos fallidos a /usuarios/login…`);
+    for (let i=1;i<=n;i++) {
+      try {
+        const res = await fetch(`${BASE_URL}/usuarios/login`, {
+          method: 'POST',
+          headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              'X-Requested-With': 'fetch'},
+          body: JSON.stringify({ correo, contrasena })
+        });
+        const txt = await res.text();
+        log(`#${i} → ${res.status} ${res.statusText} ${txt.slice(0,120)}${txt.length>120?'…':''}`);
+      } catch (e) {
+        log(`#${i} error: ${e.message}`, 'error');
+      }
+      await new Promise(r=>setTimeout(r, 150));
+    }
+    log(`Intentos finalizados.`);
+  };
+</script>
+</body>
+</html>
