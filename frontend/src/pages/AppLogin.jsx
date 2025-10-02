@@ -38,14 +38,25 @@ function AppLogin() {
       // avisar a tu AuthContext (mantengo tu API: login(userData))
       login(data.user);
 
-      // redirección por rol (ajusta rutas si usas otras)
-      navigate("/alumno");
-    } catch (err) {
-      setError(err.message || "No se pudo iniciar sesión");
-    } finally {
-      setLoading(false);
-    }
-  };
+      const rol =
+        data.usuario.id_rol?.nombre?.toLowerCase?.() ||
+        data.usuario.id_rol?.toLowerCase?.() ||
+        "";
+
+        if (rol === "estudiante" ) {
+          navigate("/alumno");
+        } else if (rol === "profesor") {
+          navigate("/profesor");
+        } else if (rol === "secretario") {
+          navigate("/secretaria");
+        } 
+      } catch (err) {
+        setError(err.message || "No se pudo iniciar sesión");
+      } finally {
+        setLoading(false);
+      }
+
+    };
 
   return (
     <div className="relative min-h-screen bg-white flex flex-col items-center justify-start py-12">
