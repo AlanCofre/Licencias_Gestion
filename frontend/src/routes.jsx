@@ -17,22 +17,10 @@ import AppEditProfile from "./pages/AppEditProfile";
 import GenerarRevision from "./pages/GenerarRevision";
 import EvaluarLicencia from "./pages/EvaluarLicencia";
 
-function RoleRedirect() {
-  const { user } = useAuth();
-  if (!user) return <Navigate to="/login" replace />;
-
-  const role = String(user.role || "").toLowerCase();
-  if (role === "secretaria" || role === "secretary") return <Navigate to="/secretaria" replace />;
-  
-
-  // por defecto -> alumno
-  return <Navigate to="/alumno" replace />;
-}
-
 export default function AppRoutes() {
   return (
     <Routes>
-      <Route path="/" element={<RoleRedirect />} />
+      <Route path="/" element={<Navigate to="/login" replace />} />
 
       {/* Inicios por role */}
       <Route path="/alumno" element={<Dashboard />} />

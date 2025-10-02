@@ -25,18 +25,47 @@ export const mostrarIndex = (_req, res) => {
 // ===== Registro =====
 export async function registrar(req, res) {
   try {
-    const { nombre, correo, contrasena, idRol } = req.body;
-    // Por defecto, registrar como ESTUDIANTE (2) si no envían idRol
-    const roleId = Number.isInteger(idRol) ? idRol : 2;
+    const b = req.body || {};
 
-    const usuario = await UsuarioService.registrar(nombre, correo, contrasena, roleId);
-    // Devuelve JSON (más claro para pruebas); si quieres redirigir, cambia aquí
-    return res.status(201).json({ mensaje: 'Usuario registrado', usuario });
+    // Normalizar posibles nombres que pueda mandar el FE
+    const nombre =
+      b.nombre ?? b.name ?? b.nombre_completo ?? b.fullname ?? null;
+
+    const correo_usuario =
+      b.correo_usuario ?? b.correo ?? b.email ?? b.username ?? null;
+
+    const contrasena =
+      b.contrasena ?? b.password ?? b.pass ?? b.pwd ?? null;
+
+    // Rol por defecto: estudiante (ID 2) – ajusta si tu BD usa otro ID
+    const roleId = Number.isInteger(b.idRol) ? b.idRol : 2;
+
+    // Validación mínima
+    if (!nombre || !correo_usuario || !contrasena) {
+      return res.status(400).json({
+        ok: false,
+        error: 'Faltan campos requeridos: nombre, correo_usuario y contrasena',
+        body_recibido: Object.keys(b)
+      });
+    }
+
+    // Opcional para depuración:
+    // console.log('[registrar] body normalizado:', { nombre, correo_usuario });
+
+    const usuario = await UsuarioService.registrar(
+      nombre,
+      correo_usuario,
+      contrasena,
+      roleId
+    );
+
+    return res.status(201).json({ ok: true, mensaje: 'Usuario registrado', usuario });
   } catch (err) {
     console.error('[registrar] error:', err);
-    return res.status(400).json({ error: err.message || 'Error al registrar' });
+    return res.status(400).json({ ok: false, error: err.message || 'Error al registrar' });
   }
 }
+
 
 // ===== Login (emite JWT con { id, rol }) =====
 export async function login(req, res) {
