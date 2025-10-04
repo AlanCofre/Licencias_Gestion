@@ -1,4 +1,6 @@
 import React, { useState, useRef } from "react";
+import Navbar from "../components/Navbar";
+import Footer from "../components/Footer";
 import BannerSection from "../components/BannerSection";
 import { Upload } from "lucide-react";
 
@@ -90,7 +92,9 @@ export default function GenerarRevision() {
   const hoy = new Date().toISOString().split("T")[0];
 
   return (
-    <div className="flex flex-col flex-grow bg-blue-100">
+    <div className="min-h-screen flex flex-col bg-blue-100">
+      <Navbar />
+
       {/* Banner superior */}
       <BannerSection title="Generar revisión de licencia" />
 
@@ -205,6 +209,8 @@ export default function GenerarRevision() {
           </div>
         </div>
       </main>
+
+      <Footer />
     </div>
   );
 }
