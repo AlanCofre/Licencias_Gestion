@@ -1,6 +1,7 @@
 // backend/src/routes/licencias.routes.js
 import { Router } from 'express';
 import multer from 'multer';
+import db from '../../db/db.js';
 
 import { validarJWT, esEstudiante, tieneRol } from '../../middlewares/auth.js';
 import { crearLicencia, listarLicencias} from '../../controllers/licencias.controller.js';
@@ -90,4 +91,56 @@ router.put(
   decidirLicencia                  // controller que persiste cambios
 );
 
+router.get('/resueltas', validarJWT, async (req, res) => {
+  const { estado, desde, hasta } = req.query;
+
+  let condiciones = [`estado IN ('aceptado', 'rechazado')`];
+  let valores = [];
+
+  if (estado && ['aceptado', 'rechazado'].includes(estado)) {
+    condiciones = [`estado = ?`];
+    valores.push(estado);
+  }
+
+  if (desde) {
+    condiciones.push(`fecha_emision >= ?`);
+    valores.push(desde);
+  }
+
+  if (hasta) {
+    condiciones.push(`fecha_emision <= ?`);
+    valores.push(hasta);
+  }
+
+  const where = condiciones.length ? `WHERE ${condiciones.join(' AND ')}` : '';
+
+  try {
+    const [licencias] = await db.execute(`
+      SELECT 
+        id_licencia,
+        folio,
+        fecha_emision,
+        fecha_inicio,
+        fecha_fin,
+        estado,
+        motivo_rechazo,
+        fecha_creacion,
+        id_usuario
+      FROM licenciamedica
+      ${where}
+      ORDER BY fecha_creacion DESC
+    `, valores);
+
+    return res.status(200).json({ licencias });
+  } catch (error) {
+    console.error('❌ Error al obtener licencias resueltas:', error);
+    return res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+
+
+
 export default router;
+
+
