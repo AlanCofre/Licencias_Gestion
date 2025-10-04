@@ -31,7 +31,7 @@ function AppLogin() {
       />
 
       {/* Título principal */}
-      <h1 className="relative z-10 text-white text-center font-extrabold text-[clamp(2rem,8vw,8rem)] drop-shadow-[0_8px_9px_rgba(0,0,0,0.5)] mb-12">
+      <h1 className="relative z-10 text-white text-center font-extrabold text-[clamp(2rem,8vw,8rem)] drop-shadow-[0_8px_9px_rgba(0,0,0,0.5)] mb-12 font-display">
         MedManager
       </h1>
 
@@ -82,7 +82,7 @@ function AppLogin() {
         <span>¿No tienes una cuenta? </span>
         <span
           className="text-[#76F1FF] font-bold cursor-pointer hover:underline"
-          onClick={() => navigate("/register")}
+          onClick={() => navigate("/registro")}
         >
           Regístrate aquí.
         </span>

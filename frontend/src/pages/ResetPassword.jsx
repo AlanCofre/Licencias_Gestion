@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom"; // ✅ importar hook
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 
@@ -6,17 +7,22 @@ export default function ResetPassword() {
   const [code, setCode] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const navigate = useNavigate(); // ✅ inicializar navigate
 
   const handleReset = () => {
     if (!code || !password) {
       alert("Completa todos los campos.");
       return;
     }
+
     setLoading(true);
+
     setTimeout(() => {
       setLoading(false);
       alert("Tu contraseña fue restablecida correctamente.");
-      window.location.href = "/";
+
+      // ✅ redirigir al login
+      navigate("/login");
     }, 1500);
   };
 
@@ -26,7 +32,9 @@ export default function ResetPassword() {
 
       <main className="flex-grow flex items-center justify-center px-4">
         <div className="bg-white shadow-lg rounded-xl p-8 w-full max-w-md">
-          <h2 className="text-2xl font-bold text-gray-800 mb-4">Restablecer contraseña</h2>
+          <h2 className="text-2xl font-bold text-gray-800 mb-4">
+            Restablecer contraseña
+          </h2>
           <p className="text-gray-600 mb-6">
             Ingresa el código que recibiste y tu nueva contraseña.
           </p>
@@ -51,7 +59,9 @@ export default function ResetPassword() {
             onClick={handleReset}
             disabled={loading}
             className={`w-full py-2 rounded-lg text-white font-semibold transition ${
-              loading ? "bg-gray-400 cursor-not-allowed" : "bg-green-600 hover:bg-green-700"
+              loading
+                ? "bg-gray-400 cursor-not-allowed"
+                : "bg-green-600 hover:bg-green-700"
             }`}
           >
             {loading ? "Guardando..." : "Guardar nueva contraseña"}
