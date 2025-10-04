@@ -53,7 +53,6 @@ export default function AppRoutes() {
       <Route path="/license/:id" element={<LicenseDetailView />} />
       <Route path="/edit-profile" element={<AppEditProfile />} />
       <Route path="/evaluar/:id" element={<EvaluarLicencia />} />
-      <Route path="/gestionar/:id" element={<EvaluarLicencia />} />
 
       {/* Rutas heredadas (opcional: apuntan al dashboard de alumno) */}
       <Route path="/pendientes" element={<Dashboard />} />
