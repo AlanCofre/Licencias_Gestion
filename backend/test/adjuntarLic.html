@@ -166,6 +166,72 @@
 
 </script>
 
+  <hr>
+
+  <h2>Modificar estado de una licencia</h2>
+
+  <label>ID Licencia Médica:</label>
+  <input type="text" id="modificar_id_licencia" placeholder="Ej: 123"><br><br>
+
+  <label>Nuevo Estado:</label>
+  <select id="modificar_estado">
+    <option value="aceptado">Aprobada</option>
+    <option value="rechazado">Rechazada</option>
+  </select><br><br>
+
+  <label>Motivo Rechazo (si aplica):</label>
+  <textarea id="modificar_motivo"></textarea><br><br>
+
+  <label>ID Usuario (estudiante):</label>
+  <input type="number" id="modificar_id_usuario" placeholder="Ej: 12"><br><br>
+
+  <label>ID Profesor (si aplica):</label>
+  <input type="number" id="modificar_id_profesor" placeholder="Ej: 34"><br><br>
+
+
+  <button onclick="modificarEstadoLicencia()">Actualizar estado</button>
+
+  <pre id="modificarResultado"></pre>
+
+  <script>
+    async function modificarEstadoLicencia() {
+      const token = localStorage.getItem('jwt');
+      if (!token) {
+        alert('Token JWT no encontrado. Inicia sesión primero.');
+        return;
+      }
+
+      const id = document.getElementById('modificar_id_licencia').value;
+      const estado = document.getElementById('modificar_estado').value;
+      const motivo = document.getElementById('modificar_motivo').value;
+      const id_usuario = document.getElementById('modificar_id_usuario').value;
+      const id_profesor = document.getElementById('modificar_id_profesor').value;
+
+      if (!id || !estado) {
+        alert('Completa el ID de licencia y el estado.');
+        return;
+      }
+
+      const res = await fetch(`http://localhost:3000/api/licencias/${id}/notificar`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          estado,
+          motivo_rechazo: motivo,
+          id_usuario: id_usuario || null,
+          id_profesor: id_profesor || null
+        })
+      });
+
+      const json = await res.json();
+      document.getElementById('modificarResultado').textContent = JSON.stringify(json, null, 2);
+    }
+  </script>
+
+
 
 </body>
 </html>

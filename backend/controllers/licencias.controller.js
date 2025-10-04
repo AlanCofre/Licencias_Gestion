@@ -406,4 +406,91 @@ export async function decidirLicencia(req, res) {
   }
 }
 
-export default { listarLicencias, crearLicencia, crearLicenciaLegacy, getLicenciasEnRevision, decidirLicencia, detalleLicencia };
+export async function notificarEstado(req, res) {
+  const { estado, motivo_rechazo, id_usuario, id_profesor } = req.body;
+  const { licencia } = req;
+  const usuarioId = req.user?.id_usuario ?? null;
+  const ip = req.ip ?? '0.0.0.0';
+
+  // Override temporal para pruebas
+  licencia.id_usuario = id_usuario ?? licencia.id_usuario ?? null;
+  licencia.id_profesor = id_profesor ?? licencia.id_profesor ?? null;
+
+  try {
+    // 1. Actualizar estado
+    await db.execute(`
+      UPDATE licenciamedica
+      SET estado = ?, motivo_rechazo = ?, fecha_creacion = NOW()
+      WHERE id_licencia = ?
+    `, [
+      estado,
+      motivo_rechazo !== undefined ? motivo_rechazo : null,
+      licencia.id_licencia
+    ]);
+
+    // 2. Registrar en logauditoria (solo si hay usuarioId)
+    console.log('🧠 Usuario autenticado:', req.user);
+    console.log('🧠 ID para logauditoria:', usuarioId);
+
+    if (usuarioId) {
+      await db.execute(`
+        INSERT INTO logauditoria (accion, recurso, payload, ip, fecha, id_usuario)
+        VALUES (?, ?, ?, ?, NOW(), ?)
+      `, [
+        'cambiar estado',
+        'licenciamedica',
+        JSON.stringify({
+          id_licencia: licencia.id_licencia,
+          estado_anterior: licencia.estado,
+          estado_nuevo: estado
+        }),
+        ip,
+        usuarioId
+      ]);
+    }
+
+    // 3. Notificación al estudiante
+    if (licencia.id_usuario) {
+      const mensajeEstudiante = estado === 'rechazado'
+        ? 'Tu licencia ha sido rechazada. Revisa el motivo en el sistema.'
+        : 'Tu licencia ha sido aprobada. Ya no necesitas justificar asistencia.';
+
+      await db.execute(`
+        INSERT INTO notificacion (asunto, contenido, leido, fecha_envio, id_usuario)
+        VALUES (?, ?, 0, NOW(), ?)
+      `, [
+        `Licencia ${estado}`,
+        mensajeEstudiante,
+        licencia.id_usuario
+      ]);
+    }
+
+    // 4. Notificación al profesor (solo si fue aceptada)
+    if (estado === 'aceptado' && licencia.id_profesor) {
+      await db.execute(`
+        INSERT INTO notificacion (asunto, contenido, leido, fecha_envio, id_usuario)
+        VALUES (?, ?, 0, NOW(), ?)
+      `, [
+        'Licencia aprobada del estudiante',
+        `La licencia del estudiante ${licencia.id_usuario} ha sido aprobada.`,
+        licencia.id_profesor
+      ]);
+    }
+
+    return res.status(200).json({ ok: true, mensaje: 'Licencia actualizada y notificaciones enviadas' });
+
+  } catch (error) {
+    console.error('❌ Error al decidir licencia:', {
+      mensaje: error.message,
+      stack: error.stack,
+      detalles: error
+    });
+    return res.status(500).json({ ok: false, error: 'Error interno al decidir licencia' });
+  }
+}
+
+
+
+export default { listarLicencias, crearLicencia, crearLicenciaLegacy, getLicenciasEnRevision, detalleLicencia, decidirLicencia, notificarEstado };
+
+

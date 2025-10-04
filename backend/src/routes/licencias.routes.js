@@ -4,7 +4,7 @@ import multer from 'multer';
 import db from '../../db/db.js';
 
 import { validarJWT, esEstudiante, tieneRol } from '../../middlewares/auth.js';
-import { crearLicencia, listarLicencias} from '../../controllers/licencias.controller.js';
+import { crearLicencia, listarLicencias, notificarEstado} from '../../controllers/licencias.controller.js';
 import { decidirLicencia } from '../../controllers/licencias.controller.js';
 import { getLicenciasEnRevision } from '../../controllers/licencias.controller.js';
 import { authRequired } from '../../middlewares/requireAuth.js';
@@ -90,6 +90,22 @@ router.put(
   },
   decidirLicencia                  // controller que persiste cambios
 );
+
+router.put(
+  '/:id/notificar',
+  authRequired,
+  requireRole(['secretario']),
+  validateDecision,
+  cargarLicencia,
+  (req, res, next) =>
+    validarTransicionEstado(req.licencia.estado)(req, res, next),
+  (req, _res, next) => {
+    if (req.body?.estado) req.body.estado = normalizaEstado(req.body.estado);
+    next();
+  },
+  notificarEstado
+);
+
 
 router.get('/resueltas', validarJWT, async (req, res) => {
   const { estado, desde, hasta } = req.query;
