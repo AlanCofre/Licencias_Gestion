@@ -1,0 +1,17 @@
+acciones y recursos a usar
+
+1) Crear cuenta (recursos): usuario, rol, log
+
+2) Actualizar cuenta (recursos): usuario, notificaciones, log  
+
+3) Iniciar sesion (recursos): usuario, log  
+
+4) Recuperar contraseña (recursos): usuario, notificaciones, log  
+
+5) Emitir licencia (recursos): usuario (estudiante), licencia, notificaciones, log  
+
+6) Aceptar licencia (recursos): usuario (secretario), licencia, notificaciones, log  
+
+7) Rechazar licencia (recursos): usuario (secretario), licencia, notificaciones, log
+
+8) Validar credencial (recursos): usuario, notificaciones, log
