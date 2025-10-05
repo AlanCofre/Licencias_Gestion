@@ -1,50 +1,62 @@
-
 import pool from '../db/db.js';
 
-async function registrarArchivo(req, res) {
+function isSha256Hex(s) {
+  return typeof s === 'string' && /^[0-9a-f]{64}$/i.test(s);
+}
+
+export async function registrarArchivo(req, res) {
   try {
     const { ruta_url, tipo_mime, hash, tamano, id_licencia } = req.body || {};
 
-    // Validaciones mínimas
-    if (!ruta_url || typeof ruta_url !== 'string' || ruta_url.length > 4096) {
+    // --- Validaciones mínimas + reforzadas ---
+    if (!ruta_url || typeof ruta_url !== 'string' || ruta_url.trim().length === 0 || ruta_url.length > 4096) {
       return res.status(400).json({ ok: false, mensaje: 'ruta_url es requerida (<=4096)' });
     }
-    if (!tipo_mime || typeof tipo_mime !== 'string' || tipo_mime.length > 100) {
-      return res.status(400).json({ ok: false, mensaje: 'tipo_mime es requerido (<=100)' });
+
+    const mime = String(tipo_mime || '').toLowerCase().trim();
+    if (!mime || mime.length > 100 || !mime.startsWith('application/pdf')) {
+      return res.status(400).json({ ok: false, mensaje: 'tipo_mime inválido: debe ser application/pdf' });
     }
-    if (!hash || typeof hash !== 'string' || hash.length > 128) {
-      return res.status(400).json({ ok: false, mensaje: 'hash es requerido (<=128)' });
+
+    if (!isSha256Hex(hash)) {
+      return res.status(400).json({ ok: false, mensaje: 'hash inválido: debe ser SHA-256 hex (64 caracteres)' });
     }
-    if (!Number.isInteger(Number(tamano)) || Number(tamano) <= 0) {
-      return res.status(400).json({ ok: false, mensaje: 'tamano debe ser entero positivo' });
+
+    const sizeNum = Number(tamano);
+    if (!Number.isInteger(sizeNum) || sizeNum <= 0 || sizeNum > 10 * 1024 * 1024) { // 10MB
+      return res.status(400).json({ ok: false, mensaje: 'tamano debe ser entero positivo (<=10MB)' });
     }
-    if (!Number.isInteger(Number(id_licencia))) {
+
+    const licId = Number(id_licencia);
+    if (!Number.isInteger(licId)) {
       return res.status(400).json({ ok: false, mensaje: 'id_licencia inválido' });
     }
 
-    // Verificar que la licencia existe
+    // --- Verificar que la licencia existe ---
     const [lic] = await pool.execute(
       'SELECT id_licencia FROM LicenciaMedica WHERE id_licencia = ?',
-      [id_licencia]
+      [licId]
     );
     if (!lic.length) {
       return res.status(404).json({ ok: false, mensaje: 'Licencia no encontrada' });
     }
 
-    // Insertar en ArchivoLicencia
+    // --- (Opcional) Pre-chequeo de duplicado por hash ---
+    // Si elegiste "único global por hash":
+    // const [dup] = await pool.execute('SELECT id_archivo FROM ArchivoLicencia WHERE hash = ? LIMIT 1', [hash]);
+    // Si elegiste "único por licencia":
+    // const [dup] = await pool.execute('SELECT id_archivo FROM ArchivoLicencia WHERE id_licencia = ? AND hash = ? LIMIT 1', [licId, hash]);
+    // if (dup.length) {
+    //   return res.status(400).json({ ok: false, mensaje: 'Archivo duplicado (hash ya existe)' });
+    // }
+
+    // --- Insertar ---
     const sql = `
       INSERT INTO ArchivoLicencia
         (ruta_url, tipo_mime, hash, tamano, fecha_subida, id_licencia)
-      VALUES
-        (?, ?, ?, ?, NOW(), ?)
+      VALUES (?, ?, ?, ?, NOW(), ?)
     `;
-    const [r] = await pool.execute(sql, [
-      ruta_url,
-      tipo_mime,
-      hash,
-      Number(tamano),
-      Number(id_licencia)
-    ]);
+    const [r] = await pool.execute(sql, [ruta_url, mime, hash, sizeNum, licId]);
 
     return res.status(201).json({
       ok: true,
@@ -52,16 +64,16 @@ async function registrarArchivo(req, res) {
       data: { id_archivo: r.insertId }
     });
   } catch (e) {
+    // Duplicado por restricción única
+    if (e && e.code === 'ER_DUP_ENTRY') {
+      return res.status(400).json({
+        ok: false,
+        mensaje: 'Archivo duplicado (hash ya existe)'
+      });
+    }
     console.error('Error registrando archivo:', e);
-    return res.status(500).json({
-      ok: false,
-      mensaje: 'Error registrando archivo',
-      detalle: e.message
-    });
+    return res.status(500).json({ ok: false, mensaje: 'Error registrando archivo', detalle: e.message });
   }
 }
 
-// Exportación como objeto default
-export default {
-  registrarArchivo
-};
+export default { registrarArchivo };
