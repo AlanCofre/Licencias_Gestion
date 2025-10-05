@@ -23,6 +23,15 @@ import LicenciaMedica from '../models/modelo_LicenciaMedica.js';
 
 const router = Router();
 
+router.patch(
+  '/:id/decision',           // ← relativo (no poner /api ni /licencias aquí)
+  validarJWT,
+  tieneRol('funcionario'),
+  validateDecision,
+  decidirLicencia
+);
+
+
 
 // Multer: archivo en memoria (luego tu controller lo sube a Firebase/S3 si aplica)
 const upload = multer({ storage: multer.memoryStorage() });

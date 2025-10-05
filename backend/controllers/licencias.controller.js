@@ -161,7 +161,7 @@ export const crearLicencia = async (req, res) => {
     try {
       const idLicencia = result.insertId;
 
-      // En tu tabla archivo_licencia: ruta_url NOT NULL
+      // En tu tabla archivolicencia: ruta_url NOT NULL
       // Si subes archivo pero aún no tienes URL real, guardamos un placeholder.
       const ruta_url = req.body?.ruta_url ?? (archivo ? 'local://sin-url' : null);
       const tipo_mime = req.body?.tipo_mime ?? (archivo?.mimetype ?? null);
@@ -353,55 +353,60 @@ export const crearLicenciaLegacy = async (req, res) => {
 export async function decidirLicencia(req, res) {
   try {
     const idLicencia = Number(req.params.id);
-    const motivo_rechazo = req.body.motivo_rechazo ?? null;
-    const { estado, force } = req.body || {};
-
-    const idSecretario =
-      req.user?.id_usuario ??
-      req.user?.id ??
-      null;
+    const idSecretario = req.user?.id_usuario ?? null;
 
     if (!idSecretario) {
-      return res.status(401).json({
-        ok: false,
-        error: 'Token sin id_usuario (no se puede registrar historial)'
-      });
+      return res.status(401).json({ ok: false, error: "No autenticado" });
+    }
+    if (!idLicencia) {
+      return res.status(400).json({ ok: false, error: "ID de licencia inválido" });
     }
 
-    const nuevoEstado = (estado || '').toString().trim();
-    if (!['pendiente', 'aceptado', 'rechazado'].includes(nuevoEstado)) {
-      return res.status(400).json({ ok: false, error: 'estado no válido' });
-    }
-
-    if (nuevoEstado === 'rechazado') {
-      if (!motivo_rechazo || String(motivo_rechazo).trim() === '') {
-        return res.status(400).json({ ok: false, error: 'Debe incluir motivo_rechazo al rechazar' });
-      }
-    }
-
-    const licencia = await decidirLicenciaSvc({
+    // ⚠️ Ya vienen normalizados por validateDecision:
+    // - decision/estado: 'aceptado' | 'rechazado'
+    // - _fi/_ff: YYYY-MM-DD si se acepta
+    const payload = {
       idLicencia,
-      estado: nuevoEstado,
-      motivo_rechazo: nuevoEstado === 'rechazado' ? String(motivo_rechazo).trim() : null,
-      idSecretario,
-      force: !!force,
-    });
+      decision: req.body.decision ?? req.body.estado,    // compat
+      estado:   req.body.estado ?? req.body.decision,    // compat
+      motivo_rechazo: req.body.motivo_rechazo ?? null,
+      observacion: req.body.observacion ?? null,
+      _fi: req.body._fi,
+      _ff: req.body._ff,
+      idSecretario
+    };
 
-    return res.json({
+    const out = await decidirLicenciaSvc(payload);
+
+    return res.status(200).json({
       ok: true,
       data: {
-        id_licencia: licencia.id_licencia,
-        estado: licencia.estado,
-        motivo_rechazo: licencia.motivo_rechazo ?? null,
-      },
+        id_licencia: idLicencia,
+        estado: out?.estado ?? payload.decision, // 'aceptado' | 'rechazado'
+        motivo_rechazo: payload.motivo_rechazo ?? null
+      }
     });
   } catch (err) {
-    const msg = err?.message || 'Error al decidir licencia';
-    const code = /no encontrada/i.test(msg) ? 404
-               : /ya fue/i.test(msg)       ? 409
-               : /motivo_rechazo/i.test(msg) ? 400
-               : /no permitida|transición/i.test(msg) ? 400
-               : 500;
+    // Preferimos código que venga en err.http desde el service
+    const code = err?.http ?? (
+      /no encontrada/i.test(err?.message) ? 404 :
+      /ya fue/i.test(err?.message)        ? 409 :
+      /rango|fech/i.test(err?.message)    ? 422 :
+      /solapa/i.test(err?.message)        ? 422 :
+      /hash/i.test(err?.message)          ? 422 :
+      500
+    );
+
+    const mapMsg = {
+      LICENCIA_NO_ENCONTRADA: "La licencia no existe",
+      ESTADO_NO_PERMITE_DECIDIR: "El estado actual no permite decidir",
+      LICENCIA_SIN_HASH: "No se puede aceptar sin archivo válido (hash)",
+      RANGO_FECHAS_INVALIDO: "Rango de fechas inválido",
+      SOLAPAMIENTO_CON_OTRA_ACEPTADA: "Se solapa con otra licencia aceptada",
+      DECISION_INVALIDA: "Decision inválida"
+    };
+
+    const msg = mapMsg[err?.message] ?? (err?.message || "Error al decidir licencia");
     return res.status(code).json({ ok: false, error: msg });
   }
 }
