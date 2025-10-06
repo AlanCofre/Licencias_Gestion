@@ -19,7 +19,7 @@ function AppLogin() {
     setLoading(true);
 
     try {
-      const base = import.meta.env.VITE_API_BASE_URL;
+      const base = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
       const res = await fetch(`${base}/usuarios/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -27,36 +27,37 @@ function AppLogin() {
       });
       const data = await res.json();
 
-      if (!res.ok || !data?.ok || !data?.token || !data?.usuario) {
+      if (!res.ok || !data?.token || !data?.usuario) {
         throw new Error(data?.error || "Credenciales inválidas");
       }
 
-      // persistir sesión mínima en el cliente
-      sessionStorage.setItem("token", data.token);
-      sessionStorage.setItem("user", JSON.stringify(data.usuario));
+      // persistir sesión en localStorage (coherencia con services)
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("user", JSON.stringify(data.usuario));
 
-      // avisar a tu AuthContext (mantengo tu API: login(userData))
-      login(data.user);
+      // Avisar a AuthContext con el objeto correcto
+      login(data.usuario);
 
       const rol =
-        data.usuario.id_rol?.nombre?.toLowerCase?.() ||
-        data.usuario.id_rol?.toLowerCase?.() ||
+        data.usuario?.id_rol?.nombre?.toLowerCase?.() ||
+        data.usuario?.id_rol?.toLowerCase?.() ||
         "";
 
-        if (rol === "estudiante" ) {
-          navigate("/alumno");
-        } else if (rol === "profesor") {
-          navigate("/profesor");
-        } else if (rol === "secretario") {
-          navigate("/secretaria");
-        } 
-      } catch (err) {
-        setError(err.message || "No se pudo iniciar sesión");
-      } finally {
-        setLoading(false);
+      if (rol === "estudiante") {
+        navigate("/alumno");
+      } else if (rol === "profesor") {
+        navigate("/profesor");
+      } else if (rol === "secretario") {
+        navigate("/secretaria");
+      } else {
+        navigate("/"); // fallback
       }
-
-    };
+    } catch (err) {
+      setError(err.message || "No se pudo iniciar sesión");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="relative min-h-screen bg-white flex flex-col items-center justify-start py-12">
@@ -136,7 +137,7 @@ function AppLogin() {
         <span>¿No tienes una cuenta? </span>
         <span
           className="text-[#76F1FF] font-bold cursor-pointer hover:underline"
-          onClick={() => navigate("/register")}
+          onClick={() => navigate("/registro")}
         >
           Regístrate aquí.
         </span>

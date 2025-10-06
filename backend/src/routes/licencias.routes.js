@@ -3,7 +3,7 @@ import { Router } from 'express';
 import multer from 'multer';
 
 import { validarJWT, esEstudiante, tieneRol } from '../../middlewares/auth.js';
-import { crearLicencia, listarLicencias} from '../../controllers/licencias.controller.js';
+import { crearLicencia, listarLicencias, crearLicenciaSoloFormulario} from '../../controllers/licencias.controller.js';
 import { decidirLicencia } from '../../controllers/licencias.controller.js';
 import { getLicenciasEnRevision } from '../../controllers/licencias.controller.js';
 import { authRequired } from '../../middlewares/requireAuth.js';
@@ -88,6 +88,12 @@ router.put(
     next();
   },
   decidirLicencia                  // controller que persiste cambios
+);
+
+router.post(
+  "/api/licencias",
+  [validarJWT, esEstudiante],
+  crearLicenciaSoloFormulario
 );
 
 export default router;

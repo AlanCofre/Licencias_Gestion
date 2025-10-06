@@ -1,4 +1,6 @@
 import React, { useState, useRef } from "react";
+import Navbar from "../components/Navbar";
+import Footer from "../components/Footer";
 import BannerSection from "../components/BannerSection";
 import { Upload } from "lucide-react";
 
@@ -6,8 +8,10 @@ export default function GenerarRevision() {
   const [formData, setFormData] = useState({
     id: "",
     folio: "",
-    fecha: "", // se llenará automáticamente al subir archivo
-    fechaFin: "",
+    fecha: "", // 
+    fechaEmision: "", 
+    fechaInicioReposo: "", 
+    fechaFinalReposo: "",  
     razon: "",
   });
   const [file, setFile] = useState(null);
@@ -70,8 +74,10 @@ export default function GenerarRevision() {
   const isFormValid =
     formData.id.trim() !== "" &&
     formData.folio.trim() !== "" &&
-    formData.fecha.trim() !== "" && // se llena solo al subir archivo
-    formData.fechaFin.trim() !== "" &&
+    formData.fecha.trim() !== "" &&
+    formData.fechaEmision.trim() !== "" && 
+    formData.fechaInicioReposo.trim() !== "" &&
+    formData.fechaFinalReposo.trim() !== "" && 
     formData.razon.trim() !== "" &&
     file !== null;
 
@@ -90,7 +96,9 @@ export default function GenerarRevision() {
   const hoy = new Date().toISOString().split("T")[0];
 
   return (
-    <div className="flex flex-col flex-grow bg-blue-100">
+    <div className="min-h-screen flex flex-col bg-blue-100">
+      <Navbar />
+
       {/* Banner superior */}
       <BannerSection title="Generar revisión de licencia" />
 
@@ -139,14 +147,40 @@ export default function GenerarRevision() {
               </small>
             </div>
 
+            
             <div>
-              <label className="block text-gray-600 mb-1">
-                Fecha de término de la licencia
-              </label>
+              <label className="block text-gray-600 mb-1">Fecha de emisión</label>
               <input
                 type="date"
-                name="fechaFin"
-                value={formData.fechaFin}
+                name="fechaEmision"
+                value={formData.fechaEmision}
+                onChange={handleChange}
+                className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
+              />
+              <small className="text-gray-500">
+                Fecha de creación de la licencia en el centro de salud.
+              </small>
+            </div>
+
+            
+            <div>
+              <label className="block text-gray-600 mb-1">Fecha inicio reposo</label>
+              <input
+                type="date"
+                name="fechaInicioReposo"
+                value={formData.fechaInicioReposo}
+                onChange={handleChange}
+                className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
+              />
+            </div>
+
+            
+            <div>
+              <label className="block text-gray-600 mb-1">Fecha final reposo</label>
+              <input
+                type="date"
+                name="fechaFinalReposo"
+                value={formData.fechaFinalReposo}
                 onChange={handleChange}
                 min={hoy} // no permite fechas pasadas
                 className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
@@ -205,6 +239,8 @@ export default function GenerarRevision() {
           </div>
         </div>
       </main>
+
+      <Footer />
     </div>
   );
 }

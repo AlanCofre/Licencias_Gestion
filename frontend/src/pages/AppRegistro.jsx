@@ -1,7 +1,9 @@
 import React, { useState } from "react";
 import bannerLogin from "../assets/banner-login.png";
+import { useNavigate } from "react-router-dom";
 
 function AppRegistro() {
+  const navigate = useNavigate();
   const [nombre, setNombre] = useState("");
   const [correo, setCorreo] = useState("");
   const [contrasena, setContrasena] = useState("");
@@ -17,20 +19,22 @@ function AppRegistro() {
     }
 
     try {
-      const res = await fetch("http://localhost:3000/usuarios/registro", {
+      const base = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
+      const res = await fetch(`${base}/usuarios/registro`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          nombre: nombre,
-          correo: correo,
-          contrasena: contrasena,
+          nombre,
+          correo_usuario: correo,
+          contrasena,
           rol: "estudiante", // fijo por defecto
         }),
       });
 
       const data = await res.json();
       if (res.ok) {
-        setMensaje("Usuario registrado correctamente");
+        // redirigir al login tras registro exitoso
+        navigate("/login");
       } else {
         setMensaje(data.error || "Error al registrar usuario");
       }
@@ -119,7 +123,10 @@ function AppRegistro() {
       {/* Link a login */}
       <div className="relative z-10 mt-10 text-center text-black text-base">
         <span>¿Ya tienes una cuenta? </span>
-        <span className="text-[#76F1FF] font-bold cursor-pointer hover:underline">
+        <span
+          className="text-[#76F1FF] font-bold cursor-pointer hover:underline"
+          onClick={() => navigate("/login")}
+        >
           Inicia sesión aquí.
         </span>
       </div>

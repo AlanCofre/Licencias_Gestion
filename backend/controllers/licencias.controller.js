@@ -1,4 +1,4 @@
-// backend/src/controllers/licencias.controller.js  (ESM unificado)
+// backend/controllers/licencias.controller.js  (ESM unificado)
 import crypto from 'crypto';
 import db from '../config/db.js'; // ← ajusta la ruta si corresponde
 import { decidirLicenciaSvc } from '../services/servicio_Licencias.js';
@@ -405,5 +405,47 @@ export async function decidirLicencia(req, res) {
     return res.status(code).json({ ok: false, error: msg });
   }
 }
+// =====================================================
+// POST: crear licencia (solo formulario, sin archivo ni validaciones)
+// =====================================================
+export async function crearLicenciaSoloFormulario(req, res) {
+  try {
+    const id_usuario = req.user?.id_usuario;
+    if (!id_usuario) return res.status(401).json({ ok:false, error:"No autenticado" });
 
-export default { listarLicencias, crearLicencia, crearLicenciaLegacy, getLicenciasEnRevision, decidirLicencia, detalleLicencia };
+    const { folio, fecha_emision, fecha_inicio, fecha_fin } = req.body || {};
+
+    // Validaciones mínimas acordadas (los 4 campos son obligatorios)
+    const isISO = (d) => typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d);
+    if (!folio || !isISO(fecha_emision) || !isISO(fecha_inicio) || !isISO(fecha_fin)) {
+      return res.status(400).json({ ok:false, error:"Campos inválidos: folio, fecha_emision, fecha_inicio, fecha_fin (YYYY-MM-DD)" });
+    }
+    if (fecha_inicio > fecha_fin) {
+      return res.status(400).json({ ok:false, error:"fecha_inicio no puede ser mayor que fecha_fin" });
+    }
+    if (fecha_emision > fecha_inicio) {
+      return res.status(400).json({ ok:false, error:"fecha_emision no puede ser posterior al inicio de reposo" });
+    }
+
+    // Inserción directa SIN archivo, forzando estado 'pendiente' y motivo_rechazo NULL
+    const [result] = await db.execute(`
+      INSERT INTO LicenciaMedica
+        (folio, fecha_emision, fecha_inicio, fecha_fin, estado, motivo_rechazo, fecha_creacion, id_usuario)
+      VALUES (?, ?, ?, ?, 'pendiente', NULL, CURDATE(), ?)
+    `, [String(folio).trim(), fecha_emision, fecha_inicio, fecha_fin, id_usuario]);
+
+    const [rows] = await db.execute(
+      `SELECT id_licencia, folio, fecha_emision, fecha_inicio, fecha_fin, estado, motivo_rechazo, fecha_creacion, id_usuario
+         FROM LicenciaMedica WHERE id_licencia = ?`,
+      [result.insertId]
+    );
+
+    return res.status(201).json({ ok:true, data: rows[0] });
+  } catch (e) {
+    console.error("[crearLicenciaSoloFormulario]", e);
+    return res.status(500).json({ ok:false, error:"Error del servidor" });
+  }
+}
+
+
+export default { listarLicencias, crearLicencia, crearLicenciaLegacy, getLicenciasEnRevision, decidirLicencia, detalleLicencia, crearLicenciaSoloFormulario};
