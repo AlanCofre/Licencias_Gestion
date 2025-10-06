@@ -2,6 +2,11 @@
 import crypto from 'crypto';
 import db from '../config/db.js'; // ← ajusta la ruta si corresponde
 import { decidirLicenciaSvc } from '../services/servicio_Licencias.js';
+import fs from 'fs';
+import path from 'path';
+import http from 'http';
+import https from 'https';
+
 
 // === Utilidad: hash SHA-256 de un Buffer/String → hex 64
 function sha256FromBuffer(bufOrStr) {
@@ -25,6 +30,37 @@ async function generarFolio() {
     if (m) next = parseInt(m[1], 10) + 1;
   }
   return `F-${year}-${String(next).padStart(3, '0')}`;
+}
+// ---- Helpers para descarga segura (NO afectan a lo demás) ----
+function _filenameFromRuta(ruta) {
+  try {
+    if (ruta?.startsWith('http')) {
+      const u = new URL(ruta);
+      return path.basename(u.pathname) || 'archivo';
+    }
+  } catch {}
+  return path.basename(ruta || '') || 'archivo';
+}
+
+function _safeJoin(baseDir, relative) {
+  const rootAbs = path.resolve(process.cwd(), baseDir || 'uploads');
+  const rel = String(relative || '').replace(/^\/+/, '');
+  const abs = path.resolve(rootAbs, rel);
+  if (!abs.startsWith(rootAbs)) {
+    const err = new Error('Ruta fuera de directorio permitido');
+    err.code = 'E_PATH_TRAVERSAL';
+    throw err;
+  }
+  return abs;
+}
+
+// secretario → todo; estudiante → solo dueño
+function _puedeVerArchivo(user, idPropietario) {
+  if (!user) return false;
+  const rol = String(user.rol || '').toLowerCase();
+  if (rol === 'secretario') return true;
+  if (rol === 'estudiante' && Number(user.id_usuario) === Number(idPropietario)) return true;
+  return false;
 }
 
 // ===============================================
@@ -493,9 +529,96 @@ export async function notificarEstado(req, res) {
     return res.status(500).json({ ok: false, error: 'Error interno al decidir licencia' });
   }
 }
+// ========================
+// GET /api/licencias/:id/archivo  ← NUEVO (no rompe nada existente)
+// ========================
+export const descargarArchivoLicencia = async (req, res) => {
+  try {
+    const idLicencia = Number(req.params.id || 0);
+    const usuario = req.user || null;
+
+    // DoD: si no hay token válido → 403 (si tu middleware ya hace 403, esto apenas se usará)
+    if (!usuario) return res.status(403).json({ ok: false, error: 'Token requerido o inválido' });
+    if (!Number.isInteger(idLicencia) || idLicencia <= 0)
+      return res.status(400).json({ ok: false, error: 'ID de licencia inválido' });
+
+    // Nota: uso nombres de tabla en minúscula para evitar issues en sistemas sensibles a mayúsculas
+    const [rows] = await db.execute(`
+      SELECT a.id_archivo, a.ruta_url, a.tipo_mime, a.tamano, a.fecha_subida,
+             l.id_usuario
+        FROM archivolicencia a
+        JOIN licenciamedica l ON l.id_licencia = a.id_licencia
+       WHERE a.id_licencia = ?
+       ORDER BY a.id_archivo DESC
+       LIMIT 1
+    `, [idLicencia]);
+
+    if (!rows.length)
+      return res.status(404).json({ ok: false, error: 'Archivo no encontrado para esta licencia' });
+
+    const archivo = rows[0];
+
+    if (!_puedeVerArchivo(usuario, archivo.id_usuario))
+      return res.status(403).json({ ok: false, error: 'No autorizado' });
+
+    const filename = _filenameFromRuta(archivo.ruta_url);
+    const contentType = archivo.tipo_mime || 'application/octet-stream';
+    res.setHeader('Content-Type', contentType);
+    // Si quieres ver PDF embebido, cambia "attachment" por "inline" cuando sea application/pdf
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+
+    const baseLocal = process.env.STORAGE_LOCAL_BASE || 'uploads';
+    const ruta = String(archivo.ruta_url || '');
+
+    // Soporte http(s):// como proxy
+    if (ruta.startsWith('http://') || ruta.startsWith('https://')) {
+      const client = ruta.startsWith('https://') ? https : http;
+      client.get(ruta, (up) => {
+        if ((up.statusCode || 500) >= 400) {
+          res.status(up.statusCode || 502).end();
+          return;
+        }
+        up.pipe(res);
+      }).on('error', () => res.status(502).json({ ok: false, error: 'Error al obtener archivo remoto' }));
+      return;
+    }
+
+    // Soporte local:// y rutas relativas
+    let absPath;
+    if (ruta.startsWith('local://')) {
+      const key = ruta.slice('local://'.length);
+      absPath = _safeJoin(baseLocal, key);
+    } else if (!ruta.startsWith('/')) {
+      absPath = _safeJoin(baseLocal, ruta);
+    } else {
+      return res.status(400).json({ ok: false, error: 'Esquema de ruta no soportado' });
+    }
+
+    if (!fs.existsSync(absPath))
+      return res.status(404).json({ ok: false, error: 'Archivo físico no existe' });
+
+    fs.createReadStream(absPath).pipe(res);
+  } catch (e) {
+    if (e.code === 'E_PATH_TRAVERSAL')
+      return res.status(400).json({ ok: false, error: 'Ruta inválida' });
+    console.error('❌ [licencias:descargarArchivoLicencia] error:', e);
+    return res.status(500).json({ ok: false, error: 'Error interno' });
+  }
+};
 
 
+export default {
+  listarLicencias,
+  crearLicencia,
+  crearLicenciaLegacy,
+  getLicenciasEnRevision,
+  detalleLicencia,
+  decidirLicencia,
+  notificarEstado,
+  descargarArchivoLicencia,   // ← añadido
+};
 
-export default { listarLicencias, crearLicencia, crearLicenciaLegacy, getLicenciasEnRevision, detalleLicencia, decidirLicencia, notificarEstado };
+
 
 
