@@ -12,7 +12,7 @@ export default function GenerarRevision() {
     fechaEmision: "", 
     fechaInicioReposo: "", 
     fechaFinalReposo: "",  
-    razon: "",
+    // razon: "", // ELIMINADO - el estudiante no debe indicar motivo
   });
   const [file, setFile] = useState(null);
   const fileInputRef = useRef(null);
@@ -70,7 +70,7 @@ export default function GenerarRevision() {
     e.preventDefault();
   };
 
-  // Validar si todos los campos están completos
+  // Validar si todos los campos están completos (SIN razon)
   const isFormValid =
     formData.id.trim() !== "" &&
     formData.folio.trim() !== "" &&
@@ -78,7 +78,6 @@ export default function GenerarRevision() {
     formData.fechaEmision.trim() !== "" && 
     formData.fechaInicioReposo.trim() !== "" &&
     formData.fechaFinalReposo.trim() !== "" && 
-    formData.razon.trim() !== "" &&
     file !== null;
 
   // Envío (simulado)
@@ -187,17 +186,6 @@ export default function GenerarRevision() {
               />
             </div>
 
-            <div>
-              <label className="block text-gray-600 mb-1">Razón de licencia</label>
-              <input
-                type="text"
-                name="razon"
-                value={formData.razon}
-                onChange={handleChange}
-                placeholder="Escribe la razón de por qué se hizo la licencia."
-                className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
-              />
-            </div>
 
             <button
               type="submit"
