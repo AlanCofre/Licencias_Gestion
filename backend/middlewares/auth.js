@@ -16,15 +16,17 @@ const normalizeRol = (raw) => {
   const v = String(raw).toLowerCase().trim();
 
   // numéricos de tu BD
-  if (v === '1') return 'funcionario';
+  if (v === '1') return 'profesor';
   if (v === '2') return 'estudiante';
+  if (v === '3') return 'funcionario';
 
   // nombres “buenos”
-  if (v === 'funcionario' || v === 'estudiante') return v;
+  if (v === 'profesor' || v === 'estudiante' || v=== 'funcionario')  return v;
 
   // alias heredados
-  if (v === 'profesor' || v === 'secretario' || v === 'secretaria') return 'funcionario';
+  if (v === 'profesor' || v === 'profesora')return 'profesor';
   if (v === 'alumno') return 'estudiante';
+  if (v === 'funcionario') return 'funcionario';
 
   return null;
 };

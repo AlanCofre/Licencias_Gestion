@@ -55,11 +55,11 @@ function _safeJoin(baseDir, relative) {
   return abs;
 }
 
-// secretario → todo; estudiante → solo dueño
+// funcionario → todo; estudiante → solo dueño
 function _puedeVerArchivo(user, idPropietario) {
   if (!user) return false;
   const rol = String(user.rol || '').toLowerCase();
-  if (rol === 'secretario') return true;
+  if (rol === 'funcionario') return true;
   if (rol === 'estudiante' && Number(user.id_usuario) === Number(idPropietario)) return true;
   return false;
 }
@@ -250,7 +250,7 @@ export const getLicenciasEnRevision = async (req, res) => {
     }
 
     let sql, params;
-    if (rol === 'secretario') {
+    if (rol === 'funcionario') {
       sql = `
         SELECT id_licencia, folio, fecha_emision, fecha_inicio, fecha_fin, estado, motivo_rechazo, fecha_creacion, id_usuario
         FROM LicenciaMedica
@@ -298,7 +298,7 @@ export const detalleLicencia = async (req, res) => {
     }
 
     let sql, params;
-    if (rol === 'secretario') {
+    if (rol === 'funcionario') {
       sql = `
         SELECT
           lm.id_licencia, lm.folio, lm.fecha_emision, lm.fecha_inicio, lm.fecha_fin, lm.estado,
@@ -390,9 +390,9 @@ export const crearLicenciaLegacy = async (req, res) => {
 export async function decidirLicencia(req, res) {
   try {
     const idLicencia = Number(req.params.id);
-    const idSecretario = req.user?.id_usuario ?? null;
+    const idfuncionario = req.user?.id_usuario ?? null;
 
-    if (!idSecretario) {
+    if (!idfuncionario) {
       return res.status(401).json({ ok: false, error: "No autenticado" });
     }
     if (!idLicencia) {
@@ -410,7 +410,7 @@ export async function decidirLicencia(req, res) {
       observacion: req.body.observacion ?? null,
       _fi: req.body._fi,
       _ff: req.body._ff,
-      idSecretario
+      idfuncionario
     };
 
     const out = await decidirLicenciaSvc(payload);
