@@ -103,52 +103,111 @@ export default function Navbar() {
 
               {/* Botones con notificaciones en desktop */}
               {["pendientes", "revisadas", "verificadas"].map(category => (
-                <li key={category} className="relative" ref={dropdownRef}>
-                  <button
-                    onClick={() =>
-                      setOpenDropdown(openDropdown === category ? null : category)
-                    }
-                    className="px-3 py-2 hover:bg-white/10 rounded transition-colors relative"
-                  >
-                    {category.charAt(0).toUpperCase() + category.slice(1)}
-                    {notifications[category].filter(n => !n.read).length > 0 && (
-                      <span className="absolute -top-1 -right-2 bg-red-600 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center shadow-md">
-                        {notifications[category].filter(n => !n.read).length}
-                      </span>
-                    )}
-                  </button>
+                <li
+                  key={category}
+                  className="relative"
+                  // Solo para "pendientes": abrir dropdown al hover
+                  onMouseEnter={category === "pendientes" ? () => setOpenDropdown("pendientes") : undefined}
+                  onMouseLeave={category === "pendientes" ? () => setOpenDropdown(prev => prev === "pendientes" ? null : prev) : undefined}
+                >
+                  {category === "pendientes" ? (
+                    <>
+                      <Link
+                        to="/pendientes"
+                        className="px-3 py-2 hover:bg-white/10 rounded transition-colors font-sans"
+                      >
+                        Pendientes
+                        {notifications[category].filter(n => !n.read).length > 0 && (
+                          <span className="absolute -top-1 -right-2 bg-red-600 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center shadow-md">
+                            {notifications[category].filter(n => !n.read).length}
+                          </span>
+                        )}
+                      </Link>
 
-                  {openDropdown === category && (
-                    <div className="absolute top-full mt-3 w-80 bg-white text-black shadow-xl rounded-lg z-50">
-                      <div className="absolute -top-2 left-6 w-4 h-4 bg-white rotate-45 shadow-md rounded-sm"></div>
-                      <ul className="relative z-10">
-                        {[...notifications[category]]
-                          .sort((a, b) => new Date(b.date) - new Date(a.date))
-                          .map(n => (
-                          <li
-                            key={n.id}
-                            className={`px-4 py-3 text-sm border-b last:border-none flex flex-col gap-1 ${
-                              n.read ? "bg-gray-100 text-gray-500" : "bg-white"
-                            }`}
-                          >
-                            <div className="flex justify-between items-center">
-                              <span>{formatText(n.text)}</span>
-                              {!n.read && (
-                                <button
-                                  onClick={() => markAsRead(category, n.id)}
-                                  className="ml-2 flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 border border-blue-600 hover:border-blue-800 px-2 py-1 rounded transition"
+                      {openDropdown === "pendientes" && (
+                        <div className="absolute top-full mt-3 w-80 bg-white text-black shadow-xl rounded-lg z-50">
+                          <div className="absolute -top-2 left-6 w-4 h-4 bg-white rotate-45 shadow-md rounded-sm"></div>
+                          <ul className="relative z-10">
+                            {[...notifications[category]]
+                              .sort((a, b) => new Date(b.date) - new Date(a.date))
+                              .map(n => (
+                                <li
+                                  key={n.id}
+                                  className={`px-4 py-3 text-sm border-b last:border-none flex flex-col gap-1 ${
+                                    n.read ? "bg-gray-100 text-gray-500" : "bg-white"
+                                  }`}
                                 >
-                                  <CheckCircleIcon className="w-4 h-4" />
-                                  Leer
-                                </button>
-                              )}
-                            </div>
-                            <span className="text-xs text-gray-400">
-                              {n.date.toLocaleString("es-CL")}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
+                                  <div className="flex justify-between items-center">
+                                    <span>{formatText(n.text)}</span>
+                                    {!n.read && (
+                                      <button
+                                        onClick={() => markAsRead(category, n.id)}
+                                        className="ml-2 flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 border border-blue-600 hover:border-blue-800 px-2 py-1 rounded transition"
+                                      >
+                                        <CheckCircleIcon className="w-4 h-4" />
+                                        Leer
+                                      </button>
+                                    )}
+                                  </div>
+                                  <span className="text-xs text-gray-400">
+                                    {n.date.toLocaleString("es-CL")}
+                                  </span>
+                                </li>
+                              ))}
+                          </ul>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    // --- RESTO DE LAS CATEGORÍAS (igual que antes: click abre dropdown) ---
+                    <div ref={dropdownRef}>
+                      <button
+                        onClick={() =>
+                          setOpenDropdown(openDropdown === category ? null : category)
+                        }
+                        className="px-3 py-2 hover:bg-white/10 rounded transition-colors relative"
+                      >
+                        {category.charAt(0).toUpperCase() + category.slice(1)}
+                        {notifications[category].filter(n => !n.read).length > 0 && (
+                          <span className="absolute -top-1 -right-2 bg-red-600 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center shadow-md">
+                            {notifications[category].filter(n => !n.read).length}
+                          </span>
+                        )}
+                      </button>
+
+                      {openDropdown === category && (
+                        <div className="absolute top-full mt-3 w-80 bg-white text-black shadow-xl rounded-lg z-50">
+                          <div className="absolute -top-2 left-6 w-4 h-4 bg-white rotate-45 shadow-md rounded-sm"></div>
+                          <ul className="relative z-10">
+                            {[...notifications[category]]
+                              .sort((a, b) => new Date(b.date) - new Date(a.date))
+                              .map(n => (
+                                <li
+                                  key={n.id}
+                                  className={`px-4 py-3 text-sm border-b last:border-none flex flex-col gap-1 ${
+                                    n.read ? "bg-gray-100 text-gray-500" : "bg-white"
+                                  }`}
+                                >
+                                  <div className="flex justify-between items-center">
+                                    <span>{formatText(n.text)}</span>
+                                    {!n.read && (
+                                      <button
+                                        onClick={() => markAsRead(category, n.id)}
+                                        className="ml-2 flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 border border-blue-600 hover:border-blue-800 px-2 py-1 rounded transition"
+                                      >
+                                        <CheckCircleIcon className="w-4 h-4" />
+                                        Leer
+                                      </button>
+                                    )}
+                                  </div>
+                                  <span className="text-xs text-gray-400">
+                                    {n.date.toLocaleString("es-CL")}
+                                  </span>
+                                </li>
+                              ))}
+                          </ul>
+                        </div>
+                      )}
                     </div>
                   )}
                 </li>
@@ -211,29 +270,29 @@ export default function Navbar() {
                     {[...notifications[mobileTab]]
                       .sort((a, b) => new Date(b.date) - new Date(a.date))
                       .map(n => (
-                      <li
-                        key={n.id}
-                        className={`px-4 py-3 text-sm border-b last:border-none flex flex-col gap-1 ${
-                          n.read ? "bg-gray-100 text-gray-500" : "bg-white"
-                        }`}
-                      >
-                        <div className="flex justify-between items-center">
-                          <span>{formatText(n.text)}</span>
-                          {!n.read && (
-                            <button
-                              onClick={() => markAsRead(mobileTab, n.id)}
-                              className="ml-2 flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 border border-blue-600 hover:border-blue-800 px-2 py-1 rounded transition"
-                            >
-                              <CheckCircleIcon className="w-4 h-4" />
-                              Leer
-                            </button>
-                          )}
-                        </div>
-                        <span className="text-xs text-gray-400">
-                          {n.date.toLocaleString("es-CL")}
-                        </span>
-                      </li>
-                    ))}
+                        <li
+                          key={n.id}
+                          className={`px-4 py-3 text-sm border-b last:border-none flex flex-col gap-1 ${
+                            n.read ? "bg-gray-100 text-gray-500" : "bg-white"
+                          }`}
+                        >
+                          <div className="flex justify-between items-center">
+                            <span>{formatText(n.text)}</span>
+                            {!n.read && (
+                              <button
+                                onClick={() => markAsRead(mobileTab, n.id)}
+                                className="ml-2 flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 border border-blue-600 hover:border-blue-800 px-2 py-1 rounded transition"
+                              >
+                                <CheckCircleIcon className="w-4 h-4" />
+                                Leer
+                              </button>
+                            )}
+                          </div>
+                          <span className="text-xs text-gray-400">
+                            {n.date.toLocaleString("es-CL")}
+                          </span>
+                        </li>
+                      ))}
                   </ul>
                 </div>
               )}

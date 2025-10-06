@@ -16,6 +16,7 @@ import LicenseDetailView from "./pages/LicenseDetailView";
 import AppEditProfile from "./pages/AppEditProfile";
 import GenerarRevision from "./pages/GenerarRevision";
 import EvaluarLicencia from "./pages/EvaluarLicencia";
+import LicenciasPorRevisar from "./pages/LicenciasPorRevisar";
 
 function RoleRedirect() {
   const { user } = useAuth();
@@ -53,6 +54,7 @@ export default function AppRoutes() {
       <Route path="/license/:id" element={<LicenseDetailView />} />
       <Route path="/edit-profile" element={<AppEditProfile />} />
       <Route path="/evaluar/:id" element={<EvaluarLicencia />} />
+      <Route path="/pendientes" element={<LicenciasPorRevisar />} />
 
       {/* Rutas heredadas (opcional: apuntan al dashboard de alumno) */}
       <Route path="/pendientes" element={<Dashboard />} />
