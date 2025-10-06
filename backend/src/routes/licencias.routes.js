@@ -2,15 +2,21 @@
 import { Router } from 'express';
 import multer from 'multer';
 import db from '../../db/db.js';
+import {
+  crearLicencia,
+  listarLicencias,
+  notificarEstado,
+  decidirLicencia,
+  getLicenciasEnRevision,
+  detalleLicencia,
+  descargarArchivoLicencia
+} from '../../controllers/licencias.controller.js';
 
 import { validarJWT, esEstudiante, tieneRol } from '../../middlewares/auth.js';
-import { crearLicencia, listarLicencias, notificarEstado} from '../../controllers/licencias.controller.js';
-import { decidirLicencia } from '../../controllers/licencias.controller.js';
-import { getLicenciasEnRevision } from '../../controllers/licencias.controller.js';
+
 import { authRequired } from '../../middlewares/requireAuth.js';
 import { requireRole } from '../../middlewares/requireRole.js';
 import { validateDecision } from '../../middlewares/validateDecision.js';
-import { detalleLicencia } from '../../controllers/licencias.controller.js';
 // 🔗 Middlewares de validación de negocio (mismo archivo unificado)
 import {
   validateLicenciaBody,        // Zod: fechas, id_usuario, estado normalizado, etc.
@@ -62,6 +68,7 @@ async function cargarLicencia(req, res, next) {
 router.get('/mis-licencias', validarJWT, listarLicencias);
 router.get('/en-revision', validarJWT, getLicenciasEnRevision);
 router.get('/detalle/:id', validarJWT, detalleLicencia);
+router.get('/licencias/:id/archivo', validarJWT, descargarArchivoLicencia);
 // SOLO Estudiante (creación con validaciones de negocio)
 router.post(
   '/crear',

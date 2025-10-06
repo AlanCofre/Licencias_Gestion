@@ -8,6 +8,7 @@ import http from 'http';
 import https from 'https';
 
 
+
 // === Utilidad: hash SHA-256 de un Buffer/String → hex 64
 function sha256FromBuffer(bufOrStr) {
   const h = crypto.createHash('sha256');
@@ -530,7 +531,7 @@ export async function notificarEstado(req, res) {
   }
 }
 // ========================
-// GET /api/licencias/:id/archivo  ← NUEVO (no rompe nada existente)
+// GET /api/licencias/:id/archivo  
 // ========================
 export const descargarArchivoLicencia = async (req, res) => {
   try {
@@ -616,7 +617,7 @@ export default {
   detalleLicencia,
   decidirLicencia,
   notificarEstado,
-  descargarArchivoLicencia,   // ← añadido
+  descargarArchivoLicencia
 };
 
 
