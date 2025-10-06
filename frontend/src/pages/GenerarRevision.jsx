@@ -21,7 +21,7 @@ export default function GenerarRevision() {
   const handleChange = (e) => {
     const { name, value } = e.target;
 
-    // Validación: solo números en id y folio
+    // Validación: solo números en id y folio (si usuario escribe folio numérico)
     if ((name === "id" || name === "folio") && !/^\d*$/.test(value)) {
       return;
     }
@@ -71,25 +71,76 @@ export default function GenerarRevision() {
   };
 
   // Validar si todos los campos están completos
+  // Nota: id no es requerido en el FE (se completa automáticamente en BE)
   const isFormValid =
-    formData.id.trim() !== "" &&
     formData.folio.trim() !== "" &&
     formData.fecha.trim() !== "" &&
-    formData.fechaEmision.trim() !== "" && 
+    formData.fechaEmision.trim() !== "" &&
     formData.fechaInicioReposo.trim() !== "" &&
-    formData.fechaFinalReposo.trim() !== "" && 
+    formData.fechaFinalReposo.trim() !== "" &&
     formData.razon.trim() !== "" &&
     file !== null;
 
-  // Envío (simulado)
-  const handleSubmit = (e) => {
+  // Envío real al backend (multipart/form-data)
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!isFormValid) return;
 
-    alert(
-      "El formulario ha sido enviado, puedes verificar el resultado en la pestaña de verificar resultados"
-    );
-    console.log("Datos enviados:", { ...formData, file });
+    try {
+      const fd = new FormData();
+      // campo que el BE espera: 'archivo'
+      fd.append("archivo", file);
+      // campos que el BE guarda en BD
+      fd.append("folio", formData.folio);
+      fd.append("fecha_emision", formData.fechaEmision);
+      fd.append("fecha_inicio", formData.fechaInicioReposo);
+      fd.append("fecha_fin", formData.fechaFinalReposo);
+      // opcional: enviar razón (motivo) si el BE lo acepta; si no, queda null por defecto
+      fd.append("motivo", formData.razon);
+
+      // obtener token desde localStorage (ajustar clave si usan otra)
+      const token =
+        localStorage.getItem("token") ||
+        localStorage.getItem("jwt") ||
+        localStorage.getItem("accessToken") ||
+        "";
+
+      // usar VITE_API_URL si está definido en .env; fallback a localhost:3000
+      const apiBase = (import.meta.env.VITE_API_URL || "http://localhost:3000").replace(/\/$/, "");
+      const res = await fetch(`${apiBase}/api/licencias/crear`, {
+         method: "POST",
+         headers: {
+           ...(token ? { Authorization: `Bearer ${token}` } : {}),
+           // DO NOT set Content-Type; fetch lo maneja para FormData
+         },
+         body: fd,
+       });
+
+      const json = await res.json().catch(() => ({}));
+
+      if (res.ok) {
+        alert("Licencia enviada correctamente.");
+        console.log("Respuesta BE:", json);
+        // limpiar formulario
+        setFormData({
+          id: "",
+          folio: "",
+          fecha: "",
+          fechaEmision: "",
+          fechaInicioReposo: "",
+          fechaFinalReposo: "",
+          razon: "",
+        });
+        setFile(null);
+      } else {
+        const msg = json?.mensaje || json?.error || JSON.stringify(json);
+        alert("Error enviando licencia: " + msg);
+        console.error("Error backend:", res.status, json);
+      }
+    } catch (err) {
+      console.error("Catch error enviar licencia:", err);
+      alert("Error al enviar la licencia. Revisa la consola.");
+    }
   };
 
   // Obtener fecha de hoy en formato YYYY-MM-DD para validación de fechaFin
@@ -116,8 +167,9 @@ export default function GenerarRevision() {
                 name="id"
                 value={formData.id}
                 onChange={handleChange}
-                placeholder="Al subir un documento el número se hace automáticamente."
-                className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
+                placeholder="Se genera automáticamente en el servidor al guardar la licencia."
+                className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-blue-400 bg-gray-50"
+                readOnly
               />
             </div>
 

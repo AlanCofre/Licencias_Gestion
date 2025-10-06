@@ -10,22 +10,6 @@ function sha256FromBuffer(bufOrStr) {
   return h.digest('hex');
 }
 
-// === Utilidad: generar folio tipo "F-YYYY-001"
-async function generarFolio() {
-  const year = new Date().getFullYear();
-  const [rows] = await db.execute(
-    'SELECT folio FROM LicenciaMedica WHERE folio LIKE ? ORDER BY id_licencia DESC LIMIT 1',
-    [`F-${year}-%`]
-  );
-  let next = 1;
-  if (rows.length) {
-    // ❌ Antes: /F-\\d{4}-(\\d+)/  (mal escapado)
-    // ✅ Ahora:
-    const m = String(rows[0].folio).match(/F-\d{4}-(\d+)/);
-    if (m) next = parseInt(m[1], 10) + 1;
-  }
-  return `F-${year}-${String(next).padStart(3, '0')}`;
-}
 
 // ===============================================
 // GET: listar licencias del usuario autenticado
@@ -134,7 +118,13 @@ export const crearLicencia = async (req, res) => {
     const [u] = await db.execute('SELECT id_usuario FROM Usuario WHERE id_usuario = ?', [usuarioId]);
     if (!u.length) return res.status(404).json({ msg: 'Usuario no encontrado' });
 
-    const folio = await generarFolio();
+    // folio obligatorio: usar exactamente lo que envía el usuario
+    const folio = String(req.body?.folio ?? "").trim();
+    if (!folio) {
+      return res.status(400).json({ msg: "El folio es obligatorio" });
+    }
+
+    // ahora usar `folio` al crear el registro en licenciamedica
     const sqlInsert = `
       INSERT INTO LicenciaMedica
         (folio, fecha_emision, fecha_inicio, fecha_fin, estado, motivo_rechazo, fecha_creacion, id_usuario)
@@ -328,7 +318,10 @@ export const crearLicenciaLegacy = async (req, res) => {
     const [u] = await db.execute('SELECT id_usuario FROM Usuario WHERE id_usuario = ?', [id_usuario]);
     if (!u.length) return res.status(404).json({ ok: false, mensaje: 'Usuario no encontrado' });
 
-    const folio = await generarFolio();
+    const folio = String(req.body?.folio ?? "").trim();
+    if (!folio) {
+      return res.status(400).json({ ok: false, mensaje: "El folio es obligatorio" });
+    }
 
     const sql = `
       INSERT INTO LicenciaMedica
