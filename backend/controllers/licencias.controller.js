@@ -2,6 +2,7 @@
 import crypto from 'crypto';
 import db from '../config/db.js'; // ← ajusta la ruta si corresponde
 import { decidirLicenciaSvc } from '../services/servicio_Licencias.js';
+import { Sequelize } from "sequelize";
 
 // === Utilidad: hash SHA-256 de un Buffer/String → hex 64
 function sha256FromBuffer(bufOrStr) {
@@ -17,29 +18,42 @@ function sha256FromBuffer(bufOrStr) {
 export const listarLicencias = async (req, res) => {
   try {
     const usuarioId = req.user?.id_usuario ?? req.id ?? null;
-    const rol = req.user?.rol ?? req.rol ?? null;
+    if (!usuarioId) return res.status(401).json({ ok: false, error: 'No autenticado' });
 
-    if (!usuarioId) {
-      return res.status(401).json({ msg: 'No autenticado' });
-    }
+    // Paginación opcional (por si luego la usas en la tabla)
+    const page = Math.max(1, parseInt(req.query.page || '1', 10));
+    const pageSize = Math.min(100, Math.max(1, parseInt(req.query.pageSize || '50', 10)));
+    const offset = (page - 1) * pageSize;
 
     const [rows] = await db.execute(
-      `SELECT id_licencia, folio, fecha_emision, fecha_inicio, fecha_fin, estado, motivo_rechazo, fecha_creacion
-         FROM LicenciaMedica
-        WHERE id_usuario = ?
-        ORDER BY fecha_emision DESC, id_licencia DESC`,
-      [usuarioId]
+      `
+      SELECT
+        id_licencia           AS id,
+        DATE_FORMAT(fecha_emision, '%Y-%m-%d') AS fecha_creacion,
+        estado
+      FROM LicenciaMedica
+      WHERE id_usuario = ?
+      ORDER BY fecha_emision DESC, id_licencia DESC
+      LIMIT ? OFFSET ?
+      `,
+      [usuarioId, pageSize, offset]
     );
 
+    // total para meta (no imprescindible si no quieres)
+    const [countRows] = await db.execute(
+      `SELECT COUNT(*) AS total FROM LicenciaMedica WHERE id_usuario = ?`,
+      [usuarioId]
+    );
+    const total = countRows?.[0]?.total ?? 0;
+
     return res.json({
-      msg: 'Listado de licencias del usuario',
-      usuarioId,
-      rol,
-      data: rows,
+      ok: true,
+      data: rows,               
+      meta: { total, page, pageSize }
     });
   } catch (error) {
     console.error('[licencias:listarLicencias] error:', error);
-    return res.status(500).json({ msg: 'Error al listar licencias' });
+    return res.status(500).json({ ok: false, error: 'Error al listar licencias' });
   }
 };
 
