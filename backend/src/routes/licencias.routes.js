@@ -9,7 +9,8 @@ import {
   decidirLicencia,
   getLicenciasEnRevision,
   detalleLicencia,
-  descargarArchivoLicencia
+  descargarArchivoLicencia,
+  licenciasResueltas
 } from '../../controllers/licencias.controller.js';
 
 import { validarJWT, esEstudiante, tieneRol } from '../../middlewares/auth.js';
@@ -69,6 +70,8 @@ router.get('/mis-licencias', validarJWT, listarLicencias);
 router.get('/en-revision', validarJWT, getLicenciasEnRevision);
 router.get('/detalle/:id', validarJWT, detalleLicencia);
 router.get('/licencias/:id/archivo', validarJWT, descargarArchivoLicencia);
+router.get('/resueltas', validarJWT, tieneRol('funcionario'), licenciasResueltas);
+router.get('/resueltas', validarJWT,tieneRol('funcionario'),licenciasResueltas);
 // SOLO Estudiante (creación con validaciones de negocio)
 router.post(
   '/crear',

@@ -194,6 +194,8 @@ export const crearLicencia = async (req, res) => {
       console.warn('⚠️ No se pudo registrar la notificación:', notifError.message);
     }
 
+
+
     // --------- Registrar archivo (opcional) ----------
     try {
       const idLicencia = result.insertId;
@@ -249,28 +251,46 @@ export const getLicenciasEnRevision = async (req, res) => {
       return res.status(401).json({ error: 'No autenticado' });
     }
 
-    let sql, params;
-    if (rol === 'funcionario') {
-      sql = `
-        SELECT id_licencia, folio, fecha_emision, fecha_inicio, fecha_fin, estado, motivo_rechazo, fecha_creacion, id_usuario
-        FROM LicenciaMedica
-        WHERE estado = 'pendiente'
-        ORDER BY fecha_emision DESC, id_licencia DESC
-        LIMIT ? OFFSET ?
-      `;
-      params = [parseInt(req.query.limit) || 10, ((parseInt(req.query.page) || 1) - 1) * (parseInt(req.query.limit) || 10)];
+    // Filtros
+    const { nombre, folio, desde, hasta } = req.query;
+    let condiciones = [`estado = 'pendiente'`];
+    let params = [];
+
+    if (rol === 'funcionario' || rol === 'secretario' || rol === 'profesor') {
+      // Filtros avanzados solo para funcionarios/secretarios/profesores
+      if (nombre) {
+        condiciones.push(`u.nombre LIKE ?`);
+        params.push(`%${nombre}%`);
+      }
+      if (folio) {
+        condiciones.push(`lm.folio LIKE ?`);
+        params.push(`%${folio}%`);
+      }
+      if (desde) {
+        condiciones.push(`lm.fecha_emision >= ?`);
+        params.push(desde);
+      }
+      if (hasta) {
+        condiciones.push(`lm.fecha_emision <= ?`);
+        params.push(hasta);
+      }
     } else {
-      sql = `
-        SELECT id_licencia, folio, fecha_emision, fecha_inicio, fecha_fin, estado, motivo_rechazo, fecha_creacion, id_usuario
-        FROM LicenciaMedica
-        WHERE estado = 'pendiente' AND id_usuario = ?
-        ORDER BY fecha_emision DESC, id_licencia DESC
-        LIMIT ? OFFSET ?
-      `;
-      params = [usuarioId, parseInt(req.query.limit) || 10, ((parseInt(req.query.page) || 1) - 1) * (parseInt(req.query.limit) || 10)];
+      condiciones.push(`lm.id_usuario = ?`);
+      params.push(usuarioId);
     }
 
-    const [rows] = await db.execute(sql, params);
+    const where = condiciones.length ? `WHERE ${condiciones.join(' AND ')}` : '';
+    const limit = parseInt(req.query.limit) || 10;
+    const offset = ((parseInt(req.query.page) || 1) - 1) * limit;
+
+    const [rows] = await db.execute(`
+      SELECT lm.id_licencia, lm.folio, lm.fecha_emision, lm.fecha_inicio, lm.fecha_fin, lm.estado, lm.motivo_rechazo, lm.fecha_creacion, lm.id_usuario, u.nombre
+      FROM LicenciaMedica lm
+      JOIN Usuario u ON lm.id_usuario = u.id_usuario
+      ${where}
+      ORDER BY lm.fecha_emision DESC, lm.id_licencia DESC
+      LIMIT ? OFFSET ?
+    `, [...params, limit, offset]);
 
     return res.json({
       msg: 'Licencias en revisión',
@@ -281,6 +301,69 @@ export const getLicenciasEnRevision = async (req, res) => {
   } catch (error) {
     console.error('[licencias:getLicenciasEnRevision] error:', error);
     return res.status(500).json({ error: 'Error al obtener licencias en revisión' });
+  }
+};
+
+export const licenciasResueltas = async (req, res) => {
+  try {
+    const rol = (req.user?.rol ?? req.rol ?? '').toString().toLowerCase();
+    if (rol !== 'funcionario') {
+      return res.status(403).json({ ok: false, error: 'Solo los funcionarios pueden ver esta lista.' });
+    }
+
+    const { estado, desde, hasta, nombre, folio, page = 1, limit = 20 } = req.query;
+
+    let condiciones = [`lm.estado IN ('aceptado', 'rechazado')`];
+    let valores = [];
+
+    if (estado && ['aceptado', 'rechazado'].includes(estado)) {
+      condiciones.push(`lm.estado = ?`);
+      valores.push(estado);
+    }
+    if (nombre) {
+      condiciones.push(`u.nombre LIKE ?`);
+      valores.push(`%${nombre}%`);
+    }
+    if (folio) {
+      condiciones.push(`lm.folio LIKE ?`);
+      valores.push(`%${folio}%`);
+    }
+    if (desde) {
+      condiciones.push(`lm.fecha_emision >= ?`);
+      valores.push(desde);
+    }
+    if (hasta) {
+      condiciones.push(`lm.fecha_emision <= ?`);
+      valores.push(hasta);
+    }
+
+    const where = condiciones.length ? `WHERE ${condiciones.join(' AND ')}` : '';
+    const lim = Math.max(1, Math.min(100, parseInt(limit)));
+    const off = (Math.max(1, parseInt(page)) - 1) * lim;
+
+    const [licencias] = await db.execute(`
+      SELECT 
+        lm.id_licencia,
+        lm.folio,
+        lm.fecha_emision,
+        lm.fecha_inicio,
+        lm.fecha_fin,
+        lm.estado,
+        lm.motivo_rechazo,
+        lm.fecha_creacion,
+        lm.id_usuario,
+        u.nombre
+      FROM licenciamedica lm
+      JOIN usuario u ON lm.id_usuario = u.id_usuario
+      ${where}
+      ORDER BY lm.fecha_creacion DESC
+      LIMIT ? OFFSET ?
+    `, [...valores, lim, off]);
+
+    return res.status(200).json({ licencias });
+  } catch (error) {
+    console.error('❌ Error al obtener licencias resueltas:', error);
+    return res.status(500).json({ error: 'Error interno del servidor' });
   }
 };
 
@@ -617,7 +700,8 @@ export default {
   detalleLicencia,
   decidirLicencia,
   notificarEstado,
-  descargarArchivoLicencia
+  descargarArchivoLicencia,
+  licenciasResueltas
 };
 
 
