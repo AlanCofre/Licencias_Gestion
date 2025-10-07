@@ -387,30 +387,49 @@ export const crearLicenciaLegacy = async (req, res) => {
   }
 };
 
+// === Controller: decidirLicencia (sin check de rol: lo hace el router con tieneRol('secretaria'))
 export async function decidirLicencia(req, res) {
   try {
-    const idLicencia = Number(req.params.id);
+    const idLicencia   = Number(req.params.id);
     const idfuncionario = req.user?.id_usuario ?? null;
+    const actorId = req.user?.id_usuario ?? null;
 
     if (!idfuncionario) {
-      return res.status(401).json({ ok: false, error: "No autenticado" });
+      return res.status(401).json({ ok: false, error: 'No autenticado' });
     }
     if (!idLicencia) {
-      return res.status(400).json({ ok: false, error: "ID de licencia inválido" });
+      return res.status(400).json({ ok: false, error: 'ID de licencia inválido' });
     }
 
-    // ⚠️ Ya vienen normalizados por validateDecision:
-    // - decision/estado: 'aceptado' | 'rechazado'
-    // - _fi/_ff: YYYY-MM-DD si se acepta
+    // Normalización de entrada
+    const decisionRaw = String(req.body.decision ?? req.body.estado ?? '').toLowerCase();
+    if (!['aceptado', 'rechazado'].includes(decisionRaw)) {
+      return res.status(422).json({ ok: false, error: 'Decision inválida' });
+    }
+
+    // Si es rechazo, motivo obligatorio (≥10)
+    const motivo_rechazo = req.body.motivo_rechazo ?? null;
+    if (decisionRaw === 'rechazado') {
+      const motivoOk = typeof motivo_rechazo === 'string' && motivo_rechazo.trim().length >= 10;
+      if (!motivoOk) {
+        return res.status(400).json({ ok: false, error: 'motivo_rechazo es obligatorio (≥10 caracteres)' });
+      }
+    }
+
+    // Fechas (_fi/_ff) si “aceptado” ya deberían venir validadas por tu middleware validateDecision (si lo usas)
     const payload = {
       idLicencia,
-      decision: req.body.decision ?? req.body.estado,    // compat
-      estado:   req.body.estado ?? req.body.decision,    // compat
-      motivo_rechazo: req.body.motivo_rechazo ?? null,
+      decision: decisionRaw,            // 'aceptado' | 'rechazado'
+      estado: decisionRaw,              // compat
+      motivo_rechazo: motivo_rechazo ?? null,
       observacion: req.body.observacion ?? null,
       _fi: req.body._fi,
       _ff: req.body._ff,
-      idfuncionario
+
+      // 🔧 CLAVE: mandamos el id del revisor en los dos nombres posibles
+      idFuncionario: actorId,
+      idfuncionario: actorId,
+      id_usuario: actorId           // ← muchos services/grabadores de historial esperan este nombre
     };
 
     const out = await decidirLicenciaSvc(payload);
@@ -419,12 +438,11 @@ export async function decidirLicencia(req, res) {
       ok: true,
       data: {
         id_licencia: idLicencia,
-        estado: out?.estado ?? payload.decision, // 'aceptado' | 'rechazado'
-        motivo_rechazo: payload.motivo_rechazo ?? null
+        estado: out?.estado ?? decisionRaw,
+        motivo_rechazo: decisionRaw === 'rechazado' ? (motivo_rechazo ?? null) : null
       }
     });
   } catch (err) {
-    // Preferimos código que venga en err.http desde el service
     const code = err?.http ?? (
       /no encontrada/i.test(err?.message) ? 404 :
       /ya fue/i.test(err?.message)        ? 409 :
@@ -435,15 +453,15 @@ export async function decidirLicencia(req, res) {
     );
 
     const mapMsg = {
-      LICENCIA_NO_ENCONTRADA: "La licencia no existe",
-      ESTADO_NO_PERMITE_DECIDIR: "El estado actual no permite decidir",
-      LICENCIA_SIN_HASH: "No se puede aceptar sin archivo válido (hash)",
-      RANGO_FECHAS_INVALIDO: "Rango de fechas inválido",
-      SOLAPAMIENTO_CON_OTRA_ACEPTADA: "Se solapa con otra licencia aceptada",
-      DECISION_INVALIDA: "Decision inválida"
+      LICENCIA_NO_ENCONTRADA: 'La licencia no existe',
+      ESTADO_NO_PERMITE_DECIDIR: 'El estado actual no permite decidir',
+      LICENCIA_SIN_HASH: 'No se puede aceptar sin archivo válido (hash)',
+      RANGO_FECHAS_INVALIDO: 'Rango de fechas inválido',
+      SOLAPAMIENTO_CON_OTRA_ACEPTADA: 'Se solapa con otra licencia aceptada',
+      DECISION_INVALIDA: 'Decision inválida'
     };
 
-    const msg = mapMsg[err?.message] ?? (err?.message || "Error al decidir licencia");
+    const msg = mapMsg[err?.message] ?? (err?.message || 'Error al decidir licencia');
     return res.status(code).json({ ok: false, error: msg });
   }
 }

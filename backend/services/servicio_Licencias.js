@@ -11,8 +11,7 @@ import ArchivoLicencia from '../src/models/modelo_ArchivoLicencia.js';
 
 /* =======================================================
  * Utilidades
- * =======================================================
- */
+ * ======================================================= */
 export function sha256FromBuffer(bufOrStr) {
   const h = crypto.createHash('sha256');
   h.update(bufOrStr);
@@ -21,8 +20,7 @@ export function sha256FromBuffer(bufOrStr) {
 
 /* =======================================================
  * Validaciones: fechas superpuestas + hash duplicado
- * =======================================================
- */
+ * ======================================================= */
 export async function validarNuevaLicencia({
   idUsuario,
   fechaInicio,
@@ -33,10 +31,10 @@ export async function validarNuevaLicencia({
   const licSolapada = await LicenciaMedica.findOne({
     where: {
       id_usuario: idUsuario,
-      estado: { [Op.in]: ['pendiente', 'aceptado'] }, // puedes ajustar si quieres considerar 'rechazado'
+      estado: { [Op.in]: ['pendiente', 'aceptado'] },
       [Op.and]: [
         { fecha_inicio: { [Op.lte]: fechaFin } },
-        { fecha_fin:     { [Op.gte]: fechaInicio } },
+        { fecha_fin: { [Op.gte]: fechaInicio } },
       ],
     },
     attributes: ['id_licencia', 'fecha_inicio', 'fecha_fin', 'estado'],
@@ -45,8 +43,8 @@ export async function validarNuevaLicencia({
   if (licSolapada) {
     const e = new Error(
       `Fechas superpuestas con una licencia existente. ` +
-      `Se superpone con licencia #${licSolapada.id_licencia} ` +
-      `(${licSolapada.fecha_inicio} a ${licSolapada.fecha_fin}, estado: ${licSolapada.estado}).`
+        `Se superpone con licencia #${licSolapada.id_licencia} ` +
+        `(${licSolapada.fecha_inicio} a ${licSolapada.fecha_fin}, estado: ${licSolapada.estado}).`
     );
     e.code = 'LICENCIA_FECHAS_SUPERPUESTAS';
     e.http = 409;
@@ -56,14 +54,16 @@ export async function validarNuevaLicencia({
   // B) Hash duplicado (si viene)
   if (hashArchivoSha256) {
     const archivoPrevio = await ArchivoLicencia.findOne({
-      where: { hash: hashArchivoSha256 }, // tu columna real es "hash"
-      include: [{
-        model: LicenciaMedica,
-        as: 'licencia',     // ⚠️ Debe existir esta asociación en el modelo
-        required: true,
-        where: { id_usuario: idUsuario },
-        attributes: ['id_licencia'],
-      }],
+      where: { hash: hashArchivoSha256 },
+      include: [
+        {
+          model: LicenciaMedica,
+          as: 'licencia', // ⚠️ Debe existir esta asociación en el modelo
+          required: true,
+          where: { id_usuario: idUsuario },
+          attributes: ['id_licencia'],
+        },
+      ],
       attributes: ['id_archivo', 'hash'],
     });
 
@@ -80,21 +80,21 @@ export async function validarNuevaLicencia({
 
 /* =======================================================
  * Crear licencia + (opcional) archivo — con transacción
- * =======================================================
- */
+ * ======================================================= */
 export async function crearLicenciaConArchivo({
   idUsuario,
   fechaInicio,
   fechaFin,
   motivo,
   // archivo:
-  archivoBuffer,     // si llega por multipart (req.file.buffer)
-  archivoHashHex,    // si FE ya lo calculó
-  archivoUrl,        // ⚠️ requerido por tu modelo si insertas archivo (ruta_url NOT NULL)
+  archivoBuffer, // si llega por multipart (req.file.buffer)
+  archivoHashHex, // si FE ya lo calculó
+  archivoUrl, // ⚠️ requerido por tu modelo si insertas archivo (ruta_url NOT NULL)
   archivoMime,
   archivoBytes,
 }) {
-  const hash = archivoHashHex ?? (archivoBuffer ? sha256FromBuffer(archivoBuffer) : null);
+  const hash =
+    archivoHashHex ?? (archivoBuffer ? sha256FromBuffer(archivoBuffer) : null);
 
   await validarNuevaLicencia({
     idUsuario,
@@ -105,26 +105,33 @@ export async function crearLicenciaConArchivo({
 
   const tx = await LicenciaMedica.sequelize.transaction();
   try {
-    const lic = await LicenciaMedica.create({
-      id_usuario: idUsuario,
-      fecha_inicio: fechaInicio,
-      fecha_fin: fechaFin,
-      motivo,
-      estado: 'pendiente',
-    }, { transaction: tx });
+    const lic = await LicenciaMedica.create(
+      {
+        id_usuario: idUsuario,
+        fecha_inicio: fechaInicio,
+        fecha_fin: fechaFin,
+        motivo,
+        estado: 'pendiente',
+      },
+      { transaction: tx }
+    );
 
     // Insertar registro de archivo solo si hay datos del archivo
     if (hash || archivoUrl || archivoMime || typeof archivoBytes === 'number') {
-      await ArchivoLicencia.create({
-        id_licencia: lic.id_licencia,                 // ⚠️ tu modelo debe tener este campo
-        hash: hash ?? null,
-        ruta_url: archivoUrl ?? 'local://sin-url',    // evita violar allowNull:false durante pruebas
-        tipo_mime: archivoMime ?? 'application/octet-stream',
-        tamano: typeof archivoBytes === 'number'
-          ? archivoBytes
-          : (archivoBuffer?.length ?? 0),
-        // fecha_subida usa default NOW del modelo
-      }, { transaction: tx });
+      await ArchivoLicencia.create(
+        {
+          id_licencia: lic.id_licencia, // ⚠️ tu modelo debe tener este campo
+          hash: hash ?? null,
+          ruta_url: archivoUrl ?? 'local://sin-url', // evita violar allowNull:false durante pruebas
+          tipo_mime: archivoMime ?? 'application/octet-stream',
+          tamano:
+            typeof archivoBytes === 'number'
+              ? archivoBytes
+              : archivoBuffer?.length ?? 0,
+          // fecha_subida usa default NOW del modelo
+        },
+        { transaction: tx }
+      );
     }
 
     await tx.commit();
@@ -136,17 +143,20 @@ export async function crearLicenciaConArchivo({
 }
 
 /* =======================================================
- * Decidir licencia (aceptar/rechazar) — CORREGIDO
+ * Decidir licencia (aceptar/rechazar) — ROBUSTO
  * ======================================================= */
 export async function decidirLicenciaSvc({
   idLicencia,
-  decision,          // 'aceptado' | 'rechazado'
-  estado,            // compat
-  motivo_rechazo,    // obligatorio si rechaza
-  observacion,       // opcional
-  _fi,               // fecha_inicio (YYYY-MM-DD) si se acepta
-  _ff,               // fecha_fin    (YYYY-MM-DD) si se acepta
-  idSecretario,      // usuario funcionario que decide
+  decision, // 'aceptado' | 'rechazado'
+  estado, // compat
+  motivo_rechazo, // obligatorio si rechaza
+  observacion, // opcional
+  _fi, // fecha_inicio (YYYY-MM-DD) si se acepta
+  _ff, // fecha_fin    (YYYY-MM-DD) si se acepta
+  // Id del actor puede venir con varios nombres
+  idFuncionario, // preferido
+  idfuncionario, // compat
+  id_usuario, // compat
 }) {
   const DEC = (decision ?? estado ?? '').toLowerCase().trim();
   if (!['aceptado', 'rechazado'].includes(DEC)) {
@@ -155,12 +165,20 @@ export async function decidirLicenciaSvc({
     throw e;
   }
 
+  // 🔐 Resolver ID del actor (funcionario que decide) — nunca null
+  const actorId = idFuncionario ?? idfuncionario ?? id_usuario ?? null;
+  if (!actorId) {
+    const e = new Error('REVISOR_REQUERIDO'); // id de quien decide
+    e.http = 401;
+    throw e;
+  }
+
   const tx = await LicenciaMedica.sequelize.transaction();
   try {
     // Bloqueo de fila para evitar carreras
     const lic = await LicenciaMedica.findByPk(idLicencia, {
       transaction: tx,
-      lock: true
+      lock: true,
     });
 
     if (!lic) {
@@ -187,14 +205,20 @@ export async function decidirLicenciaSvc({
       try {
         archivo = await ArchivoLicencia.findOne({
           where: { id_licencia: lic.id_licencia, hash: { [Op.ne]: null } },
-          transaction: tx
+          transaction: tx,
         });
-      } catch (_) { /* caerá al fallback */ }
+      } catch (_) {
+        /* fallback a query cruda */
+      }
 
       if (!archivo) {
         const rows = await LicenciaMedica.sequelize.query(
           'SELECT 1 AS ok FROM ArchivoLicencia WHERE id_licencia = ? AND hash IS NOT NULL LIMIT 1',
-          { replacements: [lic.id_licencia], type: QueryTypes.SELECT, transaction: tx }
+          {
+            replacements: [lic.id_licencia],
+            type: QueryTypes.SELECT,
+            transaction: tx,
+          }
         );
         if (!rows.length) {
           const e = new Error('No se puede aceptar sin archivo válido (hash)');
@@ -205,7 +229,7 @@ export async function decidirLicenciaSvc({
 
       // 2) Fechas a usar (de correcciones o de la licencia)
       const fechaInicio = _fi ?? lic.fecha_inicio;
-      const fechaFin    = _ff ?? lic.fecha_fin;
+      const fechaFin = _ff ?? lic.fecha_fin;
 
       if (!fechaInicio || !fechaFin) {
         const e = new Error('RANGO_FECHAS_INVALIDO');
@@ -226,16 +250,16 @@ export async function decidirLicenciaSvc({
           id_licencia: { [Op.ne]: lic.id_licencia },
           [Op.or]: [
             { fecha_inicio: { [Op.between]: [fechaInicio, fechaFin] } },
-            { fecha_fin:    { [Op.between]: [fechaInicio, fechaFin] } },
+            { fecha_fin: { [Op.between]: [fechaInicio, fechaFin] } },
             {
               [Op.and]: [
                 { fecha_inicio: { [Op.lte]: fechaInicio } },
-                { fecha_fin:    { [Op.gte]: fechaFin } }
-              ]
-            }
-          ]
+                { fecha_fin: { [Op.gte]: fechaFin } },
+              ],
+            },
+          ],
         },
-        transaction: tx
+        transaction: tx,
       });
       if (solape) {
         const e = new Error('SOLAPAMIENTO_CON_OTRA_ACEPTADA');
@@ -250,13 +274,16 @@ export async function decidirLicenciaSvc({
       lic.motivo_rechazo = null;
       await lic.save({ transaction: tx });
 
-      await HistorialLicencias.create({
-        id_licencia: lic.id_licencia,
-        id_usuario: idSecretario,
-        estado: 'aceptado',            
-        observacion: observacion ?? null,
-        fecha_actualizacion: new Date()
-      }, { transaction: tx });
+      await HistorialLicencias.create(
+        {
+          id_licencia: lic.id_licencia,
+          id_usuario: actorId, // ✅ nunca null
+          estado: 'aceptado',
+          observacion: observacion ?? null,
+          fecha_actualizacion: new Date(),
+        },
+        { transaction: tx }
+      );
 
       await tx.commit();
       return { ok: true, estado: 'aceptado' };
@@ -274,13 +301,16 @@ export async function decidirLicenciaSvc({
       lic.motivo_rechazo = String(motivo_rechazo).trim();
       await lic.save({ transaction: tx });
 
-      await HistorialLicencias.create({
-        id_licencia: lic.id_licencia,
-        id_usuario: idSecretario,
-        estado: 'rechazado',           // << aquí
-        observacion: lic.motivo_rechazo,
-        fecha_actualizacion: new Date()
-      }, { transaction: tx });
+      await HistorialLicencias.create(
+        {
+          id_licencia: lic.id_licencia,
+          id_usuario: actorId, // ✅ nunca null
+          estado: 'rechazado',
+          observacion: lic.motivo_rechazo,
+          fecha_actualizacion: new Date(),
+        },
+        { transaction: tx }
+      );
 
       await tx.commit();
       return { ok: true, estado: 'rechazado' };
@@ -295,4 +325,3 @@ export async function decidirLicenciaSvc({
     throw err;
   }
 }
-
