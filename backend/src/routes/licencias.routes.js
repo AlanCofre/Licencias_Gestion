@@ -10,7 +10,8 @@ import {
   decidirLicencia,
   getLicenciasEnRevision,
   detalleLicencia,
-  descargarArchivoLicencia
+  descargarArchivoLicencia,
+  licenciasResueltas
 } from '../../controllers/licencias.controller.js';
 
 import { validarJWT, esEstudiante, tieneRol } from '../../middlewares/auth.js';
@@ -42,8 +43,62 @@ async function cargarLicencia(req, res, next) {
 /* ===== Listados / creación ===== */
 router.get('/', validarJWT, listarLicencias);
 router.get('/en-revision', validarJWT, getLicenciasEnRevision);
+router.get('/detalle/:id', validarJWT, detalleLicencia);
+router.get('/licencias/:id/archivo', validarJWT, descargarArchivoLicencia);
+// SOLO Estudiante (creación con validaciones de negocio)
+router.post(
+  '/crear',
+  [validarJWT, esEstudiante],
+  upload.single('archivo'),   // req.file
+  validarArchivoAdjunto,      // archivo obligatorio/tipo/tamaño (o archivo_url)
+  validateLicenciaBody,       // Zod: fechas (YYYY-MM-DD, <=90 días), estado, etc.
+  crearLicencia               // tu controller (forzarás estado 'pendiente' al guardar)
+);
 
-/* ⚠️ Ubica /resueltas ANTES de cualquier '/:id' */
+// Profesor o Secretario (demo simple)
+router.get('/revisar', [validarJWT, tieneRol('profesor', 'secretario')], (req, res) => {
+  res.json({ ok: true, msg: 'Revisando licencias...', rol: req.rol });
+});
+
+/**
+ * Decidir licencia (SECRETARIO):
+ * - validateDecision: valida body (ej. { estado, motivo_rechazo })
+ * - cargarLicencia: trae la licencia y la deja en req.licencia
+ * - validarTransicionEstado: aplica la regla de transición usando el estado actual
+ *   pendiente → (aceptado|rechazado) ✅; otras ❌
+ */
+router.put(
+  '/licencias/:id/decidir',
+  authRequired,                    // verifica JWT -> req.user
+  requireRole(['secretario']),     // solo secretario/a
+  validateDecision,                // valida body de la decisión
+  cargarLicencia,                  // req.licencia disponible
+  (req, res, next) =>              // valida transición según estado actual
+    validarTransicionEstado(req.licencia.estado)(req, res, next),
+  // Ajuste pequeño: normaliza estado por consistencia antes del controller
+  (req, _res, next) => {
+    if (req.body?.estado) req.body.estado = normalizaEstado(req.body.estado);
+    next();
+  },
+  decidirLicencia                  // controller que persiste cambios
+);
+
+router.put(
+  '/:id/notificar',
+  authRequired,
+  requireRole(['secretario']),
+  validateDecision,
+  cargarLicencia,
+  (req, res, next) =>
+    validarTransicionEstado(req.licencia.estado)(req, res, next),
+  (req, _res, next) => {
+    if (req.body?.estado) req.body.estado = normalizaEstado(req.body.estado);
+    next();
+  },
+  notificarEstado
+);
+
+
 router.get('/resueltas', validarJWT, async (req, res) => {
   const { estado, desde, hasta } = req.query;
   let condiciones = [`estado IN ('aceptado', 'rechazado')`];
