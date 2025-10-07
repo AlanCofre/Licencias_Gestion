@@ -180,22 +180,6 @@ export default function LicenciasPorRevisar() {
                     {sortAsc ? "Ascendente ▲" : "Descendente ▼"}
                   </button>
 
-                  {/* Filtro estado */}
-                  <div className="flex items-center gap-2">
-                    <label htmlFor="filterEstado" className="text-sm text-gray-600">Estado</label>
-                    <select
-                      id="filterEstado"
-                      value={filterEstado}
-                      onChange={(e) => setFilterEstado(e.target.value)}
-                      className="border border-gray-200 bg-white px-3 py-1 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#048FD4]"
-                    >
-                      <option value="">Todos</option>
-                      <option value="por revisar">Por revisar</option>
-                      <option value="aceptado">Aceptado</option>
-                      <option value="rechazado">Rechazado</option>
-                    </select>
-                  </div>
-
                   {/* Barra de búsqueda */}
                   <form
                     onSubmit={(e) => e.preventDefault()}
