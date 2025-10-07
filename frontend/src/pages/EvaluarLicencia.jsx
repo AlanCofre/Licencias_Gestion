@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import ConfirmModal from "../components/ConfirmModal";
+import samplePDF from "../assets/sample.pdf";
 
 // Mock data con diferentes estudiantes
 const mockDatabase = {
@@ -68,15 +69,23 @@ const mockDatabase = {
   }
 };
 
-// Componente simple para mostrar archivo adjunto
+
 function AttachmentView({ file }) {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
   if (!file) {
     return <div className="text-sm text-gray-500">Sin archivo adjunto</div>;
   }
 
   const { filename, mimetype } = file;
-  const isImage = mimetype?.startsWith?.("image/") || /\.(jpg|jpeg|png|gif)$/i.test(filename);
-  const isPDF = mimetype === "application/pdf" || /\.pdf$/i.test(filename);
+  const isImage =
+    mimetype?.startsWith?.("image/") ||
+    /\.(jpg|jpeg|png|gif)$/i.test(filename);
+  const isPDF =
+    mimetype === "application/pdf" || /\.pdf$/i.test(filename);
+
+  // Ruta local del PDF (ya que está en /assets)
+  const fileUrl = isPDF ? samplePDF : null;
 
   return (
     <div className="space-y-3">
@@ -90,22 +99,56 @@ function AttachmentView({ file }) {
         </div>
       </div>
 
-      {/* Botones de acción (opciones disponibles) */}
-      <div className="flex gap-2">
-        <button
-          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
-          disabled
-        >
-          Previsualizar
-        </button>
-        <button
-          className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 text-sm"
-          disabled
-        >
-          Descargar
-        </button>
-      </div>
-      <p className="text-xs text-gray-500">* Funcionalidad disponible próximamente</p>
+      {/* Botones de acción */}
+      {isPDF ? (
+        <div className="flex gap-2">
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
+          >
+            Previsualizar
+          </button>
+          <a
+            href={fileUrl}
+            download={filename}
+            className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 text-sm"
+          >
+            Descargar
+          </a>
+        </div>
+      ) : (
+        <div className="text-xs text-gray-500">
+          * Este tipo de archivo no se puede previsualizar
+        </div>
+      )}
+
+      {/* Modal PDF */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
+          <div className="relative bg-white w-11/12 h-5/6 rounded-lg overflow-hidden shadow-lg">
+            <iframe
+              src={fileUrl}
+              title={filename}
+              className="w-full h-full"
+            />
+            {/* Botón cerrar */}
+            <button
+              onClick={() => setIsModalOpen(false)}
+              className="absolute top-3 right-3 bg-gray-700 text-white rounded-full w-8 h-8 flex items-center justify-center hover:bg-gray-900"
+            >
+              ✕
+            </button>
+            {/* Botón descargar */}
+            <a
+              href={fileUrl}
+              download={filename}
+              className="absolute bottom-4 right-4 px-4 py-2 bg-blue-600 text-white rounded shadow hover:bg-blue-700"
+            >
+              Descargar
+            </a>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
