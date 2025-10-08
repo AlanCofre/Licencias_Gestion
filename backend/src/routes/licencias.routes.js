@@ -1,6 +1,18 @@
 // backend/src/routes/licencias.routes.js
 import { Router } from 'express';
 import multer from 'multer';
+import db from '../../db/db.js';
+
+import {
+  crearLicencia,
+  listarLicencias,
+  notificarEstado,
+  decidirLicencia,
+  getLicenciasEnRevision,
+  detalleLicencia,
+  descargarArchivoLicencia,
+  licenciasResueltas
+} from '../../controllers/licencias.controller.js';
 
 import { validarJWT, esEstudiante, tieneRol } from '../../middlewares/auth.js';
 import { crearLicencia, listarLicencias, crearLicenciaSoloFormulario} from '../../controllers/licencias.controller.js';
@@ -9,26 +21,18 @@ import { getLicenciasEnRevision } from '../../controllers/licencias.controller.j
 import { authRequired } from '../../middlewares/requireAuth.js';
 import { requireRole } from '../../middlewares/requireRole.js';
 import { validateDecision } from '../../middlewares/validateDecision.js';
-import { detalleLicencia } from '../../controllers/licencias.controller.js';
-// 🔗 Middlewares de validación de negocio (mismo archivo unificado)
 import {
-  validateLicenciaBody,        // Zod: fechas, id_usuario, estado normalizado, etc.
-  validarArchivoAdjunto,       // archivo obligatorio + tipo/tamaño (multer)
-  validarTransicionEstado,     // regla de transición (pendiente→aceptado|rechazado)
+  validateLicenciaBody,
+  validarArchivoAdjunto,
+  validarTransicionEstado,
   normalizaEstado,
 } from '../../middlewares/validarLicenciaMedica.js';
 
 import LicenciaMedica from '../models/modelo_LicenciaMedica.js';
 
 const router = Router();
-
-
-// Multer: archivo en memoria (luego tu controller lo sube a Firebase/S3 si aplica)
 const upload = multer({ storage: multer.memoryStorage() });
 
-/**
- * Helper: carga la licencia por :id y la inyecta en req.licencia
- */
 async function cargarLicencia(req, res, next) {
   try {
     const lic = await LicenciaMedica.findByPk(req.params.id);
@@ -41,17 +45,11 @@ async function cargarLicencia(req, res, next) {
   }
 }
 
-/**
- * Rutas protegidas con JWT y control por rol
- * - /mis-licencias  → cualquier usuario autenticado
- * - /crear          → SOLO ESTUDIANTE
- * - /revisar        → PROFESOR o SECRETARIO
- */
-
-// Autenticado (cualquier rol)
-router.get('/mis-licencias', validarJWT, listarLicencias);
+/* ===== Listados / creación ===== */
+router.get('/', validarJWT, listarLicencias);
 router.get('/en-revision', validarJWT, getLicenciasEnRevision);
 router.get('/detalle/:id', validarJWT, detalleLicencia);
+router.get('/licencias/:id/archivo', validarJWT, descargarArchivoLicencia);
 // SOLO Estudiante (creación con validaciones de negocio)
 router.post(
   '/crear',
@@ -90,10 +88,96 @@ router.put(
   decidirLicencia                  // controller que persiste cambios
 );
 
+router.put(
+  '/:id/notificar',
+  authRequired,
+  requireRole(['secretario']),
+  validateDecision,
+  cargarLicencia,
+  (req, res, next) =>
+    validarTransicionEstado(req.licencia.estado)(req, res, next),
+  (req, _res, next) => {
+    if (req.body?.estado) req.body.estado = normalizaEstado(req.body.estado);
+    next();
+  },
+  notificarEstado
+);
+
+
+router.get('/resueltas', validarJWT, async (req, res) => {
+  const { estado, desde, hasta } = req.query;
+  let condiciones = [`estado IN ('aceptado', 'rechazado')`];
+  const valores = [];
+
+  if (estado && ['aceptado', 'rechazado'].includes(estado)) {
+    condiciones = [`estado = ?`];
+    valores.push(estado);
+  }
+  if (desde) { condiciones.push(`fecha_emision >= ?`); valores.push(desde); }
+  if (hasta) { condiciones.push(`fecha_emision <= ?`); valores.push(hasta); }
+
+  const where = condiciones.length ? `WHERE ${condiciones.join(' AND ')}` : '';
+
+  try {
+    const [licencias] = await db.execute(`
+      SELECT id_licencia, folio, fecha_emision, fecha_inicio, fecha_fin,
+             estado, motivo_rechazo, fecha_creacion, id_usuario
+      FROM licenciamedica
+      ${where}
+      ORDER BY fecha_creacion DESC
+    `, valores);
+    return res.status(200).json({ licencias });
+  } catch (error) {
+    console.error('❌ Error al obtener licencias resueltas:', error);
+    return res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
 router.post(
-  "/api/licencias",
-  [validarJWT, esEstudiante],
-  crearLicenciaSoloFormulario
+  '/',
+  validarJWT,
+  esEstudiante,
+  upload.single('archivo'),
+  validarArchivoAdjunto,
+  validateLicenciaBody,
+  crearLicencia
+);
+
+/* ===== Rutas con :id (restringidas a numérico) ===== */
+router.get('/:id(\\d+)', validarJWT, detalleLicencia);
+router.get('/:id(\\d+)/archivo', validarJWT, descargarArchivoLicencia);
+
+router.post(
+  '/:id(\\d+)/decidir',
+  validarJWT,
+  tieneRol('funcionario'),
+  validateDecision,
+  cargarLicencia,
+  (req, res, next) => validarTransicionEstado(req.licencia.estado)(req, res, next),
+  (req, _res, next) => { if (req.body?.estado) req.body.estado = normalizaEstado(req.body.estado); next(); },
+  decidirLicencia
+);
+
+router.post(
+  '/:id(\\d+)/rechazar',
+  validarJWT,
+  tieneRol('funcionario'),
+  (req, _res, next) => { req.body = { ...(req.body || {}), decision: 'rechazado' }; next(); },
+  validateDecision,
+  cargarLicencia,
+  (req, res, next) => validarTransicionEstado(req.licencia.estado)(req, res, next),
+  decidirLicencia
+);
+
+router.put(
+  '/:id(\\d+)/notificar',
+  validarJWT,
+  tieneRol('funcionario'),
+  validateDecision,
+  cargarLicencia,
+  (req, res, next) => validarTransicionEstado(req.licencia.estado)(req, res, next),
+  (req, _res, next) => { if (req.body?.estado) req.body.estado = normalizaEstado(req.body.estado); next(); },
+  notificarEstado
 );
 
 export default router;

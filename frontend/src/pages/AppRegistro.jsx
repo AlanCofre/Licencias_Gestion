@@ -9,10 +9,9 @@ function AppRegistro() {
   const [contrasena, setContrasena] = useState("");
   const [confirmar, setConfirmar] = useState("");
   const [mensaje, setMensaje] = useState("");
-  const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
-    if (e && e.preventDefault) e.preventDefault();
+    e.preventDefault();
 
     if (contrasena !== confirmar) {
       setMensaje("Las contraseñas no coinciden");
@@ -20,7 +19,6 @@ function AppRegistro() {
     }
 
     try {
-      setLoading(true);
       const base = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
       const res = await fetch(`${base}/usuarios/registro`, {
         method: "POST",
@@ -29,22 +27,22 @@ function AppRegistro() {
           nombre,
           correo_usuario: correo,
           contrasena,
-          rol: "estudiante",
+          rol: "estudiante", // fijo por defecto
         }),
       });
 
       const data = await res.json();
       if (res.ok) {
+        // redirigir al login tras registro exitoso
         navigate("/login");
       } else {
         setMensaje(data.error || "Error al registrar usuario");
       }
     } catch (error) {
       setMensaje("Error de conexión con el servidor");
-    } finally {
-      setLoading(false);
     }
   };
+}
 
   return (
     <div className="relative min-h-screen bg-white flex flex-col items-center justify-start py-12">
@@ -66,7 +64,7 @@ function AppRegistro() {
           Registro
         </h2>
 
-        <form onSubmit={handleSubmit} className="flex flex-col w-full px-10 gap-4">
+        <div className="flex flex-col w-full px-10 gap-4">
           <div>
             <label className="block text-black font-normal mb-2">
               Nombre y Apellido:
@@ -118,33 +116,30 @@ function AppRegistro() {
               className="w-full bg-gray-100 rounded-md border border-gray-300 p-4 text-black focus:outline-none focus:ring-2 focus:ring-blue-400"
             />
           </div>
-
-          {mensaje && <p className="text-red-600 text-center">{mensaje}</p>}
-
-          <button
-            type="submit"
-            disabled={loading}
-            className={`w-3/5 h-14 bg-[#00AAFF] text-white text-xl font-semibold rounded-md shadow-md hover:brightness-110 transition self-center ${
-              loading ? "opacity-70 cursor-not-allowed" : ""
-            }`}
-          >
-            {loading ? "Registrando..." : "Registrarse"}
-          </button>
-        </form>
-
-        {/* Enlace al login */}
-        <div className="relative z-10 mt-10 text-center text-black text-base">
-          <span>¿Ya tienes una cuenta? </span>
-          <span
-            className="text-[#76F1FF] font-bold cursor-pointer hover:underline"
-            onClick={() => navigate("/login")}
-          >
-            Inicia sesión aquí.
-          </span>
         </div>
+
+        <button
+          onClick={handleRegister}
+          disabled={loading}
+          className={`w-3/5 h-14 bg-[#00AAFF] text-white text-xl font-semibold rounded-md shadow-md hover:brightness-110 transition self-center ${
+            loading ? "opacity-70 cursor-not-allowed" : ""
+          }`}
+        >
+          {loading ? "Registrando..." : "Registrarse"}
+        </button>
+
+      {/* Enlace al login */}
+      <div className="relative z-10 mt-10 text-center text-black text-base">
+        <span>¿Ya tienes una cuenta? </span>
+        <span
+          className="text-[#76F1FF] font-bold cursor-pointer hover:underline"
+          onClick={() => navigate("/login")}
+        >
+          Inicia sesión aquí.
+        </span>
       </div>
     </div>
-  );
-}
+  </div>
+);
 
 export default AppRegistro;

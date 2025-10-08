@@ -3,6 +3,12 @@ import crypto from 'crypto';
 import db from '../config/db.js'; // ← ajusta la ruta si corresponde
 import { decidirLicenciaSvc } from '../services/servicio_Licencias.js';
 import { Sequelize } from "sequelize";
+import fs from 'fs';
+import path from 'path';
+import http from 'http';
+import https from 'https';
+
+
 
 // === Utilidad: hash SHA-256 de un Buffer/String → hex 64
 function sha256FromBuffer(bufOrStr) {
@@ -11,6 +17,37 @@ function sha256FromBuffer(bufOrStr) {
   return h.digest('hex');
 }
 
+// ---- Helpers para descarga segura (NO afectan a lo demás) ----
+function _filenameFromRuta(ruta) {
+  try {
+    if (ruta?.startsWith('http')) {
+      const u = new URL(ruta);
+      return path.basename(u.pathname) || 'archivo';
+    }
+  } catch {}
+  return path.basename(ruta || '') || 'archivo';
+}
+
+function _safeJoin(baseDir, relative) {
+  const rootAbs = path.resolve(process.cwd(), baseDir || 'uploads');
+  const rel = String(relative || '').replace(/^\/+/, '');
+  const abs = path.resolve(rootAbs, rel);
+  if (!abs.startsWith(rootAbs)) {
+    const err = new Error('Ruta fuera de directorio permitido');
+    err.code = 'E_PATH_TRAVERSAL';
+    throw err;
+  }
+  return abs;
+}
+
+// funcionario → todo; estudiante → solo dueño
+function _puedeVerArchivo(user, idPropietario) {
+  if (!user) return false;
+  const rol = String(user.rol || '').toLowerCase();
+  if (rol === 'funcionario') return true;
+  if (rol === 'estudiante' && Number(user.id_usuario) === Number(idPropietario)) return true;
+  return false;
+}
 
 // ===============================================
 // GET: listar licencias del usuario autenticado
@@ -161,11 +198,13 @@ export const crearLicencia = async (req, res) => {
       console.warn('⚠️ No se pudo registrar la notificación:', notifError.message);
     }
 
+
+
     // --------- Registrar archivo (opcional) ----------
     try {
       const idLicencia = result.insertId;
 
-      // En tu tabla archivo_licencia: ruta_url NOT NULL
+      // En tu tabla archivolicencia: ruta_url NOT NULL
       // Si subes archivo pero aún no tienes URL real, guardamos un placeholder.
       const ruta_url = req.body?.ruta_url ?? (archivo ? 'local://sin-url' : null);
       const tipo_mime = req.body?.tipo_mime ?? (archivo?.mimetype ?? null);
@@ -216,28 +255,46 @@ export const getLicenciasEnRevision = async (req, res) => {
       return res.status(401).json({ error: 'No autenticado' });
     }
 
-    let sql, params;
-    if (rol === 'secretario') {
-      sql = `
-        SELECT id_licencia, folio, fecha_emision, fecha_inicio, fecha_fin, estado, motivo_rechazo, fecha_creacion, id_usuario
-        FROM LicenciaMedica
-        WHERE estado = 'pendiente'
-        ORDER BY fecha_emision DESC, id_licencia DESC
-        LIMIT ? OFFSET ?
-      `;
-      params = [parseInt(req.query.limit) || 10, ((parseInt(req.query.page) || 1) - 1) * (parseInt(req.query.limit) || 10)];
+    // Filtros
+    const { nombre, folio, desde, hasta } = req.query;
+    let condiciones = [`estado = 'pendiente'`];
+    let params = [];
+
+    if (rol === 'funcionario' || rol === 'secretario' || rol === 'profesor') {
+      // Filtros avanzados solo para funcionarios/secretarios/profesores
+      if (nombre) {
+        condiciones.push(`u.nombre LIKE ?`);
+        params.push(`%${nombre}%`);
+      }
+      if (folio) {
+        condiciones.push(`lm.folio LIKE ?`);
+        params.push(`%${folio}%`);
+      }
+      if (desde) {
+        condiciones.push(`lm.fecha_emision >= ?`);
+        params.push(desde);
+      }
+      if (hasta) {
+        condiciones.push(`lm.fecha_emision <= ?`);
+        params.push(hasta);
+      }
     } else {
-      sql = `
-        SELECT id_licencia, folio, fecha_emision, fecha_inicio, fecha_fin, estado, motivo_rechazo, fecha_creacion, id_usuario
-        FROM LicenciaMedica
-        WHERE estado = 'pendiente' AND id_usuario = ?
-        ORDER BY fecha_emision DESC, id_licencia DESC
-        LIMIT ? OFFSET ?
-      `;
-      params = [usuarioId, parseInt(req.query.limit) || 10, ((parseInt(req.query.page) || 1) - 1) * (parseInt(req.query.limit) || 10)];
+      condiciones.push(`lm.id_usuario = ?`);
+      params.push(usuarioId);
     }
 
-    const [rows] = await db.execute(sql, params);
+    const where = condiciones.length ? `WHERE ${condiciones.join(' AND ')}` : '';
+    const limit = parseInt(req.query.limit) || 10;
+    const offset = ((parseInt(req.query.page) || 1) - 1) * limit;
+
+    const [rows] = await db.execute(`
+      SELECT lm.id_licencia, lm.folio, lm.fecha_emision, lm.fecha_inicio, lm.fecha_fin, lm.estado, lm.motivo_rechazo, lm.fecha_creacion, lm.id_usuario, u.nombre
+      FROM LicenciaMedica lm
+      JOIN Usuario u ON lm.id_usuario = u.id_usuario
+      ${where}
+      ORDER BY lm.fecha_emision DESC, lm.id_licencia DESC
+      LIMIT ? OFFSET ?
+    `, [...params, limit, offset]);
 
     return res.json({
       msg: 'Licencias en revisión',
@@ -248,6 +305,69 @@ export const getLicenciasEnRevision = async (req, res) => {
   } catch (error) {
     console.error('[licencias:getLicenciasEnRevision] error:', error);
     return res.status(500).json({ error: 'Error al obtener licencias en revisión' });
+  }
+};
+
+export const licenciasResueltas = async (req, res) => {
+  try {
+    const rol = (req.user?.rol ?? req.rol ?? '').toString().toLowerCase();
+    if (rol !== 'funcionario') {
+      return res.status(403).json({ ok: false, error: 'Solo los funcionarios pueden ver esta lista.' });
+    }
+
+    const { estado, desde, hasta, nombre, folio, page = 1, limit = 20 } = req.query;
+
+    let condiciones = [`lm.estado IN ('aceptado', 'rechazado')`];
+    let valores = [];
+
+    if (estado && ['aceptado', 'rechazado'].includes(estado)) {
+      condiciones.push(`lm.estado = ?`);
+      valores.push(estado);
+    }
+    if (nombre) {
+      condiciones.push(`u.nombre LIKE ?`);
+      valores.push(`%${nombre}%`);
+    }
+    if (folio) {
+      condiciones.push(`lm.folio LIKE ?`);
+      valores.push(`%${folio}%`);
+    }
+    if (desde) {
+      condiciones.push(`lm.fecha_emision >= ?`);
+      valores.push(desde);
+    }
+    if (hasta) {
+      condiciones.push(`lm.fecha_emision <= ?`);
+      valores.push(hasta);
+    }
+
+    const where = condiciones.length ? `WHERE ${condiciones.join(' AND ')}` : '';
+    const lim = Math.max(1, Math.min(100, parseInt(limit)));
+    const off = (Math.max(1, parseInt(page)) - 1) * lim;
+
+    const [licencias] = await db.execute(`
+      SELECT 
+        lm.id_licencia,
+        lm.folio,
+        lm.fecha_emision,
+        lm.fecha_inicio,
+        lm.fecha_fin,
+        lm.estado,
+        lm.motivo_rechazo,
+        lm.fecha_creacion,
+        lm.id_usuario,
+        u.nombre
+      FROM licenciamedica lm
+      JOIN usuario u ON lm.id_usuario = u.id_usuario
+      ${where}
+      ORDER BY lm.fecha_creacion DESC
+      LIMIT ? OFFSET ?
+    `, [...valores, lim, off]);
+
+    return res.status(200).json({ licencias });
+  } catch (error) {
+    console.error('❌ Error al obtener licencias resueltas:', error);
+    return res.status(500).json({ error: 'Error interno del servidor' });
   }
 };
 
@@ -265,7 +385,7 @@ export const detalleLicencia = async (req, res) => {
     }
 
     let sql, params;
-    if (rol === 'secretario') {
+    if (rol === 'funcionario') {
       sql = `
         SELECT
           lm.id_licencia, lm.folio, lm.fecha_emision, lm.fecha_inicio, lm.fecha_fin, lm.estado,
@@ -357,58 +477,81 @@ export const crearLicenciaLegacy = async (req, res) => {
   }
 };
 
+// === Controller: decidirLicencia (sin check de rol: lo hace el router con tieneRol('secretaria'))
 export async function decidirLicencia(req, res) {
   try {
-    const idLicencia = Number(req.params.id);
+    const idLicencia   = Number(req.params.id);
+    const idfuncionario = req.user?.id_usuario ?? null;
+    const actorId = req.user?.id_usuario ?? null;
+
+    if (!idfuncionario) {
+      return res.status(401).json({ ok: false, error: 'No autenticado' });
+    }
+    if (!idLicencia) {
+      return res.status(400).json({ ok: false, error: 'ID de licencia inválido' });
+    }
+
+    // Normalización de entrada
+    const decisionRaw = String(req.body.decision ?? req.body.estado ?? '').toLowerCase();
+    if (!['aceptado', 'rechazado'].includes(decisionRaw)) {
+      return res.status(422).json({ ok: false, error: 'Decision inválida' });
+    }
+
+    // Si es rechazo, motivo obligatorio (≥10)
     const motivo_rechazo = req.body.motivo_rechazo ?? null;
-    const { estado, force } = req.body || {};
-
-    const idSecretario =
-      req.user?.id_usuario ??
-      req.user?.id ??
-      null;
-
-    if (!idSecretario) {
-      return res.status(401).json({
-        ok: false,
-        error: 'Token sin id_usuario (no se puede registrar historial)'
-      });
-    }
-
-    const nuevoEstado = (estado || '').toString().trim();
-    if (!['pendiente', 'aceptado', 'rechazado'].includes(nuevoEstado)) {
-      return res.status(400).json({ ok: false, error: 'estado no válido' });
-    }
-
-    if (nuevoEstado === 'rechazado') {
-      if (!motivo_rechazo || String(motivo_rechazo).trim() === '') {
-        return res.status(400).json({ ok: false, error: 'Debe incluir motivo_rechazo al rechazar' });
+    if (decisionRaw === 'rechazado') {
+      const motivoOk = typeof motivo_rechazo === 'string' && motivo_rechazo.trim().length >= 10;
+      if (!motivoOk) {
+        return res.status(400).json({ ok: false, error: 'motivo_rechazo es obligatorio (≥10 caracteres)' });
       }
     }
 
-    const licencia = await decidirLicenciaSvc({
+    // Fechas (_fi/_ff) si “aceptado” ya deberían venir validadas por tu middleware validateDecision (si lo usas)
+    const payload = {
       idLicencia,
-      estado: nuevoEstado,
-      motivo_rechazo: nuevoEstado === 'rechazado' ? String(motivo_rechazo).trim() : null,
-      idSecretario,
-      force: !!force,
-    });
+      decision: decisionRaw,            // 'aceptado' | 'rechazado'
+      estado: decisionRaw,              // compat
+      motivo_rechazo: motivo_rechazo ?? null,
+      observacion: req.body.observacion ?? null,
+      _fi: req.body._fi,
+      _ff: req.body._ff,
 
-    return res.json({
+      // 🔧 CLAVE: mandamos el id del revisor en los dos nombres posibles
+      idFuncionario: actorId,
+      idfuncionario: actorId,
+      id_usuario: actorId           // ← muchos services/grabadores de historial esperan este nombre
+    };
+
+    const out = await decidirLicenciaSvc(payload);
+
+    return res.status(200).json({
       ok: true,
       data: {
-        id_licencia: licencia.id_licencia,
-        estado: licencia.estado,
-        motivo_rechazo: licencia.motivo_rechazo ?? null,
-      },
+        id_licencia: idLicencia,
+        estado: out?.estado ?? decisionRaw,
+        motivo_rechazo: decisionRaw === 'rechazado' ? (motivo_rechazo ?? null) : null
+      }
     });
   } catch (err) {
-    const msg = err?.message || 'Error al decidir licencia';
-    const code = /no encontrada/i.test(msg) ? 404
-               : /ya fue/i.test(msg)       ? 409
-               : /motivo_rechazo/i.test(msg) ? 400
-               : /no permitida|transición/i.test(msg) ? 400
-               : 500;
+    const code = err?.http ?? (
+      /no encontrada/i.test(err?.message) ? 404 :
+      /ya fue/i.test(err?.message)        ? 409 :
+      /rango|fech/i.test(err?.message)    ? 422 :
+      /solapa/i.test(err?.message)        ? 422 :
+      /hash/i.test(err?.message)          ? 422 :
+      500
+    );
+
+    const mapMsg = {
+      LICENCIA_NO_ENCONTRADA: 'La licencia no existe',
+      ESTADO_NO_PERMITE_DECIDIR: 'El estado actual no permite decidir',
+      LICENCIA_SIN_HASH: 'No se puede aceptar sin archivo válido (hash)',
+      RANGO_FECHAS_INVALIDO: 'Rango de fechas inválido',
+      SOLAPAMIENTO_CON_OTRA_ACEPTADA: 'Se solapa con otra licencia aceptada',
+      DECISION_INVALIDA: 'Decision inválida'
+    };
+
+    const msg = mapMsg[err?.message] ?? (err?.message || 'Error al decidir licencia');
     return res.status(code).json({ ok: false, error: msg });
   }
 }
@@ -452,7 +595,175 @@ export async function crearLicenciaSoloFormulario(req, res) {
     console.error("[crearLicenciaSoloFormulario]", e);
     return res.status(500).json({ ok:false, error:"Error del servidor" });
   }
+  // Override temporal para pruebas
+  licencia.id_usuario = id_usuario ?? licencia.id_usuario ?? null;
+  licencia.id_profesor = id_profesor ?? licencia.id_profesor ?? null;
+
+  try {
+    // 1. Actualizar estado
+    await db.execute(`
+      UPDATE licenciamedica
+      SET estado = ?, motivo_rechazo = ?, fecha_creacion = NOW()
+      WHERE id_licencia = ?
+    `, [
+      estado,
+      motivo_rechazo !== undefined ? motivo_rechazo : null,
+      licencia.id_licencia
+    ]);
+
+    // 2. Registrar en logauditoria (solo si hay usuarioId)
+    console.log('🧠 Usuario autenticado:', req.user);
+    console.log('🧠 ID para logauditoria:', usuarioId);
+
+    if (usuarioId) {
+      await db.execute(`
+        INSERT INTO logauditoria (accion, recurso, payload, ip, fecha, id_usuario)
+        VALUES (?, ?, ?, ?, NOW(), ?)
+      `, [
+        'cambiar estado',
+        'licenciamedica',
+        JSON.stringify({
+          id_licencia: licencia.id_licencia,
+          estado_anterior: licencia.estado,
+          estado_nuevo: estado
+        }),
+        ip,
+        usuarioId
+      ]);
+    }
+
+    // 3. Notificación al estudiante
+    if (licencia.id_usuario) {
+      const mensajeEstudiante = estado === 'rechazado'
+        ? 'Tu licencia ha sido rechazada. Revisa el motivo en el sistema.'
+        : 'Tu licencia ha sido aprobada. Ya no necesitas justificar asistencia.';
+
+      await db.execute(`
+        INSERT INTO notificacion (asunto, contenido, leido, fecha_envio, id_usuario)
+        VALUES (?, ?, 0, NOW(), ?)
+      `, [
+        `Licencia ${estado}`,
+        mensajeEstudiante,
+        licencia.id_usuario
+      ]);
+    }
+
+    // 4. Notificación al profesor (solo si fue aceptada)
+    if (estado === 'aceptado' && licencia.id_profesor) {
+      await db.execute(`
+        INSERT INTO notificacion (asunto, contenido, leido, fecha_envio, id_usuario)
+        VALUES (?, ?, 0, NOW(), ?)
+      `, [
+        'Licencia aprobada del estudiante',
+        `La licencia del estudiante ${licencia.id_usuario} ha sido aprobada.`,
+        licencia.id_profesor
+      ]);
+    }
+
+    return res.status(200).json({ ok: true, mensaje: 'Licencia actualizada y notificaciones enviadas' });
+
+  } catch (error) {
+    console.error('❌ Error al decidir licencia:', {
+      mensaje: error.message,
+      stack: error.stack,
+      detalles: error
+    });
+    return res.status(500).json({ ok: false, error: 'Error interno al decidir licencia' });
+  }
 }
+// ========================
+// GET /api/licencias/:id/archivo  
+// ========================
+export const descargarArchivoLicencia = async (req, res) => {
+  try {
+    const idLicencia = Number(req.params.id || 0);
+    const usuario = req.user || null;
+
+    // DoD: si no hay token válido → 403 (si tu middleware ya hace 403, esto apenas se usará)
+    if (!usuario) return res.status(403).json({ ok: false, error: 'Token requerido o inválido' });
+    if (!Number.isInteger(idLicencia) || idLicencia <= 0)
+      return res.status(400).json({ ok: false, error: 'ID de licencia inválido' });
+
+    // Nota: uso nombres de tabla en minúscula para evitar issues en sistemas sensibles a mayúsculas
+    const [rows] = await db.execute(`
+      SELECT a.id_archivo, a.ruta_url, a.tipo_mime, a.tamano, a.fecha_subida,
+             l.id_usuario
+        FROM archivolicencia a
+        JOIN licenciamedica l ON l.id_licencia = a.id_licencia
+       WHERE a.id_licencia = ?
+       ORDER BY a.id_archivo DESC
+       LIMIT 1
+    `, [idLicencia]);
+
+    if (!rows.length)
+      return res.status(404).json({ ok: false, error: 'Archivo no encontrado para esta licencia' });
+
+    const archivo = rows[0];
+
+    if (!_puedeVerArchivo(usuario, archivo.id_usuario))
+      return res.status(403).json({ ok: false, error: 'No autorizado' });
+
+    const filename = _filenameFromRuta(archivo.ruta_url);
+    const contentType = archivo.tipo_mime || 'application/octet-stream';
+    res.setHeader('Content-Type', contentType);
+    // Si quieres ver PDF embebido, cambia "attachment" por "inline" cuando sea application/pdf
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+
+    const baseLocal = process.env.STORAGE_LOCAL_BASE || 'uploads';
+    const ruta = String(archivo.ruta_url || '');
+
+    // Soporte http(s):// como proxy
+    if (ruta.startsWith('http://') || ruta.startsWith('https://')) {
+      const client = ruta.startsWith('https://') ? https : http;
+      client.get(ruta, (up) => {
+        if ((up.statusCode || 500) >= 400) {
+          res.status(up.statusCode || 502).end();
+          return;
+        }
+        up.pipe(res);
+      }).on('error', () => res.status(502).json({ ok: false, error: 'Error al obtener archivo remoto' }));
+      return;
+    }
+
+    // Soporte local:// y rutas relativas
+    let absPath;
+    if (ruta.startsWith('local://')) {
+      const key = ruta.slice('local://'.length);
+      absPath = _safeJoin(baseLocal, key);
+    } else if (!ruta.startsWith('/')) {
+      absPath = _safeJoin(baseLocal, ruta);
+    } else {
+      return res.status(400).json({ ok: false, error: 'Esquema de ruta no soportado' });
+    }
+
+    if (!fs.existsSync(absPath))
+      return res.status(404).json({ ok: false, error: 'Archivo físico no existe' });
+
+    fs.createReadStream(absPath).pipe(res);
+  } catch (e) {
+    if (e.code === 'E_PATH_TRAVERSAL')
+      return res.status(400).json({ ok: false, error: 'Ruta inválida' });
+    console.error('❌ [licencias:descargarArchivoLicencia] error:', e);
+    return res.status(500).json({ ok: false, error: 'Error interno' });
+  }
+};
+
+
+export default {
+  listarLicencias,
+  crearLicencia,
+  crearLicenciaLegacy,
+  getLicenciasEnRevision,
+  detalleLicencia,
+  decidirLicencia,
+  notificarEstado,
+  descargarArchivoLicencia,
+  licenciasResueltas
+};
+
+
+
 
 
 export default { listarLicencias, crearLicencia, crearLicenciaLegacy, getLicenciasEnRevision, decidirLicencia, detalleLicencia, crearLicenciaSoloFormulario};

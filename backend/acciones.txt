@@ -1,0 +1,54 @@
+************************ ACCIONES DEL ESTUDIANTE ************************
+1) crear cuenta: accion de registrarse en la plataforma mediante correo y contraseña.
+2) Actualizar cuenta: accion de modificar informacion sobre una cuenta creada.
+3) Iniciar sesion: accion de iniciar sesion con las credenciales registradas.
+4) Recuperar contraseña: accion de recuperar contraseña mediante un correo electronico.
+5) Emitir licencia: accion de subir una licencia medica y los archivos asociados.
+// acciones extra (no necesarias en la bd)
+    * consultar historial de licencias.
+    * consultar estado de licencia.
+    * recibir notificacion cuando cambie el estado de una licencia emitida.
+    * cerrar sesion.
+
+************************ ACCIONES DEL DOCENTE ************************
+1) crear cuenta: accion de registrarse en la plataforma mediante correo y contraseña.
+2) Actualizar cuenta: accion de modificar informacion sobre una cuenta creada.
+3) Iniciar sesion: accion de iniciar sesion con las credenciales registradas.
+4) Recuperar contraseña: accion de recuperar contraseña mediante un correo electronico.
+// acciones extra (no necesarias en la bd)
+    * consultar historial de licencias.
+    * recibir notificacion si la licencia de un estudiante es aprobada.
+    * cerrar sesion.
+
+************************ ACCIONES DEL SECRETARIO ************************
+1) crear cuenta: accion de registrarse en la plataforma mediante correo y contraseña.
+2) Actualizar cuenta: accion de modificar informacion sobre una cuenta creada.
+3) Iniciar sesion: accion de iniciar sesion con las credenciales registradas.
+4) Recuperar contraseña: accion de recuperar contraseña mediante un correo electronico.
+5) Aceptar licencia: accion de cambiar el estado de una licencia a "aprobado".
+6) Rechazar licencia: accion de cambiar el estado de una licencia a "rechazado".
+// acciones extra (no necesarias en la bd)
+    * consultar historial de licencias.
+    * consultar estado de licencia.
+    * recibir notificacion cuando se suba una licencia.
+    * cerrar sesion. 
+
+************************ ACCIONES DEL SECRETARIO ************************
+1) Validacion de credenciales: accion de validar las credenciales de un usuario con permisos de aceptar y rechazar licencia.
+// acciones extra (no necesarias en la bd)
+    * consultar historial de licencias.
+    * consultar estadisticas globales.
+
+
+*copiar y pegar en phpmyadmin*
+
+ALTER TABLE logauditoria 
+MODIFY accion ENUM(
+  'crear cuenta',
+  'actualizar cuenta',
+  'iniciar sesion',
+  'recuperar contraseña',
+  'emitir licencia',
+  'aceptar licencia',
+  'rechazar licencia'
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL;
