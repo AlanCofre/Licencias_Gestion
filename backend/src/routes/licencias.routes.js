@@ -11,10 +11,12 @@ import {
   getLicenciasEnRevision,
   detalleLicencia,
   descargarArchivoLicencia,
-  licenciasResueltas
+  licenciasResueltas,
 } from '../../controllers/licencias.controller.js';
 
 import { validarJWT, esEstudiante, tieneRol } from '../../middlewares/auth.js';
+import { authRequired } from '../../middlewares/requireAuth.js';
+import { requireRole } from '../../middlewares/requireRole.js';
 import { validateDecision } from '../../middlewares/validateDecision.js';
 import {
   validateLicenciaBody,
