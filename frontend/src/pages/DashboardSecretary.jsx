@@ -56,7 +56,7 @@ export default function DashboardSecretary() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <Link
-                            to={`/gestionar/${license.id}`}
+                            to={`/evaluar/${license.id}`}
                             className="text-blue-600 underline"
                           >
                             Ver / Gestionar

@@ -6,13 +6,10 @@ import { Upload } from "lucide-react";
 
 export default function GenerarRevision() {
   const [formData, setFormData] = useState({
-    id: "",
     folio: "",
-    fecha: "", // 
     fechaEmision: "", 
     fechaInicioReposo: "", 
-    fechaFinalReposo: "",  
-    razon: "",
+    fechaFinalReposo: "",
   });
   const [file, setFile] = useState(null);
   const fileInputRef = useRef(null);
@@ -21,8 +18,8 @@ export default function GenerarRevision() {
   const handleChange = (e) => {
     const { name, value } = e.target;
 
-    // Validación: solo números en id y folio (si usuario escribe folio numérico)
-    if ((name === "id" || name === "folio") && !/^\d*$/.test(value)) {
+    // Validación: solo números en folio
+    if (name === "folio" && !/^\d*$/.test(value)) {
       return;
     }
 
@@ -34,15 +31,7 @@ export default function GenerarRevision() {
     const selectedFile = e.target.files[0];
     if (selectedFile && selectedFile.type === "application/pdf") {
       setFile(selectedFile);
-
-      // Guardar fecha y hora del momento en que se sube
-      const now = new Date();
-      const fechaFormateada = now.toLocaleString("es-CL", {
-        dateStyle: "short",
-        timeStyle: "short",
-      });
-
-      setFormData((prev) => ({ ...prev, fecha: fechaFormateada }));
+      // La fecha y el ID se generarán automáticamente en el backend
     } else {
       alert("Por favor sube un archivo PDF válido.");
     }
@@ -53,14 +42,7 @@ export default function GenerarRevision() {
     const droppedFile = e.dataTransfer.files[0];
     if (droppedFile && droppedFile.type === "application/pdf") {
       setFile(droppedFile);
-
-      const now = new Date();
-      const fechaFormateada = now.toLocaleString("es-CL", {
-        dateStyle: "short",
-        timeStyle: "short",
-      });
-
-      setFormData((prev) => ({ ...prev, fecha: fechaFormateada }));
+      // La fecha y el ID se generarán automáticamente en el backend
     } else {
       alert("Solo se permiten archivos PDF.");
     }
@@ -70,15 +52,12 @@ export default function GenerarRevision() {
     e.preventDefault();
   };
 
-  // Validar si todos los campos están completos
-  // Nota: id no es requerido en el FE (se completa automáticamente en BE)
+  // Validar si todos los campos están completos 
   const isFormValid =
     formData.folio.trim() !== "" &&
-    formData.fecha.trim() !== "" &&
-    formData.fechaEmision.trim() !== "" &&
+    formData.fechaEmision.trim() !== "" && 
     formData.fechaInicioReposo.trim() !== "" &&
     formData.fechaFinalReposo.trim() !== "" &&
-    formData.razon.trim() !== "" &&
     file !== null;
 
   // Envío real al backend (multipart/form-data)
@@ -159,21 +138,6 @@ export default function GenerarRevision() {
           {/* Formulario */}
           <form className="flex flex-col gap-6" onSubmit={handleSubmit}>
             <div>
-              <label className="block text-gray-600 mb-1">
-                N° de identificación documento
-              </label>
-              <input
-                type="text"
-                name="id"
-                value={formData.id}
-                onChange={handleChange}
-                placeholder="Se genera automáticamente en el servidor al guardar la licencia."
-                className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-blue-400 bg-gray-50"
-                readOnly
-              />
-            </div>
-
-            <div>
               <label className="block text-gray-600 mb-1">Número de Folio</label>
               <input
                 type="text"
@@ -185,21 +149,6 @@ export default function GenerarRevision() {
               />
             </div>
 
-            <div>
-              <label className="block text-gray-600 mb-1">Fecha de subida</label>
-              <input
-                type="text"
-                name="fecha"
-                value={formData.fecha}
-                readOnly
-                className="w-full p-3 border rounded bg-gray-100 text-gray-600 cursor-not-allowed"
-              />
-              <small className="text-gray-500">
-                Esta fecha se genera automáticamente al subir el documento.
-              </small>
-            </div>
-
-            
             <div>
               <label className="block text-gray-600 mb-1">Fecha de emisión</label>
               <input
@@ -226,7 +175,6 @@ export default function GenerarRevision() {
               />
             </div>
 
-            
             <div>
               <label className="block text-gray-600 mb-1">Fecha final reposo</label>
               <input
@@ -235,18 +183,6 @@ export default function GenerarRevision() {
                 value={formData.fechaFinalReposo}
                 onChange={handleChange}
                 min={hoy} // no permite fechas pasadas
-                className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
-              />
-            </div>
-
-            <div>
-              <label className="block text-gray-600 mb-1">Razón de licencia</label>
-              <input
-                type="text"
-                name="razon"
-                value={formData.razon}
-                onChange={handleChange}
-                placeholder="Escribe la razón de por qué se hizo la licencia."
                 className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
               />
             </div>
