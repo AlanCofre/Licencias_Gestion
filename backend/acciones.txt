@@ -38,3 +38,17 @@
 // acciones extra (no necesarias en la bd)
     * consultar historial de licencias.
     * consultar estadisticas globales.
+
+
+*copiar y pegar en phpmyadmin*
+
+ALTER TABLE logauditoria 
+MODIFY accion ENUM(
+  'crear cuenta',
+  'actualizar cuenta',
+  'iniciar sesion',
+  'recuperar contraseña',
+  'emitir licencia',
+  'aceptar licencia',
+  'rechazar licencia'
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL;
