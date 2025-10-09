@@ -2,12 +2,10 @@
 import crypto from 'crypto';
 import db from '../config/db.js'; // ← ajusta la ruta si corresponde
 import { decidirLicenciaSvc } from '../services/servicio_Licencias.js';
-import { Sequelize } from "sequelize";
+import fs from 'fs';
 import path from 'path';
 import http from 'http';
 import https from 'https';
-
-
 
 // === Utilidad: hash SHA-256 de un Buffer/String → hex 64
 function sha256FromBuffer(bufOrStr) {
@@ -16,28 +14,6 @@ function sha256FromBuffer(bufOrStr) {
   return h.digest('hex');
 }
 
-// ---- Helpers para descarga segura (NO afectan a lo demás) ----
-function _filenameFromRuta(ruta) {
-  try {
-    if (ruta?.startsWith('http')) {
-      const u = new URL(ruta);
-      return path.basename(u.pathname) || 'archivo';
-    }
-  } catch {}
-  return path.basename(ruta || '') || 'archivo';
-}
-
-function _safeJoin(baseDir, relative) {
-  const rootAbs = path.resolve(process.cwd(), baseDir || 'uploads');
-  const rel = String(relative || '').replace(/^\/+/, '');
-  const abs = path.resolve(rootAbs, rel);
-  if (!abs.startsWith(rootAbs)) {
-    const err = new Error('Ruta fuera de directorio permitido');
-    err.code = 'E_PATH_TRAVERSAL';
-    throw err;
-  }
-  return abs;
-}
 // ---- Helpers para descarga segura (NO afectan a lo demás) ----
 function _filenameFromRuta(ruta) {
   try {
@@ -87,7 +63,7 @@ export const listarLicencias = async (req, res) => {
       `
       SELECT
         id_licencia           AS id,
-        DATE_FORMAT(fecha_emision, '%Y-%m-%d') AS fecha_creacion,
+        DATE_FORMAT(fecha_emision, '%Y-%m-%d') AS fecha_emision,
         estado
       FROM LicenciaMedica
       WHERE id_usuario = ?
@@ -576,96 +552,7 @@ export async function decidirLicencia(req, res) {
     return res.status(code).json({ ok: false, error: msg });
   }
 }
-// =====================================================
-// POST: crear licencia (solo formulario, sin archivo ni validaciones)
-// =====================================================
-export async function crearLicenciaSoloFormulario(req, res) {
-  try {
-    const id_usuario = req.user?.id_usuario;
-    if (!id_usuario) return res.status(401).json({ ok:false, error:"No autenticado" });
 
-export async function notificarEstado(req, res) {
-  const { estado, motivo_rechazo, id_usuario, id_profesor } = req.body;
-  const { licencia } = req;
-  const usuarioId = req.user?.id_usuario ?? null;
-  const ip = req.ip ?? '0.0.0.0';
-
-  // Override temporal para pruebas
-  licencia.id_usuario = id_usuario ?? licencia.id_usuario ?? null;
-  licencia.id_profesor = id_profesor ?? licencia.id_profesor ?? null;
-
-  try {
-    // 1. Actualizar estado
-    await db.execute(`
-      UPDATE licenciamedica
-      SET estado = ?, motivo_rechazo = ?, fecha_creacion = NOW()
-      WHERE id_licencia = ?
-    `, [
-      estado,
-      motivo_rechazo !== undefined ? motivo_rechazo : null,
-      licencia.id_licencia
-    ]);
-
-    // 2. Registrar en logauditoria (solo si hay usuarioId)
-    console.log('🧠 Usuario autenticado:', req.user);
-    console.log('🧠 ID para logauditoria:', usuarioId);
-
-    if (usuarioId) {
-      await db.execute(`
-        INSERT INTO logauditoria (accion, recurso, payload, ip, fecha, id_usuario)
-        VALUES (?, ?, ?, ?, NOW(), ?)
-      `, [
-        'cambiar estado',
-        'licenciamedica',
-        JSON.stringify({
-          id_licencia: licencia.id_licencia,
-          estado_anterior: licencia.estado,
-          estado_nuevo: estado
-        }),
-        ip,
-        usuarioId
-      ]);
-    }
-
-    // 3. Notificación al estudiante
-    if (licencia.id_usuario) {
-      const mensajeEstudiante = estado === 'rechazado'
-        ? 'Tu licencia ha sido rechazada. Revisa el motivo en el sistema.'
-        : 'Tu licencia ha sido aprobada. Ya no necesitas justificar asistencia.';
-
-      await db.execute(`
-        INSERT INTO notificacion (asunto, contenido, leido, fecha_envio, id_usuario)
-        VALUES (?, ?, 0, NOW(), ?)
-      `, [
-        `Licencia ${estado}`,
-        mensajeEstudiante,
-        licencia.id_usuario
-      ]);
-    }
-
-    // 4. Notificación al profesor (solo si fue aceptada)
-    if (estado === 'aceptado' && licencia.id_profesor) {
-      await db.execute(`
-        INSERT INTO notificacion (asunto, contenido, leido, fecha_envio, id_usuario)
-        VALUES (?, ?, 0, NOW(), ?)
-      `, [
-        'Licencia aprobada del estudiante',
-        `La licencia del estudiante ${licencia.id_usuario} ha sido aprobada.`,
-        licencia.id_profesor
-      ]);
-    }
-
-    return res.status(200).json({ ok: true, mensaje: 'Licencia actualizada y notificaciones enviadas' });
-
-  } catch (error) {
-    console.error('❌ Error al decidir licencia:', {
-      mensaje: error.message,
-      stack: error.stack,
-      detalles: error
-    });
-    return res.status(500).json({ ok: false, error: 'Error interno al decidir licencia' });
-  }
-}
 // ========================
 // GET /api/licencias/:id/archivo  
 // ========================
@@ -752,11 +639,6 @@ export default {
   getLicenciasEnRevision,
   detalleLicencia,
   decidirLicencia,
-  notificarEstado,
   descargarArchivoLicencia,
-  licenciasResueltas
-};
-
-
-
-
+  licenciasResueltas,
+}

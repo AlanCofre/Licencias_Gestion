@@ -42,7 +42,7 @@ function AppRegistro() {
       setMensaje("Error de conexión con el servidor");
     }
   };
-}
+
 
   return (
     <div className="relative min-h-screen bg-white flex flex-col items-center justify-start py-12">
@@ -141,5 +141,5 @@ function AppRegistro() {
     </div>
   </div>
 );
-
+}
 export default AppRegistro;

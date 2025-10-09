@@ -6,7 +6,6 @@ import db from '../../db/db.js';
 import {
   crearLicencia,
   listarLicencias,
-  notificarEstado,
   decidirLicencia,
   getLicenciasEnRevision,
   detalleLicencia,
@@ -85,20 +84,6 @@ router.put(
   decidirLicencia                  // controller que persiste cambios
 );
 
-router.put(
-  '/:id/notificar',
-  authRequired,
-  requireRole(['secretario']),
-  validateDecision,
-  cargarLicencia,
-  (req, res, next) =>
-    validarTransicionEstado(req.licencia.estado)(req, res, next),
-  (req, _res, next) => {
-    if (req.body?.estado) req.body.estado = normalizaEstado(req.body.estado);
-    next();
-  },
-  notificarEstado
-);
 
 
 router.get('/resueltas', validarJWT, async (req, res) => {
@@ -166,15 +151,6 @@ router.post(
   decidirLicencia
 );
 
-router.put(
-  '/:id(\\d+)/notificar',
-  validarJWT,
-  tieneRol('funcionario'),
-  validateDecision,
-  cargarLicencia,
-  (req, res, next) => validarTransicionEstado(req.licencia.estado)(req, res, next),
-  (req, _res, next) => { if (req.body?.estado) req.body.estado = normalizaEstado(req.body.estado); next(); },
-  notificarEstado
-);
+
 
 export default router;
