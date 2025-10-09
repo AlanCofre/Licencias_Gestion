@@ -757,13 +757,10 @@ export default {
   getLicenciasEnRevision,
   detalleLicencia,
   decidirLicencia,
-  notificarEstado,
   descargarArchivoLicencia,
-  licenciasResueltas
+  licenciasResueltas,
+  detalleLicencia
 };
 
 
 
-
-
-export default { listarLicencias, crearLicencia, crearLicenciaLegacy, getLicenciasEnRevision, decidirLicencia, detalleLicencia, crearLicenciaSoloFormulario};
