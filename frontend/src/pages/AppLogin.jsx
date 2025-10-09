@@ -38,16 +38,20 @@ function AppLogin() {
       // Avisar a AuthContext con el objeto correcto
       login(data.usuario);
 
-      const rol =
-        data.usuario?.id_rol?.nombre?.toLowerCase?.() ||
-        data.usuario?.id_rol?.toLowerCase?.() ||
-        "";
+      let rol = "";
+      if (data.usuario?.id_rol && typeof data.usuario.id_rol === "object" && data.usuario.id_rol.nombre) {
+        rol = String(data.usuario.id_rol.nombre).toLowerCase();
+      } else if (typeof data.usuario?.id_rol === "string") {
+        rol = data.usuario.id_rol.toLowerCase();
+      } else if (typeof data.usuario?.rol === "string") {
+        rol = data.usuario.rol.toLowerCase();
+      }
 
       if (rol === "estudiante") {
         navigate("/alumno");
       } else if (rol === "profesor") {
         navigate("/profesor");
-      } else if (rol === "secretario") {
+      } else if (rol === "funcionario") {
         navigate("/secretaria");
       } else {
         navigate("/"); // fallback
