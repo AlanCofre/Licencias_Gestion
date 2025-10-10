@@ -6,11 +6,53 @@ import { useAuth } from "../context/AuthContext";
 function AppLogin() {
   const { login } = useAuth();
   const navigate = useNavigate();
-  const [roleSelect, setRoleSelect] = useState("alumno");
+
+  // estado UI
+  const [correo, setCorreo] = useState("");
+  const [contrasena, setContrasena] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  // --- Utilidad: normalizar roles provenientes del backend ---
+  const normalizeRole = (rawUser) => {
+    // admisible: id_rol puede venir como número, string, objeto { nombre }, o campos rol/role
+    let role = "";
+
+    if (rawUser?.id_rol) {
+      if (typeof rawUser.id_rol === "object" && rawUser.id_rol.nombre) {
+        role = String(rawUser.id_rol.nombre).toLowerCase();
+      } else {
+        const num = Number(rawUser.id_rol);
+        role =
+          num === 1 ? "profesor" :
+          num === 2 ? "estudiante" :
+          num === 3 ? "funcionario" : "";
+      }
+    } else if (typeof rawUser?.id_rol === "string") {
+      role = rawUser.id_rol.toLowerCase();
+    } else if (typeof rawUser?.rol === "string") {
+      role = rawUser.rol.toLowerCase();
+    } else if (typeof rawUser?.role === "string") {
+      role = rawUser.role.toLowerCase();
+    }
+
+    // alias frecuentes → estandarizamos
+    if (role === "secretaria" || role === "secretary") role = "funcionario";
+    if (role === "alumno") role = "estudiante";
+
+    return role;
+  };
+
+  // --- Mapeo de ruta por rol (clave única de navegación) ---
+  const routeByRole = {
+    estudiante: "/alumno",
+    profesor: "/profesor",
+    funcionario: "/secretaria", // secretaria/secretary se normaliza a funcionario
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError("");
     setLoading(true);
 
     try {
@@ -20,38 +62,33 @@ function AppLogin() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ correo_usuario: correo, contrasena }),
       });
+
       const data = await res.json();
 
       if (!res.ok || !data?.token || !data?.usuario) {
         throw new Error(data?.error || "Credenciales inválidas");
       }
 
-      // persistir sesión en localStorage (coherencia con services)
+      // Normalizar usuario (añadir .role coherente)
+      const rawUser = data.usuario || {};
+      const role = normalizeRole(rawUser);
+      const normalizedUser = { ...rawUser, role };
+
+      // Persistir sesión (alineado con tu AuthContext/servicios)
       localStorage.setItem("token", data.token);
-      localStorage.setItem("user", JSON.stringify(data.usuario));
+      localStorage.setItem("user", JSON.stringify(normalizedUser));
 
-      // Avisar a AuthContext con el objeto correcto
-      login(data.usuario);
+      // Avisar a AuthContext con el objeto NORMALIZADO
+      login(normalizedUser, data.token );
 
-      let rol = "";
-      if (data.usuario?.id_rol && typeof data.usuario.id_rol === "object" && data.usuario.id_rol.nombre) {
-        rol = String(data.usuario.id_rol.nombre).toLowerCase();
-      } else if (typeof data.usuario?.id_rol === "string") {
-        rol = data.usuario.id_rol.toLowerCase();
-      } else if (typeof data.usuario?.rol === "string") {
-        rol = data.usuario.rol.toLowerCase();
-      }
-
-      if (rol === "estudiante") {
-        navigate("/alumno");
-      } else if (rol === "profesor") {
-        navigate("/profesor");
-      } else if (rol === "funcionario") {
-        navigate("/secretaria");
-      } else {
-        navigate("/alumno", { replace: true });
-      }
-    }, 700);
+      // Redirección inequívoca por rol (estilo Código 2) usando replace
+      const target = routeByRole[role] || "/";
+      navigate(target, { replace: true });
+    } catch (err) {
+      setError(err.message || "No se pudo iniciar sesión");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -71,51 +108,50 @@ function AppLogin() {
       {/* Contenedor de login */}
       <div className="relative z-10 w-[90%] max-w-[50.25rem] bg-white rounded-lg shadow-md p-10 flex flex-col gap-6 border-white border-30">
         <h2 className="text-3xl font-semibold text-black text-center mb-6">
-          Selecciona tu tipo de usuario
+          Inicio de sesión
         </h2>
 
-        <form onSubmit={handleSubmit} className="w-full flex flex-col gap-6">
+        <form onSubmit={handleSubmit} className="w-full flex flex-col gap-4">
           <div>
-            <label className="block text-black font-medium mb-4 text-lg">
-              ¿Cómo deseas acceder?
+            <label className="block text-black font-normal mb-2">
+              Correo Electrónico:
             </label>
-            <div className="space-y-3">
-              <label className="flex items-center p-4 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition">
-                <input
-                  type="radio"
-                  name="role"
-                  value="alumno"
-                  checked={roleSelect === "alumno"}
-                  onChange={(e) => setRoleSelect(e.target.value)}
-                  className="mr-3 w-4 h-4 text-blue-600"
-                  disabled={loading}
-                />
-                <div>
-                  <div className="font-semibold text-gray-900">Alumno</div>
-                  <div className="text-sm text-gray-600">
-                    Generar y consultar mis licencias médicas
-                  </div>
-                </div>
-              </label>
+            <input
+              type="email"
+              placeholder="usuario@uct.cl"
+              className="w-full bg-[#95B5C4] rounded-md border-none p-4 text-black"
+              value={correo}
+              onChange={(e) => setCorreo(e.target.value)}
+              required
+            />
+          </div>
 
-              <label className="flex items-center p-4 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition">
-                <input
-                  type="radio"
-                  name="role"
-                  value="secretaria"
-                  checked={roleSelect === "secretaria"}
-                  onChange={(e) => setRoleSelect(e.target.value)}
-                  className="mr-3 w-4 h-4 text-blue-600"
-                  disabled={loading}
-                />
-                <div>
-                  <div className="font-semibold text-gray-900">Secretaria</div>
-                  <div className="text-sm text-gray-600">
-                    Revisar y gestionar licencias de estudiantes
-                  </div>
-                </div>
-              </label>
-            </div>
+          <div>
+            <label className="block text-black font-normal mb-2">
+              Contraseña:
+            </label>
+            <input
+              type="password"
+              placeholder="••••••••"
+              className="w-full bg-[#95B5C4] rounded-md border-none p-4 text-black"
+              value={contrasena}
+              onChange={(e) => setContrasena(e.target.value)}
+              required
+            />
+          </div>
+
+          {error && (
+            <p className="text-red-600 text-sm text-center -mt-2">{error}</p>
+          )}
+
+          {/* Olvidé mi contraseña */}
+          <div className="flex justify-center mt-2">
+            <span
+              className="text-[#00AAFF] text-sm font-medium cursor-pointer hover:underline"
+              onClick={() => navigate("/forgot-password")}
+            >
+              Olvidé mi contraseña.
+            </span>
           </div>
 
           <button
@@ -123,19 +159,12 @@ function AppLogin() {
             className="w-full h-14 bg-[#00AAFF] text-white text-xl font-semibold rounded-md shadow-md hover:brightness-110 transition self-center mt-4 disabled:opacity-50"
             disabled={loading}
           >
-            {loading ? "Accediendo..." : "Ingresar al Sistema"}
+            {loading ? "Entrando..." : "Iniciar sesión"}
           </button>
         </form>
-
-  
-        <div className="mt-4 p-4 bg-blue-50 rounded border text-sm text-center">
-          <p className="text-gray-700">
-            Sistema de demostración - Selecciona un rol para acceder
-          </p>
-        </div>
       </div>
 
-  
+      {/* Registro */}
       <div className="relative z-10 mt-10 text-center text-black text-base">
         <span>¿No tienes una cuenta? </span>
         <span
