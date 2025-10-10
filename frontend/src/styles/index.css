@@ -27,3 +27,17 @@ body {
   @apply bg-white text-gray-700 px-6 py-3 rounded-lg shadow-md flex items-center gap-3 transition-all;
 }
 .btn-ghost:focus { outline: 3px solid rgba(14,165,233,0.25); }
+
+@keyframes slideUp {
+  from {
+    transform: translateY(50px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+.animate-slide-up {
+  animation: slideUp 0.4s ease-out;
+}

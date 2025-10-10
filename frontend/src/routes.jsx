@@ -10,33 +10,19 @@ import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import ComoUsar from "./pages/ComoUsar";
 import VerificarResultados from "./pages/VerificarResultados";
-import LicenciaInfo from "./pages/LicenciaInfo";
+import AppVisualizar from "./pages/LicenciaInfo";
 import LicenseDetail from "./pages/LicenseDetail";
 import LicenseDetailView from "./pages/LicenseDetailView";
 import AppEditProfile from "./pages/AppEditProfile";
 import GenerarRevision from "./pages/GenerarRevision";
 import EvaluarLicencia from "./pages/EvaluarLicencia";
-
-function RoleRedirect() {
-  const { user } = useAuth();
-  if (!user) return <Navigate to="/login" replace />;
-
-  const role = String(user.role || "").toLowerCase();
-  if (role === "secretaria" || role === "secretary") return <Navigate to="/secretaria" replace />;
-  
-
-  // por defecto -> alumno
-  return <Navigate to="/alumno" replace />;
-}
+import LicenciasPorRevisar from "./pages/LicenciasPorRevisar";
 
 export default function AppRoutes() {
   return (
     <Routes>
-      <Route path="/" element={<RoleRedirect />} />
-
-      {/* Inicios por role */}
-      <Route path="/alumno" element={<Dashboard />} />
-      <Route path="/secretaria" element={<DashboardSecretary />} />
+      {/* Ruta raíz simple - directo a login como el antiguo */}
+      <Route path="/" element={<Navigate to="/login" replace />} />
 
       {/* Auth */}
       <Route path="/login" element={<AppLogin />} />
@@ -44,22 +30,28 @@ export default function AppRoutes() {
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
 
+      {/* Dashboards por rol */}
+      <Route path="/alumno" element={<Dashboard />} />
+      <Route path="/secretaria" element={<DashboardSecretary />} />
+
       {/* Páginas comunes */}
       <Route path="/como-usar" element={<ComoUsar />} />
       <Route path="/verificar-resultados" element={<VerificarResultados />} />
-      <Route path="/licencia-info" element={<LicenciaInfo />} />
+      <Route path="/licencia-info" element={<AppVisualizar />} />
       <Route path="/generar-revision" element={<GenerarRevision />} />
       <Route path="/license-detail/:id" element={<LicenseDetail />} />
       <Route path="/license/:id" element={<LicenseDetailView />} />
       <Route path="/edit-profile" element={<AppEditProfile />} />
+      
+      {/* Rutas nuevas de secretaria */}
       <Route path="/evaluar/:id" element={<EvaluarLicencia />} />
-      <Route path="/gestionar/:id" element={<EvaluarLicencia />} />
+      <Route path="/licencias-por-revisar" element={<LicenciasPorRevisar />} />
 
-      {/* Rutas heredadas (opcional: apuntan al dashboard de alumno) */}
+      {/* Rutas heredadas del navbar */}
       <Route path="/pendientes" element={<Dashboard />} />
       <Route path="/revisadas" element={<Dashboard />} />
       <Route path="/verificadas" element={<Dashboard />} />
-      <Route path="/historial" element={<Dashboard />} />
+      <Route path="/historial" element={<AppVisualizar />} />
 
       {/* Fallback */}
       <Route path="*" element={<Navigate to="/" replace />} />

@@ -9,32 +9,27 @@ const VerificarResultados = () => {
 
   const handleSearch = async (e) => {
     e.preventDefault();
-    if (!searchTerm.trim()) return;
-
     setLoading(true);
-    // Simular búsqueda - aquí iría tu API call
-    setTimeout(() => {
-      setResults([
-        {
-          id: 1,
-          studentName: 'Juan Pérez García',
-          licenseType: 'Licencia médica por gripe',
-          status: 'Aprobada',
-          date: '2024-03-15',
-          documentId: 'LM-2024-001'
-        },
-        {
-          id: 2,
-          studentName: 'María González',
-          licenseType: 'Licencia por cirugía',
-          status: 'En revisión',
-          date: '2024-03-14',
-          documentId: 'LM-2024-002'
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch('http://localhost:3000/api/licencias/mis-licencias', {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         }
-      ]);
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.msg || json.error || 'Error');
+      // json.data es el array de licencias
+      setResults(json.data || []);
+    } catch (err) {
+      console.error(err);
+      alert(err.message);
+    } finally {
       setLoading(false);
-    }, 1000);
+    }
   };
+
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-blue-100 flex flex-col">
@@ -94,20 +89,22 @@ const VerificarResultados = () => {
             <div className="bg-white rounded-lg shadow-md p-6">
               <h2 className="text-xl font-semibold text-gray-800 mb-4">Resultados de búsqueda</h2>
               <div className="space-y-4">
-                {results.map((result) => (
-                  <div key={result.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors">
-                    <div className="flex justify-between items-start">
+                {results.map((licencia) => (
+                  <div key={licencia.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors">
+                    <div className="flex justify-between items-center">
                       <div>
-                        <h3 className="font-semibold text-gray-800">{result.studentName}</h3>
-                        <p className="text-gray-600">{result.licenseType}</p>
-                        <p className="text-sm text-gray-500">ID: {result.documentId} • Fecha: {result.date}</p>
+                        <p className="text-sm text-gray-600">ID: {licencia.id} • Fecha: {licencia.fecha_creacion}</p>
                       </div>
-                      <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                        result.status === 'Aprobada' ? 'bg-green-100 text-green-800' :
-                        result.status === 'En revisión' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-red-100 text-red-800'
-                      }`}>
-                        {result.status}
+                      <span
+                        className={`px-3 py-1 rounded-full text-sm font-medium ${
+                          licencia.estado === 'aceptado'
+                            ? 'bg-green-100 text-green-800'
+                            : licencia.estado === 'rechazado'
+                            ? 'bg-red-100 text-red-800'
+                            : 'bg-yellow-100 text-yellow-800'
+                        }`}
+                      >
+                        {licencia.estado}
                       </span>
                     </div>
                   </div>

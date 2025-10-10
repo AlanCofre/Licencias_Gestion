@@ -50,7 +50,7 @@ class UsuarioService {
     let rol = 'estudiante';
     if (user.id_rol === 2) rol = 'estudiante';
     if (user.id_rol === 1) rol = 'profesor';
-    if (user.id_rol === 3) rol = 'secretario';
+    if (user.id_rol === 3) rol = 'funcionario';
 
     return { id: user.id_usuario, nombre: user.nombre, correo: user.correo_usuario, rol };
   }

@@ -2,185 +2,319 @@ import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
-import BannerSection from "../components/BannerSection";
-import LicensePreview from "../components/LicensePreview";
 import ConfirmModal from "../components/ConfirmModal";
-import { useAuth } from "../context/AuthContext";
-import * as api from "../services/api";
+import samplePDF from "../assets/sample.pdf";
+
+// Mock data con diferentes estudiantes
+const mockDatabase = {
+  "123": {
+    student: {
+      name: "Rumencio González",
+      studentId: "20201234",
+      faculty: "Ingeniería",
+      email: "rgonzalez@alu.uct.cl"
+    },
+    dates: {
+      from: "2025-10-01",
+      to: "2025-10-07",
+      submitted: "2025-09-28",
+      emissionDate: "2025-09-27",
+      restStart: "2025-10-01",
+      restEnd: "2025-10-07"
+    },
+    attachment: {
+      filename: "certificado_medico.pdf",
+      mimetype: "application/pdf"
+    }
+  },
+  "456": {
+    student: {
+      name: "Carlos Rodríguez",
+      studentId: "20195678",
+      faculty: "Ingeniería",
+      email: "crodriguez@alu.uct.cl"
+    },
+    dates: {
+      from: "2025-09-15",
+      to: "2025-09-20",
+      submitted: "2025-09-14",
+      emissionDate: "2025-09-13",
+      restStart: "2025-09-15",
+      restEnd: "2025-09-20"
+    },
+    attachment: {
+      filename: "radiografia.jpg",
+      mimetype: "image/jpeg"
+    }
+  },
+  "789": {
+    student: {
+      name: "Ana Martínez",
+      studentId: "20221122",
+      faculty: "Derecho",
+      email: "amartinez@alu.uct.cl"
+    },
+    dates: {
+      from: "2025-10-03",
+      to: "2025-10-05",
+      submitted: "2025-10-02",
+      emissionDate: "2025-10-01",
+      restStart: "2025-10-03",
+      restEnd: "2025-10-05"
+    },
+    attachment: {
+      filename: "receta_medica.pdf",
+      mimetype: "application/pdf"
+    }
+  }
+};
+
+
+function AttachmentView({ file }) {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  if (!file) {
+    return <div className="text-sm text-gray-500">Sin archivo adjunto</div>;
+  }
+
+  const { filename, mimetype } = file;
+  const isImage =
+    mimetype?.startsWith?.("image/") ||
+    /\.(jpg|jpeg|png|gif)$/i.test(filename);
+  const isPDF =
+    mimetype === "application/pdf" || /\.pdf$/i.test(filename);
+
+  // Ruta local del PDF (ya que está en /assets)
+  const fileUrl = isPDF ? samplePDF : null;
+
+  return (
+    <div className="space-y-3">
+      {/* Información del archivo */}
+      <div className="flex items-center gap-3 p-3 border rounded-lg bg-gray-50">
+        <div className="flex-1">
+          <div className="font-medium text-sm">{filename}</div>
+          <div className="text-xs text-gray-500">
+            {isPDF ? "Documento PDF" : isImage ? "Imagen" : "Archivo adjunto"}
+          </div>
+        </div>
+      </div>
+
+      {/* Botones de acción */}
+      {isPDF ? (
+        <div className="flex gap-2">
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
+          >
+            Previsualizar
+          </button>
+          <a
+            href={fileUrl}
+            download={filename}
+            className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 text-sm"
+          >
+            Descargar
+          </a>
+        </div>
+      ) : (
+        <div className="text-xs text-gray-500">
+          * Este tipo de archivo no se puede previsualizar
+        </div>
+      )}
+
+      {/* Modal PDF */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
+          <div className="relative bg-white w-11/12 h-5/6 rounded-lg overflow-hidden shadow-lg">
+            <iframe
+              src={fileUrl}
+              title={filename}
+              className="w-full h-full"
+            />
+            {/* Botón cerrar */}
+            <button
+              onClick={() => setIsModalOpen(false)}
+              className="absolute top-3 right-3 bg-gray-700 text-white rounded-full w-8 h-8 flex items-center justify-center hover:bg-gray-900"
+            >
+              ✕
+            </button>
+            {/* Botón descargar */}
+            <a
+              href={fileUrl}
+              download={filename}
+              className="absolute bottom-4 right-4 px-4 py-2 bg-blue-600 text-white rounded shadow hover:bg-blue-700"
+            >
+              Descargar
+            </a>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function EvaluarLicencia() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
   const [license, setLicense] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [modal, setModal] = useState({ open: false, type: null }); // type: 'accept'|'reject'
-  const [processing, setProcessing] = useState(false);
+  const [modal, setModal] = useState({ open: false, type: null });
 
   useEffect(() => {
-    let mounted = true;
-    async function load() {
+    const loadLicense = async () => {
       setLoading(true);
-      try {
-        if (api.getLicenseById) {
-          const res = await api.getLicenseById(id);
-          if (mounted) setLicense(res);
-        } else {
-          // mock data (frontend-only)
-          const mock = {
-            id,
-            student: {
-              name: "Juan Pérez",
-              studentId: "20201234",
-              faculty: "Ciencias",
-              email: "juan.perez@uni.edu"
-            },
-            dates: {
-              from: "2025-09-01",
-              to: "2025-09-05",
-              submitted: "2025-09-02"
-            },
-            reason: "Gripe y fiebre",
-            attachment: {
-              url: "/assets/banner-generar.png", // prueba local
-              filename: "comprobante.pdf",
-              mimetype: "image/png"
-            },
-            status: "pendiente",
-            notes: ""
-          };
-          if (mounted) setLicense(mock);
-        }
-      } catch (err) {
-        console.error(err);
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    }
-    load();
-    return () => (mounted = false);
+      
+      // Simular delay de carga
+      await new Promise(resolve => setTimeout(resolve, 800));
+      
+      // Obtener datos del mock o usar datos por defecto
+      const mockData = mockDatabase[id] || mockDatabase["123"]; // fallback a 123
+      
+      const mockLicense = {
+        id: id || "123",
+        student: mockData.student,
+        dates: mockData.dates,
+        attachment: mockData.attachment
+      };
+      
+      setLicense(mockLicense);
+      setLoading(false);
+    };
+
+    loadLicense();
   }, [id]);
 
-  const goBack = () => {
-    // Si el usuario viene directamente, navegamos a la bandeja por defecto
-    navigate(-1);
-    // mejora: si vuelve a la misma página o historial es corto, forzar a /pendientes
-    setTimeout(() => {
-      if (window.location.pathname === `/evaluar/${id}` || window.location.pathname === `/gestionar/${id}`) {
-        navigate("/pendientes", { replace: true });
-      }
-    }, 200);
-  }; // flujo claro de regreso
-
+  const goBackToBandeja = () => navigate("/pendientes");
   const openModal = (type) => setModal({ open: true, type });
   const closeModal = () => setModal({ open: false, type: null });
-
-  const handleConfirm = async (payload) => {
-    // payload puede contener comentarios del rechazo/aceptación
-    setProcessing(true);
-    try {
-      if (modal.type === "accept") {
-        if (api.acceptLicense) await api.acceptLicense(id, payload);
-        setLicense(prev => ({ ...prev, status: "verificada" }));
-      } else if (modal.type === "reject") {
-        if (api.rejectLicense) await api.rejectLicense(id, payload);
-        setLicense(prev => ({ ...prev, status: "rechazada" }));
-      }
-      closeModal();
-      // navegar de vuelta a la bandeja o mostrar confirmación
-      navigate("/pendientes");
-    } catch (err) {
-      console.error(err);
-      // opcional: mostrar error
-    } finally {
-      setProcessing(false);
-    }
+  
+  const handleConfirm = (data) => {
+    const action = modal.type === "accept" ? "aceptada" : "rechazada";
+    console.log(`Licencia ${license.id} ${action}:`, data);
+    
+    // Mostrar confirmación
+    alert(`Licencia ${action} exitosamente${data?.note ? `\nNota: ${data.note}` : ''}`);
+    
+    closeModal();
+    goBackToBandeja();
   };
 
-  // Solo secretarias deberían acceder a esta vista (puedes reforzar con ProtectedRoute)
-  const role = String(user?.role || "").toLowerCase();
-  const isSecretary = role === "secretaria" || role === "secretary";
+  if (loading) {
+    return (
+      <div className="min-h-screen flex flex-col bg-blue-50 w-full overflow-x-hidden">
+        <Navbar />
+        <main className="flex-1 flex items-center justify-center w-full">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-lg">Cargando licencia...</p>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen flex flex-col bg-blue-50">
+    <div className="min-h-screen flex flex-col bg-blue-50 w-full overflow-x-hidden">
       <Navbar />
-      <main className="flex-1">
-        <BannerSection />
-
-        <div className="container mx-auto px-8 py-10">
-          <div className="max-w-6xl mx-auto bg-white rounded-2xl shadow-lg overflow-hidden">
-            <div className="p-6 border-b flex items-center justify-between">
+      
+      <main className="flex-1 w-full">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-10 max-w-none">
+          <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-lg p-6 sm:p-8">
+            
+            {/* Header con navegación clara */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-4">
               <div>
-                <h2 className="text-2xl font-bold">Evaluación de licencia</h2>
-                <div className="text-sm text-gray-500">ID: {id}</div>
+                <h1 className="text-2xl font-bold">Evaluación de Licencia</h1>
+                <p className="text-gray-500">ID: {license.id}</p>
               </div>
-              <div className="flex gap-3">
-                <button onClick={goBack} className="px-4 py-2 bg-gray-100 rounded hover:bg-gray-200">Volver</button>
-              </div>
+              <button 
+                onClick={goBackToBandeja}
+                className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300 transition-colors self-start sm:self-auto"
+              >
+                ← Volver a Bandeja
+              </button>
             </div>
 
-            <div className="p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <section className="lg:col-span-2 space-y-4">
-                {loading ? (
-                  <div>Cargando...</div>
-                ) : (
-                  <>
-                    <div className="bg-gray-50 p-4 rounded">
-                      <h3 className="font-semibold mb-2">Datos del estudiante</h3>
-                      <div className="text-sm text-gray-700">
-                        <div><strong>Nombre:</strong> {license.student.name}</div>
-                        <div><strong>Legajo:</strong> {license.student.studentId}</div>
-                        <div><strong>Facultad:</strong> {license.student.faculty}</div>
-                        <div><strong>Email:</strong> {license.student.email}</div>
-                      </div>
-                    </div>
-
-                    <div className="bg-gray-50 p-4 rounded">
-                      <h3 className="font-semibold mb-2">Datos de la licencia</h3>
-                      <div className="text-sm text-gray-700 space-y-1">
-                        <div><strong>Desde:</strong> {license.dates.from}</div>
-                        <div><strong>Hasta:</strong> {license.dates.to}</div>
-                        <div><strong>Enviado:</strong> {license.dates.submitted}</div>
-                        <div><strong>Motivo:</strong> {license.reason}</div>
-                        <div><strong>Estado:</strong> <span className="font-medium">{license.status}</span></div>
-                      </div>
-                    </div>
-
-                    <div className="bg-white p-4 rounded border">
-                      <h3 className="font-semibold mb-2">Archivo adjunto</h3>
-                      <LicensePreview file={license.attachment} />
-                    </div>
-
-                    <div className="flex gap-3 mt-4">
-                      <button onClick={() => openModal("accept")} disabled={!isSecretary || processing}
-                        className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50">
-                        Aceptar
-                      </button>
-                      <button onClick={() => openModal("reject")} disabled={!isSecretary || processing}
-                        className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50">
-                        Rechazar
-                      </button>
-                      <button onClick={goBack} className="px-4 py-2 bg-gray-100 rounded hover:bg-gray-200">Volver a bandeja</button>
-                    </div>
-                  </>
-                )}
-              </section>
-
-              <aside className="space-y-4">
-                <div className="bg-gray-50 p-4 rounded">
-                  <h4 className="font-semibold mb-2">Acciones rápidas</h4>
-                  <ul className="text-sm text-gray-700 space-y-2">
-                    <li><button onClick={() => navigate("/pendientes")} className="text-blue-600 underline">Ir a Pendientes</button></li>
-                    <li><button onClick={() => navigate("/historial")} className="text-blue-600 underline">Ver Historial</button></li>
-                    <li><button onClick={() => navigate("/generar-revision")} className="text-blue-600 underline">Generar Revisión</button></li>
-                  </ul>
+            {/* Datos completos del estudiante */}
+            <section className="mb-6">
+              <h2 className="text-lg font-semibold mb-3 text-gray-800">Datos del Estudiante</h2>
+              <div className="bg-gray-50 p-4 rounded-lg border">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                  <div className="flex flex-col">
+                    <span className="font-medium text-gray-600">Nombre:</span>
+                    <span className="text-gray-900">{license.student.name}</span>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="font-medium text-gray-600">Legajo:</span>
+                    <span className="text-gray-900">{license.student.studentId}</span>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="font-medium text-gray-600">Facultad:</span>
+                    <span className="text-gray-900">{license.student.faculty}</span>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="font-medium text-gray-600">Email:</span>
+                    <span className="text-gray-900">{license.student.email}</span>
+                  </div>
                 </div>
+              </div>
+            </section>
 
-                <div className="bg-gray-50 p-4 rounded">
-                  <h4 className="font-semibold mb-2">Notas</h4>
-                  <p className="text-sm text-gray-600">Agrega observaciones en el modal de rechazo o aceptación.</p>
+            {/* Datos completos de la licencia */}
+            <section className="mb-6">
+              <h2 className="text-lg font-semibold mb-3 text-gray-800">Datos de la Licencia</h2>
+              <div className="bg-gray-50 p-4 rounded-lg border">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                  <div className="flex flex-col">
+                    <span className="font-medium text-gray-600">Fecha de emisión de licencia:</span>
+                    <span className="text-gray-900">{license.dates.emissionDate}</span>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="font-medium text-gray-600">Fecha enviado:</span>
+                    <span className="text-gray-900">{license.dates.submitted}</span>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="font-medium text-gray-600">Fecha inicio reposo:</span>
+                    <span className="text-gray-900">{license.dates.restStart}</span>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="font-medium text-gray-600">Fecha fin de reposo:</span>
+                    <span className="text-gray-900">{license.dates.restEnd}</span>
+                  </div>
                 </div>
-              </aside>
+              </div>
+            </section>
+
+            {/* Archivo adjunto con opción de previsualización */}
+            <section className="mb-8">
+              <h2 className="text-lg font-semibold mb-3 text-gray-800">Archivo Adjunto</h2>
+              <div className="border rounded-lg p-4">
+                <AttachmentView file={license.attachment} />
+              </div>
+            </section>
+
+            {/* Botones para Aceptar y Rechazar */}
+            <div className="flex flex-col sm:flex-row gap-4 pt-4 border-t">
+              <button 
+                onClick={() => openModal("accept")}
+                className="flex-1 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+              >
+                ✓ Aceptar Licencia
+              </button>
+              <button 
+                onClick={() => openModal("reject")}
+                className="flex-1 px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
+              >
+                ✗ Rechazar Licencia
+              </button>
+            </div>
+
+            {/* Información de ayuda */}
+            <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+              <p className="text-sm text-blue-700">
+                <strong>Nota:</strong> Al aceptar o rechazar, podrás agregar comentarios que serán enviados al estudiante.
+              </p>
             </div>
           </div>
         </div>
@@ -188,13 +322,13 @@ export default function EvaluarLicencia() {
 
       <Footer />
 
+      {/* Modal correspondiente */}
       <ConfirmModal
         open={modal.open}
-        title={modal.type === "accept" ? "Confirmar aceptación" : "Confirmar rechazo"}
-        confirmLabel={modal.type === "accept" ? "Aceptar" : "Rechazar"}
+        title={modal.type === "accept" ? "Confirmar Aceptación" : "Confirmar Rechazo"}
+        confirmLabel={modal.type === "accept" ? "Aceptar Licencia" : "Rechazar Licencia"}
         onClose={closeModal}
-        onConfirm={(data) => handleConfirm(data)}
-        loading={processing}
+        onConfirm={handleConfirm}
       />
     </div>
   );

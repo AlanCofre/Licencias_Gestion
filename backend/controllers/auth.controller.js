@@ -1,33 +1,49 @@
-// backend/src/controllers/auth.controller.js
-import bcrypt from 'bcrypt';
-import Usuario from '../models/modelo_Usuario.js';
-import { generarJWT } from '../utils/jwt.js'; // tu helper ya existente
-
+// backend/controllers/auth.controller.js
+import bcrypt from 'bcryptjs';
+import db from '../config/db.js';              
+import { generarJWT } from '../utils/jwt.js'; 
 export async function login(req, res) {
   try {
-    const { correo_usuario, contrasena } = req.body || {};
-    if (!correo_usuario || !contrasena) {
-      return res.status(400).json({ ok: false, error: 'correo_usuario y contrasena son requeridos' });
+    const correo = req.body?.correo || req.body?.correo_usuario;
+    const contrasena = req.body?.contrasena;
+
+    if (!correo || !contrasena) {
+      return res.status(400).json({ ok: false, error: 'correo y contrasena son requeridos' });
     }
 
-    // Ajusta el campo si tu columna se llama distinto
-    const usuario = await Usuario.findOne({ where: { correo_usuario } });
-    if (!usuario) return res.status(401).json({ ok: false, error: 'Credenciales inválidas' });
+    // Trae nombre del rol y el id_rol numérico
+    const [rows] = await db.execute(
+      `SELECT u.id_usuario, u.nombre, u.correo_usuario, u.contrasena, u.activo,
+              u.id_rol AS id_rol_num, r.nombre_rol
+         FROM usuario u
+         JOIN rol r ON r.id_rol = u.id_rol
+        WHERE u.correo_usuario = ?
+        LIMIT 1`,
+      [correo]
+    );
+    if (!rows.length) return res.status(401).json({ ok: false, error: 'Credenciales inválidas' });
 
-    const match = await bcrypt.compare(contrasena, usuario.contrasena);
-    if (!match) return res.status(401).json({ ok: false, error: 'Credenciales inválidas' });
+    const u = rows[0];
+    if (!u.activo) return res.status(401).json({ ok: false, error: 'Usuario inactivo' });
 
-    // generarJWT espera (id, rol) según tu función:
-    const token = await generarJWT(usuario.id_usuario, usuario.id_rol);
+    const ok = await bcrypt.compare(contrasena, u.contrasena);
+    if (!ok) return res.status(401).json({ ok: false, error: 'Credenciales inválidas' });
 
-    const usuarioSafe = {
-      id_usuario: usuario.id_usuario,
-      correo_usuario: usuario.correo_usuario,
-      nombre: usuario.nombre,
-      id_rol: usuario.id_rol,
-    };
+    const rolNombre = String(u.nombre_rol || '').toLowerCase(); // 'funcionario' | 'estudiante'
+    const token = await generarJWT(u.id_usuario, rolNombre);
 
-    return res.json({ ok: true, token, usuario: usuarioSafe });
+    return res.json({
+      ok: true,
+      mensaje: 'Login exitoso',
+      usuario: {
+        id_usuario: u.id_usuario,
+        correo_usuario: u.correo_usuario,
+        nombre: u.nombre,
+        id_rol: u.id_rol_num,  // numérico (1|2)
+        rol: rolNombre         // string normalizado
+      },
+      token
+    });
   } catch (err) {
     console.error('Login error', err);
     return res.status(500).json({ ok: false, error: 'Error interno' });

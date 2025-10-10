@@ -1,6 +1,8 @@
 import React from "react";
 import BannerInfo from "../components/BannerInfo.jsx";
+import BannerSection from "../components/BannerSection.jsx";
 import Footer from "../components/Footer.jsx";
+import Navbar from "../components/Navbar.jsx";
 
 function AppVisualizar() {
   const data = [
@@ -19,17 +21,18 @@ function AppVisualizar() {
 
   return (
     <div className="w-screen min-h-screen flex flex-col bg-blue-100 overflow-x-hidden">
+      <Navbar />
       {/* Banner */}
-      <div className="banner relative w-full h-[500px]">
-        <BannerInfo />
+      <div className="banner relative w-full">
+        <BannerSection />
       </div>
 
       {/* Contenedor de tabla */}
-      <div className="z-10 w-[90%] max-w-[100rem] bg-white rounded-lg shadow-md flex flex-col gap-6 mx-auto my-10 p-6 border border-white">
-        <h2 className="text-3xl md:text-4xl font-medium font-['Work_Sans'] text-left">
+      <div className="w-[90%] max-w-[100rem] bg-white rounded-lg shadow-md flex flex-col gap-6 mx-auto my-10 p-6 border border-white top-0">
+        <h2 className="text-3xl md:text-4xl font-medium font-sans text-left">
           Tabla de resultados
         </h2>
-        <p className="text-neutral-500 text-base md:text-xl font-medium font-['Work_Sans'] text-justify">
+        <p className="text-neutral-500 text-base md:text-xl font-medium font-sans text-justify">
           En esta tabla encontrarás los resultados de tus documentos enviados en la plataforma, con 3 estados: 
           Pendiente, revisado y verificado.
           <br />
@@ -37,7 +40,7 @@ function AppVisualizar() {
         </p>
 
         {/* Tabla */}
-        <div className="w-full bg-white rounded outline outline-1 outline-sky-500">
+        <div className="w-full bg-white rounded outline outline-1 outline-sky-500 font-sans max-w-[100rem]">
           {/* Headers */}
           <div className="grid grid-cols-5 bg-sky-700/20 border-b border-sky-500">
             {["N° De Identificación", "Fecha de subida", "Razón de licencia", "Estado", "Documento"].map(
@@ -80,7 +83,7 @@ function AppVisualizar() {
           ))}
         </div>
       </div>
-
+      <Footer />
     </div>
   );
 }

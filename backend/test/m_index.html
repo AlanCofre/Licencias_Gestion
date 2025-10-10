@@ -165,9 +165,14 @@
       <div id="tablaLicencias"></div>
     </fieldset>
     <fieldset>
+    <fieldset>
       <legend>Licencias en Revisión (GET /api/licencias/en-revision)</legend>
       <label>Página <input id="rev_page" type="number" value="1" min="1" style="width:60px"/></label>
       <label>Límite <input id="rev_limit" type="number" value="5" min="1" max="50" style="width:60px"/></label>
+      <label>Nombre estudiante <input id="rev_nombre" type="text" placeholder="Nombre estudiante"/></label>
+      <label>Folio <input id="rev_folio" type="text" placeholder="Folio"/></label>
+      <label>Desde <input id="rev_desde" type="date"/></label>
+      <label>Hasta <input id="rev_hasta" type="date"/></label>
       <button id="btnListarRevision">Obtener</button>
       <div id="tablaLicenciasRevision"></div>
     </fieldset>
@@ -181,7 +186,18 @@
       <button id="btnAceptarLicencia" type="button">Aceptar</button>
       <button id="btnRechazarLicencia" type="button">Rechazar</button>
       <input id="motivoRechazo" type="text" placeholder="Motivo de rechazo" style="width:220px; display:none; margin-left:8px"/>
-    </fieldset>     
+    </fieldset>
+    <fieldset>
+      <legend>Licencias Resueltas (solo funcionario)</legend>
+      <label>Nombre estudiante <input id="resueltas_nombre" type="text" placeholder="Nombre estudiante"/></label>
+      <label>Folio <input id="resueltas_folio" type="text" placeholder="Folio"/></label>
+      <label>Desde <input id="resueltas_desde" type="date"/></label>
+      <label>Hasta <input id="resueltas_hasta" type="date"/></label>
+      <label>Página <input id="resueltas_page" type="number" value="1" min="1" style="width:60px"/></label>
+      <label>Límite <input id="resueltas_limit" type="number" value="20" min="1" max="100" style="width:60px"/></label>
+      <button id="btnResueltas">Ver Licencias Resueltas</button>
+      <div id="tablaResueltas"></div>
+    </fieldset>
   </div>
 </div>
 
@@ -473,6 +489,50 @@
     return `<table>${head}${rows}</table>`;
   }
 
+
+  $('btnResueltas').onclick = async () => {
+    if (!JWT) {
+      log('Debes iniciar sesión como funcionario para ver las licencias resueltas.', 'error');
+      $('tablaResueltas').innerHTML = '<div class="muted">No autorizado</div>';
+      return;
+    }
+    const payload = decodeJwtPayload(JWT);
+    const rol = (payload?.rol || payload?.role || payload?.roles || '').toString().toLowerCase();
+    if (rol !== 'funcionario') {
+      log('Solo los funcionarios pueden ver esta lista.', 'error');
+      $('tablaResueltas').innerHTML = '<div class="muted">No autorizado</div>';
+      return;
+    }
+
+    const nombre = $('resueltas_nombre').value.trim();
+    const folio = $('resueltas_folio').value.trim();
+    const desde = $('resueltas_desde').value;
+    const hasta = $('resueltas_hasta').value;
+    const page = Number($('resueltas_page').value) || 1;
+    const limit = Number($('resueltas_limit').value) || 20;
+
+    const params = new URLSearchParams({
+      ...(nombre && { nombre }),
+      ...(folio && { folio }),
+      ...(desde && { desde }),
+      ...(hasta && { hasta }),
+      page,
+      limit
+    });
+
+    try {
+      const res = await fetch(`${BASE_URL}/api/licencias/resueltas?${params.toString()}`, {
+        headers: { 'Accept': 'application/json', ...authHeaders() }
+      });
+      const data = await safeJson(res);
+      log(`GET /api/licencias/resueltas → ${res.status}\n${JSON.stringify(data, null, 2)}`, res.ok?'ok':'error');
+      const arr = Array.isArray(data.licencias) ? data.licencias : [];
+      $('tablaResueltas').innerHTML = renderTablaLicencias(arr);
+    } catch (e) {
+      log(`Error al obtener licencias resueltas: ${e.message}`, 'error');
+    }
+  };
+
   // ===== Reset por código (usa /usuarios/...) =====
   $('btnResetRequest').onclick = async () => {
     try {
@@ -509,8 +569,21 @@
   $('btnListarRevision').onclick = async () => {
     const page = Number($('rev_page').value) || 1;
     const limit = Number($('rev_limit').value) || 5;
+    const nombre = $('rev_nombre').value.trim();
+    const folio = $('rev_folio').value.trim();
+    const desde = $('rev_desde').value;
+    const hasta = $('rev_hasta').value;
+
+    const params = new URLSearchParams({
+      page, limit,
+      ...(nombre && { nombre }),
+      ...(folio && { folio }),
+      ...(desde && { desde }),
+      ...(hasta && { hasta }),
+    });
+
     try {
-      const res = await fetch(`${BASE_URL}/api/licencias/en-revision?page=${page}&limit=${limit}`, {
+      const res = await fetch(`${BASE_URL}/api/licencias/en-revision?${params.toString()}`, {
         headers: { 'Accept': 'application/json', ...authHeaders() }
       });
       const data = await safeJson(res);

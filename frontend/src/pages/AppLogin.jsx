@@ -5,13 +5,50 @@ import { useAuth } from "../context/AuthContext";
 
 function AppLogin() {
   const { login } = useAuth();
-  const navigate = useNavigate(); // hook para navegar
+  const navigate = useNavigate();
 
-  // estado para inputs y UI
+  // estado UI
   const [correo, setCorreo] = useState("");
   const [contrasena, setContrasena] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  // --- Utilidad: normalizar roles provenientes del backend ---
+  const normalizeRole = (rawUser) => {
+    // admisible: id_rol puede venir como número, string, objeto { nombre }, o campos rol/role
+    let role = "";
+
+    if (rawUser?.id_rol) {
+      if (typeof rawUser.id_rol === "object" && rawUser.id_rol.nombre) {
+        role = String(rawUser.id_rol.nombre).toLowerCase();
+      } else {
+        const num = Number(rawUser.id_rol);
+        role =
+          num === 1 ? "profesor" :
+          num === 2 ? "estudiante" :
+          num === 3 ? "funcionario" : "";
+      }
+    } else if (typeof rawUser?.id_rol === "string") {
+      role = rawUser.id_rol.toLowerCase();
+    } else if (typeof rawUser?.rol === "string") {
+      role = rawUser.rol.toLowerCase();
+    } else if (typeof rawUser?.role === "string") {
+      role = rawUser.role.toLowerCase();
+    }
+
+    // alias frecuentes → estandarizamos
+    if (role === "secretaria" || role === "secretary") role = "funcionario";
+    if (role === "alumno") role = "estudiante";
+
+    return role;
+  };
+
+  // --- Mapeo de ruta por rol (clave única de navegación) ---
+  const routeByRole = {
+    estudiante: "/alumno",
+    profesor: "/profesor",
+    funcionario: "/secretaria", // secretaria/secretary se normaliza a funcionario
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -19,27 +56,34 @@ function AppLogin() {
     setLoading(true);
 
     try {
-      const base = import.meta.env.VITE_API_BASE_URL;
+      const base = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
       const res = await fetch(`${base}/usuarios/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ correo_usuario: correo, contrasena }),
       });
+
       const data = await res.json();
 
-      if (!res.ok || !data?.ok || !data?.token || !data?.usuario) {
+      if (!res.ok || !data?.token || !data?.usuario) {
         throw new Error(data?.error || "Credenciales inválidas");
       }
 
-      // persistir sesión mínima en el cliente
-      sessionStorage.setItem("token", data.token);
-      sessionStorage.setItem("user", JSON.stringify(data.usuario));
+      // Normalizar usuario (añadir .role coherente)
+      const rawUser = data.usuario || {};
+      const role = normalizeRole(rawUser);
+      const normalizedUser = { ...rawUser, role };
 
-      // avisar a tu AuthContext (mantengo tu API: login(userData))
-      login(data.user);
+      // Persistir sesión (alineado con tu AuthContext/servicios)
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("user", JSON.stringify(normalizedUser));
 
-      // redirección por rol (ajusta rutas si usas otras)
-      navigate("/alumno");
+      // Avisar a AuthContext con el objeto NORMALIZADO
+      login(normalizedUser, data.token );
+
+      // Redirección inequívoca por rol (estilo Código 2) usando replace
+      const target = routeByRole[role] || "/";
+      navigate(target, { replace: true });
     } catch (err) {
       setError(err.message || "No se pudo iniciar sesión");
     } finally {
@@ -57,7 +101,7 @@ function AppLogin() {
       />
 
       {/* Título principal */}
-      <h1 className="relative z-10 text-white text-center font-extrabold text-[clamp(2rem,8vw,8rem)] drop-shadow-[0_8px_9px_rgba(0,0,0,0.5)] mb-12">
+      <h1 className="relative z-10 text-white text-center font-extrabold text-[clamp(2rem,8vw,8rem)] drop-shadow-[0_8px_9px_rgba(0,0,0,0.5)] mb-12 font-display">
         MedManager
       </h1>
 
@@ -100,7 +144,7 @@ function AppLogin() {
             <p className="text-red-600 text-sm text-center -mt-2">{error}</p>
           )}
 
-          {/* Enlace Olvidé mi contraseña */}
+          {/* Olvidé mi contraseña */}
           <div className="flex justify-center mt-2">
             <span
               className="text-[#00AAFF] text-sm font-medium cursor-pointer hover:underline"
@@ -120,12 +164,12 @@ function AppLogin() {
         </form>
       </div>
 
-      {/* Registro debajo del contenedor */}
+      {/* Registro */}
       <div className="relative z-10 mt-10 text-center text-black text-base">
         <span>¿No tienes una cuenta? </span>
         <span
           className="text-[#76F1FF] font-bold cursor-pointer hover:underline"
-          onClick={() => navigate("/register")}
+          onClick={() => navigate("/registro")}
         >
           Regístrate aquí.
         </span>
