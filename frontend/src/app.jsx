@@ -1,17 +1,13 @@
 import React from "react";
 import { BrowserRouter } from "react-router-dom";
-import AppRoutes from "./routes";
-import SkipLink from "./components/SkipLink";
 import { AuthProvider } from "./context/AuthContext";
+import AppRoutes from "./routes";
 
 function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <div className="min-h-screen">
-          <SkipLink />
-          <AppRoutes />
-        </div>
+        <AppRoutes />
       </AuthProvider>
     </BrowserRouter>
   );

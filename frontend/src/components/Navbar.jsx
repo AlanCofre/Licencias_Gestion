@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
-import { CheckCircleIcon, BellIcon } from "@heroicons/react/24/outline";
+import { CheckCircleIcon, BellIcon, AdjustmentsHorizontalIcon } from "@heroicons/react/24/outline";
 import { useAuth } from "../context/AuthContext";
 
 export default function Navbar() {
@@ -9,8 +9,10 @@ export default function Navbar() {
   const [openDropdown, setOpenDropdown] = useState(null);
   const [mobileBellOpen, setMobileBellOpen] = useState(false);
   const [mobileTab, setMobileTab] = useState("pendientes");
+  const [accessibilityOpen, setAccessibilityOpen] = useState(false); // Nuevo estado
   const dropdownRef = useRef(null);
   const mobileBellRef = useRef(null);
+  const accessibilityRef = useRef(null); // Nueva ref
 
   // Estado de notificaciones con fechas (como objetos Date)
   const [notifications, setNotifications] = useState({
@@ -78,6 +80,13 @@ export default function Navbar() {
       ) {
         setMobileBellOpen(false);
       }
+      // Nuevo: cerrar menú de accesibilidad
+      if (
+        accessibilityRef.current &&
+        !accessibilityRef.current.contains(event.target)
+      ) {
+        setAccessibilityOpen(false);
+      }
     };
 
     document.addEventListener("mousedown", handleClickOutside);
@@ -122,12 +131,24 @@ export default function Navbar() {
             <ul className="flex gap-8 text-sm font-medium items-center">
               <li>
                 <Link
-                  to="/"
+                  to={role === "secretaria" ? "/secretaria" : "/alumno"}
                   className="px-3 py-2 hover:bg-white/10 rounded transition-colors"
                 >
                   Inicio
                 </Link>
               </li>
+
+              {/* Solo mostrar para secretaria */}
+              {(role === "secretaria" || role === "secretary") && (
+                <li>
+                  <Link
+                    to="/licencias-por-revisar"
+                    className="px-3 py-2 hover:bg-white/10 rounded transition-colors"
+                  >
+                    Licencias por Revisar
+                  </Link>
+                </li>
+              )}
 
               {/* Botones con notificaciones en desktop */}
               {["pendientes", "revisadas", "verificadas"].map((category) => (
@@ -206,6 +227,44 @@ export default function Navbar() {
               >
                 {displayName}
               </Link>
+            </div>
+
+            {/* Menú de Accesibilidad - Desktop */}
+            <div className="relative hidden md:block" ref={accessibilityRef}>
+              <button
+                onClick={() => setAccessibilityOpen(!accessibilityOpen)}
+                className="flex items-center gap-2 bg-white/10 hover:bg-white/20 px-3 py-2 rounded transition-colors text-sm font-medium"
+                aria-label="Menú de accesibilidad"
+                title="Opciones de accesibilidad"
+              >
+                <AdjustmentsHorizontalIcon className="w-4 h-4" />
+                <span className="hidden lg:inline">Accesibilidad</span>
+              </button>
+
+              {accessibilityOpen && (
+                <div className="absolute right-0 top-full mt-2 w-64 bg-white text-black shadow-xl rounded-lg z-50 border">
+                  <div className="absolute -top-2 right-4 w-4 h-4 bg-white rotate-45 shadow-md rounded-sm border-l border-t"></div>
+                  
+                  <div className="relative z-10 p-4">
+                    <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                      <AdjustmentsHorizontalIcon className="w-5 h-5 text-blue-600" />
+                      Opciones de Accesibilidad
+                    </h3>
+                    
+                    <div className="space-y-3">
+                      {/* Placeholder para futuras opciones */}
+                      <div className="text-sm text-gray-600 italic border border-gray-200 rounded p-3 bg-gray-50">
+                        Las opciones de accesibilidad se implementarán en las próximas tareas:
+                        <ul className="mt-2 space-y-1 text-xs">
+                          <li>• Modo oscuro</li>
+                          <li>• Aumentar tamaño de texto</li>
+                          <li>• Aumentar tamaño cursor</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             <Link
@@ -324,7 +383,7 @@ export default function Navbar() {
           </div>
         </div>
 
-        {/* Mobile menu (sin notificaciones aquí) */}
+        {/* Mobile menu */}
         <nav
           id="mobile-menu"
           className={`md:hidden transition-all duration-200 ease-in-out overflow-hidden ${
@@ -336,13 +395,46 @@ export default function Navbar() {
           <ul className="flex flex-col gap-1 text-sm">
             <li>
               <Link
-                to="/"
+                to={role === "secretaria" ? "/secretaria" : "/alumno"}
                 className="block px-4 py-3 rounded-md hover:bg-white/10 transition-colors"
                 onClick={closeMenu}
               >
                 Inicio
               </Link>
             </li>
+
+            {/* Solo para secretaria en móvil también */}
+            {(role === "secretaria" || role === "secretary") && (
+              <li>
+                <Link
+                  to="/licencias-por-revisar"
+                  className="block px-4 py-3 rounded-md hover:bg-white/10 transition-colors"
+                  onClick={closeMenu}
+                >
+                  Licencias por Revisar
+                </Link>
+              </li>
+            )}
+
+            {/* Menú de Accesibilidad - Móvil */}
+            <li className="border-t border-white/20 mt-2 pt-2">
+              <button
+                onClick={() => setAccessibilityOpen(!accessibilityOpen)}
+                className="w-full flex items-center gap-2 px-4 py-3 rounded-md hover:bg-white/10 transition-colors text-left"
+              >
+                <AdjustmentsHorizontalIcon className="w-5 h-5" />
+                Opciones de Accesibilidad
+              </button>
+              
+              {accessibilityOpen && (
+                <div className="mx-4 mt-2 p-3 bg-white/10 rounded border border-white/20">
+                  <div className="text-sm text-white/80 italic">
+                    Las opciones de accesibilidad se implementarán próximamente
+                  </div>
+                </div>
+              )}
+            </li>
+
             <li className="border-t border-white/20 mt-2 pt-2">
               <Link
                 to="/login"

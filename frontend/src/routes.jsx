@@ -21,17 +21,18 @@ import LicenciasPorRevisar from "./pages/LicenciasPorRevisar";
 export default function AppRoutes() {
   return (
     <Routes>
+      {/* Ruta raíz simple - directo a login como el antiguo */}
       <Route path="/" element={<Navigate to="/login" replace />} />
-
-      {/* Inicios por role */}
-      <Route path="/alumno" element={<Dashboard />} />
-      <Route path="/secretaria" element={<DashboardSecretary />} />
 
       {/* Auth */}
       <Route path="/login" element={<AppLogin />} />
       <Route path="/registro" element={<AppRegistro />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
+
+      {/* Dashboards por rol */}
+      <Route path="/alumno" element={<Dashboard />} />
+      <Route path="/secretaria" element={<DashboardSecretary />} />
 
       {/* Páginas comunes */}
       <Route path="/como-usar" element={<ComoUsar />} />
@@ -41,10 +42,12 @@ export default function AppRoutes() {
       <Route path="/license-detail/:id" element={<LicenseDetail />} />
       <Route path="/license/:id" element={<LicenseDetailView />} />
       <Route path="/edit-profile" element={<AppEditProfile />} />
+      
+      {/* Rutas nuevas de secretaria */}
       <Route path="/evaluar/:id" element={<EvaluarLicencia />} />
-      <Route path="/pendientes" element={<LicenciasPorRevisar />} />
+      <Route path="/licencias-por-revisar" element={<LicenciasPorRevisar />} />
 
-      {/* Rutas heredadas (opcional: apuntan al dashboard de alumno) */}
+      {/* Rutas heredadas del navbar */}
       <Route path="/pendientes" element={<Dashboard />} />
       <Route path="/revisadas" element={<Dashboard />} />
       <Route path="/verificadas" element={<Dashboard />} />
