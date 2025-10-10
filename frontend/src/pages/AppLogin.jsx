@@ -5,58 +5,25 @@ import { useAuth } from "../context/AuthContext";
 
 function AppLogin() {
   const { login } = useAuth();
-  const navigate = useNavigate(); // hook para navegar
-
-  // estado para inputs y UI
-  const [correo, setCorreo] = useState("");
-  const [contrasena, setContrasena] = useState("");
+  const navigate = useNavigate();
+  const [roleSelect, setRoleSelect] = useState("alumno");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError("");
     setLoading(true);
-
-    try {
-      const base = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
-      const res = await fetch(`${base}/usuarios/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ correo_usuario: correo, contrasena }),
-      });
-      const data = await res.json();
-
-      if (!res.ok || !data?.token || !data?.usuario) {
-        throw new Error(data?.error || "Credenciales inválidas");
-      }
-
-      // persistir sesión en localStorage (coherencia con services)
-      localStorage.setItem("token", data.token);
-      localStorage.setItem("user", JSON.stringify(data.usuario));
-
-      // Avisar a AuthContext con el objeto correcto
-      login(data.usuario);
-
-      const rol =
-        data.usuario?.id_rol?.nombre?.toLowerCase?.() ||
-        data.usuario?.id_rol?.toLowerCase?.() ||
-        "";
-
-      if (rol === "estudiante") {
-        navigate("/alumno");
-      } else if (rol === "profesor") {
-        navigate("/profesor");
-      } else if (rol === "secretario") {
-        navigate("/secretaria");
-      } else {
-        navigate("/"); // fallback
-      }
-    } catch (err) {
-      setError(err.message || "No se pudo iniciar sesión");
-    } finally {
+    
+    setTimeout(() => {
+      const userData = { name: "Juan Pérez", role: roleSelect };
+      login(userData);
       setLoading(false);
-    }
+      
+      if (roleSelect === "secretaria") {
+        navigate("/secretaria", { replace: true });
+      } else {
+        navigate("/alumno", { replace: true });
+      }
+    }, 700);
   };
 
   return (
@@ -76,50 +43,51 @@ function AppLogin() {
       {/* Contenedor de login */}
       <div className="relative z-10 w-[90%] max-w-[50.25rem] bg-white rounded-lg shadow-md p-10 flex flex-col gap-6 border-white border-30">
         <h2 className="text-3xl font-semibold text-black text-center mb-6">
-          Inicio de sesión
+          Selecciona tu tipo de usuario
         </h2>
 
-        <form onSubmit={handleSubmit} className="w-full flex flex-col gap-4">
+        <form onSubmit={handleSubmit} className="w-full flex flex-col gap-6">
           <div>
-            <label className="block text-black font-normal mb-2">
-              Correo Electrónico:
+            <label className="block text-black font-medium mb-4 text-lg">
+              ¿Cómo deseas acceder?
             </label>
-            <input
-              type="email"
-              placeholder="usuario@uct.cl"
-              className="w-full bg-[#95B5C4] rounded-md border-none p-4 text-black"
-              value={correo}
-              onChange={(e) => setCorreo(e.target.value)}
-              required
-            />
-          </div>
+            <div className="space-y-3">
+              <label className="flex items-center p-4 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition">
+                <input
+                  type="radio"
+                  name="role"
+                  value="alumno"
+                  checked={roleSelect === "alumno"}
+                  onChange={(e) => setRoleSelect(e.target.value)}
+                  className="mr-3 w-4 h-4 text-blue-600"
+                  disabled={loading}
+                />
+                <div>
+                  <div className="font-semibold text-gray-900">Alumno</div>
+                  <div className="text-sm text-gray-600">
+                    Generar y consultar mis licencias médicas
+                  </div>
+                </div>
+              </label>
 
-          <div>
-            <label className="block text-black font-normal mb-2">
-              Contraseña:
-            </label>
-            <input
-              type="password"
-              placeholder="••••••••"
-              className="w-full bg-[#95B5C4] rounded-md border-none p-4 text-black"
-              value={contrasena}
-              onChange={(e) => setContrasena(e.target.value)}
-              required
-            />
-          </div>
-
-          {error && (
-            <p className="text-red-600 text-sm text-center -mt-2">{error}</p>
-          )}
-
-          {/* Enlace Olvidé mi contraseña */}
-          <div className="flex justify-center mt-2">
-            <span
-              className="text-[#00AAFF] text-sm font-medium cursor-pointer hover:underline"
-              onClick={() => navigate("/forgot-password")}
-            >
-              Olvidé mi contraseña.
-            </span>
+              <label className="flex items-center p-4 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition">
+                <input
+                  type="radio"
+                  name="role"
+                  value="secretaria"
+                  checked={roleSelect === "secretaria"}
+                  onChange={(e) => setRoleSelect(e.target.value)}
+                  className="mr-3 w-4 h-4 text-blue-600"
+                  disabled={loading}
+                />
+                <div>
+                  <div className="font-semibold text-gray-900">Secretaria</div>
+                  <div className="text-sm text-gray-600">
+                    Revisar y gestionar licencias de estudiantes
+                  </div>
+                </div>
+              </label>
+            </div>
           </div>
 
           <button
@@ -127,12 +95,19 @@ function AppLogin() {
             className="w-full h-14 bg-[#00AAFF] text-white text-xl font-semibold rounded-md shadow-md hover:brightness-110 transition self-center mt-4 disabled:opacity-50"
             disabled={loading}
           >
-            {loading ? "Entrando..." : "Iniciar sesión"}
+            {loading ? "Accediendo..." : "Ingresar al Sistema"}
           </button>
         </form>
+
+  
+        <div className="mt-4 p-4 bg-blue-50 rounded border text-sm text-center">
+          <p className="text-gray-700">
+            Sistema de demostración - Selecciona un rol para acceder
+          </p>
+        </div>
       </div>
 
-      {/* Registro debajo del contenedor */}
+  
       <div className="relative z-10 mt-10 text-center text-black text-base">
         <span>¿No tienes una cuenta? </span>
         <span

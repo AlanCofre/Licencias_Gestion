@@ -122,12 +122,24 @@ export default function Navbar() {
             <ul className="flex gap-8 text-sm font-medium items-center">
               <li>
                 <Link
-                  to="/"
+                  to={role === "secretaria" ? "/secretaria" : "/alumno"}
                   className="px-3 py-2 hover:bg-white/10 rounded transition-colors"
                 >
                   Inicio
                 </Link>
               </li>
+
+              {/* Solo mostrar para secretaria */}
+              {(role === "secretaria" || role === "secretary") && (
+                <li>
+                  <Link
+                    to="/licencias-por-revisar"
+                    className="px-3 py-2 hover:bg-white/10 rounded transition-colors"
+                  >
+                    Licencias por Revisar
+                  </Link>
+                </li>
+              )}
 
               {/* Botones con notificaciones en desktop */}
               {["pendientes", "revisadas", "verificadas"].map((category) => (
@@ -324,7 +336,7 @@ export default function Navbar() {
           </div>
         </div>
 
-        {/* Mobile menu (sin notificaciones aquí) */}
+        {/* Mobile menu */}
         <nav
           id="mobile-menu"
           className={`md:hidden transition-all duration-200 ease-in-out overflow-hidden ${
@@ -336,13 +348,27 @@ export default function Navbar() {
           <ul className="flex flex-col gap-1 text-sm">
             <li>
               <Link
-                to="/"
+                to={role === "secretaria" ? "/secretaria" : "/alumno"}
                 className="block px-4 py-3 rounded-md hover:bg-white/10 transition-colors"
                 onClick={closeMenu}
               >
                 Inicio
               </Link>
             </li>
+
+            {/* Solo para secretaria en móvil también */}
+            {(role === "secretaria" || role === "secretary") && (
+              <li>
+                <Link
+                  to="/licencias-por-revisar"
+                  className="block px-4 py-3 rounded-md hover:bg-white/10 transition-colors"
+                  onClick={closeMenu}
+                >
+                  Licencias por Revisar
+                </Link>
+              </li>
+            )}
+
             <li className="border-t border-white/20 mt-2 pt-2">
               <Link
                 to="/login"
