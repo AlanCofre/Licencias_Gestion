@@ -41,3 +41,121 @@ body {
 .animate-slide-up {
   animation: slideUp 0.4s ease-out;
 }
+
+/* Tamaños de fuente para accesibilidad */
+.font-size-small {
+  font-size: 14px;
+}
+
+.font-size-normal {
+  font-size: 16px;
+}
+
+.font-size-large {
+  font-size: 18px;
+}
+
+.font-size-extra-large {
+  font-size: 20px;
+}
+
+/* Aplicar tamaños específicos por elemento */
+.font-size-small body,
+.font-size-small .text-base {
+  font-size: 14px !important;
+}
+
+.font-size-small .text-sm {
+  font-size: 12px !important;
+}
+
+.font-size-small .text-xs {
+  font-size: 10px !important;
+}
+
+.font-size-small .text-lg {
+  font-size: 16px !important;
+}
+
+.font-size-small .text-xl {
+  font-size: 18px !important;
+}
+
+.font-size-normal body,
+.font-size-normal .text-base {
+  font-size: 16px !important;
+}
+
+.font-size-normal .text-sm {
+  font-size: 14px !important;
+}
+
+.font-size-normal .text-xs {
+  font-size: 12px !important;
+}
+
+.font-size-normal .text-lg {
+  font-size: 18px !important;
+}
+
+.font-size-normal .text-xl {
+  font-size: 20px !important;
+}
+
+.font-size-large body,
+.font-size-large .text-base {
+  font-size: 18px !important;
+}
+
+.font-size-large .text-sm {
+  font-size: 16px !important;
+}
+
+.font-size-large .text-xs {
+  font-size: 14px !important;
+}
+
+.font-size-large .text-lg {
+  font-size: 20px !important;
+}
+
+.font-size-large .text-xl {
+  font-size: 22px !important;
+}
+
+.font-size-extra-large body,
+.font-size-extra-large .text-base {
+  font-size: 20px !important;
+}
+
+.font-size-extra-large .text-sm {
+  font-size: 18px !important;
+}
+
+.font-size-extra-large .text-xs {
+  font-size: 16px !important;
+}
+
+.font-size-extra-large .text-lg {
+  font-size: 22px !important;
+}
+
+.font-size-extra-large .text-xl {
+  font-size: 24px !important;
+}
+
+/* Ajustar elementos específicos */
+.font-size-large input,
+.font-size-large textarea,
+.font-size-large button,
+.font-size-extra-large input,
+.font-size-extra-large textarea,
+.font-size-extra-large button {
+  font-size: inherit !important;
+}
+
+/* Ajustar altura de línea para mejor legibilidad */
+.font-size-large,
+.font-size-extra-large {
+  line-height: 1.6 !important;
+}
