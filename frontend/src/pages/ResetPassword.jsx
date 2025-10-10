@@ -1,29 +1,36 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom"; // ✅ importar hook
+import { useNavigate, useLocation } from "react-router-dom"; // agregar useLocation
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
+import { useConfirmReset } from "../hooks/usePasswordReset"; // agregado
 
 export default function ResetPassword() {
+  const location = useLocation();
+  const prefilledEmail = location?.state?.email || "";
+  const [email, setEmail] = useState(prefilledEmail);
   const [code, setCode] = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-  const navigate = useNavigate(); // ✅ inicializar navigate
+  const [loadingLocal, setLoadingLocal] = useState(false);
+  const navigate = useNavigate();
 
-  const handleReset = () => {
-    if (!code || !password) {
+  const { confirmReset } = useConfirmReset();
+
+  const handleReset = async () => {
+    if (!email || !code || !password) {
       alert("Completa todos los campos.");
       return;
     }
 
-    setLoading(true);
-
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      setLoadingLocal(true);
+      await confirmReset(email, code, password);
       alert("Tu contraseña fue restablecida correctamente.");
-
-      // ✅ redirigir al login
       navigate("/login");
-    }, 1500);
+    } catch (err) {
+      alert(err?.message || "No se pudo restablecer la contraseña.");
+    } finally {
+      setLoadingLocal(false);
+    }
   };
 
   return (
@@ -38,6 +45,15 @@ export default function ResetPassword() {
           <p className="text-gray-600 mb-6">
             Ingresa el código que recibiste y tu nueva contraseña.
           </p>
+
+          {/* permitir editar el email si no vino prellenado */}
+          <input
+            type="email"
+            placeholder="Correo electrónico"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="w-full px-4 py-2 border rounded-lg mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
 
           <input
             type="text"
@@ -57,14 +73,14 @@ export default function ResetPassword() {
 
           <button
             onClick={handleReset}
-            disabled={loading}
+            disabled={loadingLocal}
             className={`w-full py-2 rounded-lg text-white font-semibold transition ${
-              loading
+              loadingLocal
                 ? "bg-gray-400 cursor-not-allowed"
                 : "bg-green-600 hover:bg-green-700"
             }`}
           >
-            {loading ? "Guardando..." : "Guardar nueva contraseña"}
+            {loadingLocal ? "Guardando..." : "Guardar nueva contraseña"}
           </button>
         </div>
       </main>
