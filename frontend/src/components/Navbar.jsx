@@ -159,16 +159,6 @@ export default function Navbar() {
               </li>
 
               {/* Solo mostrar para secretaria */}
-              {(role === "secretaria" || role === "secretary") && (
-                <li>
-                  <Link
-                    to="/licencias-por-revisar"
-                    className="px-3 py-2 hover:bg-white/10 rounded transition-colors"
-                  >
-                    Licencias por Revisar
-                  </Link>
-                </li>
-              )}
 
               {/* Botones con notificaciones en desktop */}
               {["pendientes", "revisadas", "verificadas"].map((category) => (
