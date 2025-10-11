@@ -3,6 +3,13 @@ import { useNavigate, useParams } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 
+function formatFechaHora(fechaStr) {
+  if (!fechaStr) return "";
+  const d = new Date(fechaStr);
+  if (isNaN(d)) return fechaStr;
+  // YYYY-MM-DD HH:MM
+  return d.toISOString().slice(0, 16).replace("T", " ");
+}
 function AttachmentView({ detalle }) {
   // Busca el archivo en el detalle (puede venir como array)
   const file = detalle?.find?.(d => d.ruta_url) || detalle?.[0];
@@ -190,15 +197,16 @@ export default function EvaluarLicencia() {
                   </div>
                   <div className="flex flex-col">
                     <span className="font-medium text-gray-600">Fecha de emisión:</span>
-                    <span className="text-gray-900">{lic.fecha_emision}</span>
+                    <span className="text-gray-900">{formatFechaHora(lic.fecha_emision)}</span>
                   </div>
                   <div className="flex flex-col">
                     <span className="font-medium text-gray-600">Fecha inicio:</span>
-                    <span className="text-gray-900">{lic.fecha_inicio}</span>
+                    <span className="text-gray-900">{formatFechaHora(lic.fecha_inicio)}</span>
                   </div>
                   <div className="flex flex-col">
                     <span className="font-medium text-gray-600">Fecha fin:</span>
-                    <span className="text-gray-900">{lic.fecha_fin}</span>
+                    <span className="text-gray-900">{formatFechaHora(lic.fecha_fin)}</span>
+
                   </div>
                   <div className="flex flex-col">
                     <span className="font-medium text-gray-600">Estado:</span>
