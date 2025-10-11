@@ -57,7 +57,7 @@ router.post(
 );
 
 // Profesor o Secretario (demo simple)
-router.get('/revisar', [validarJWT, tieneRol('profesor', 'secretario')], (req, res) => {
+router.get('/revisar', [validarJWT, tieneRol('profesor', 'funcionario')], (req, res) => {
   res.json({ ok: true, msg: 'Revisando licencias...', rol: req.rol });
 });
 
@@ -68,10 +68,10 @@ router.get('/revisar', [validarJWT, tieneRol('profesor', 'secretario')], (req, r
  * - validarTransicionEstado: aplica la regla de transición usando el estado actual
  *   pendiente → (aceptado|rechazado) ✅; otras ❌
  */
-router.put(
+router.post(
   '/licencias/:id/decidir',
   authRequired,                    // verifica JWT -> req.user
-  requireRole(['secretario']),     // solo secretario/a
+  requireRole(['funcionario']),     // solo secretario/a
   validateDecision,                // valida body de la decisión
   cargarLicencia,                  // req.licencia disponible
   (req, res, next) =>              // valida transición según estado actual
