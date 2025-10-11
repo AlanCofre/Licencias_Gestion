@@ -1,27 +1,16 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
-import { 
-  CheckCircleIcon, 
-  BellIcon, 
-  AdjustmentsHorizontalIcon,
-  PlusIcon,
-  MinusIcon,
-  ArrowPathIcon
-} from "@heroicons/react/24/outline";
+import { CheckCircleIcon, BellIcon } from "@heroicons/react/24/outline";
 import { useAuth } from "../context/AuthContext";
-import { useAccessibility } from "../context/AccessibilityContext";
 
 export default function Navbar() {
   const { user } = useAuth();
-  const { fontSize, increaseFontSize, decreaseFontSize, resetFontSize } = useAccessibility();
   const [isOpen, setIsOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState(null);
   const [mobileBellOpen, setMobileBellOpen] = useState(false);
   const [mobileTab, setMobileTab] = useState("pendientes");
-  const [accessibilityOpen, setAccessibilityOpen] = useState(false); // Nuevo estado
   const dropdownRef = useRef(null);
   const mobileBellRef = useRef(null);
-  const accessibilityRef = useRef(null); // Nueva ref
 
   // Estado de notificaciones con fechas (como objetos Date)
   const [notifications, setNotifications] = useState({
@@ -89,13 +78,6 @@ export default function Navbar() {
       ) {
         setMobileBellOpen(false);
       }
-      // Nuevo: cerrar menú de accesibilidad
-      if (
-        accessibilityRef.current &&
-        !accessibilityRef.current.contains(event.target)
-      ) {
-        setAccessibilityOpen(false);
-      }
     };
 
     document.addEventListener("mousedown", handleClickOutside);
@@ -111,17 +93,6 @@ export default function Navbar() {
       return <span className="text-green-600 font-medium">{text}</span>;
     }
     return text;
-  };
-
-  // Función para obtener el label del tamaño de fuente
-  const getFontSizeLabel = () => {
-    const labels = {
-      small: "Pequeña",
-      normal: "Normal", 
-      large: "Grande",
-      "extra-large": "Extra Grande"
-    };
-    return labels[fontSize] || "Normal";
   };
 
   return (
@@ -157,8 +128,6 @@ export default function Navbar() {
                   Inicio
                 </Link>
               </li>
-
-              {/* Solo mostrar para secretaria */}
 
               {/* Botones con notificaciones en desktop */}
               {["pendientes", "revisadas", "verificadas"].map((category) => (
@@ -237,88 +206,6 @@ export default function Navbar() {
               >
                 {displayName}
               </Link>
-            </div>
-
-            {/* Menú de Accesibilidad - Desktop */}
-            <div className="relative hidden md:block" ref={accessibilityRef}>
-              <button
-                onClick={() => setAccessibilityOpen(!accessibilityOpen)}
-                className="flex items-center gap-2 bg-white/10 hover:bg-white/20 px-3 py-2 rounded transition-colors text-sm font-medium"
-                aria-label="Menú de accesibilidad"
-                title="Opciones de accesibilidad"
-              >
-                <AdjustmentsHorizontalIcon className="w-4 h-4" />
-                <span className="hidden lg:inline">Accesibilidad</span>
-              </button>
-
-              {accessibilityOpen && (
-                <div className="absolute right-0 top-full mt-2 w-80 bg-white text-black shadow-xl rounded-lg z-50 border">
-                  <div className="absolute -top-2 right-4 w-4 h-4 bg-white rotate-45 shadow-md rounded-sm border-l border-t"></div>
-                  
-                  <div className="relative z-10 p-4">
-                    <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                      <AdjustmentsHorizontalIcon className="w-5 h-5 text-blue-600" />
-                      Opciones de Accesibilidad
-                    </h3>
-                    
-                    <div className="space-y-4">
-                      {/* Ajuste de tamaño de fuente */}
-                      <div className="border border-gray-200 rounded-lg p-3">
-                        <h4 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
-                          <span className="text-lg">📝</span>
-                          Tamaño de Fuente
-                        </h4>
-                        
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-sm text-gray-600">
-                            Actual: <span className="font-medium">{getFontSizeLabel()}</span>
-                          </span>
-                        </div>
-                        
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={decreaseFontSize}
-                            disabled={fontSize === "small"}
-                            className="flex items-center gap-1 px-3 py-2 text-sm border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                            title="Disminuir tamaño"
-                          >
-                            <MinusIcon className="w-4 h-4" />
-                            A-
-                          </button>
-                          
-                          <button
-                            onClick={resetFontSize}
-                            className="flex items-center gap-1 px-3 py-2 text-sm bg-blue-50 border border-blue-200 text-blue-700 rounded hover:bg-blue-100 transition-colors"
-                            title="Restablecer tamaño normal"
-                          >
-                            <ArrowPathIcon className="w-4 h-4" />
-                            Normal
-                          </button>
-                          
-                          <button
-                            onClick={increaseFontSize}
-                            disabled={fontSize === "extra-large"}
-                            className="flex items-center gap-1 px-3 py-2 text-sm border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                            title="Aumentar tamaño"
-                          >
-                            <PlusIcon className="w-4 h-4" />
-                            A+
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Placeholder para futuras opciones */}
-                      <div className="text-sm text-gray-600 italic border border-gray-200 rounded p-3 bg-gray-50">
-                        Próximamente disponibles:
-                        <ul className="mt-2 space-y-1 text-xs">
-                          <li>• Modo oscuro</li>
-                          <li>• Aumentar tamaño cursor</li>
-                        </ul>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
 
             <Link
@@ -441,7 +328,7 @@ export default function Navbar() {
         <nav
           id="mobile-menu"
           className={`md:hidden transition-all duration-200 ease-in-out overflow-hidden ${
-            isOpen ? "max-h-[500px] pb-4" : "max-h-0"
+            isOpen ? "max-h-96 pb-4" : "max-h-0"
           }`}
           aria-label="Navegación móvil"
           role="navigation"
@@ -455,74 +342,6 @@ export default function Navbar() {
               >
                 Inicio
               </Link>
-            </li>
-
-            {/* Solo para secretaria en móvil también */}
-            {(role === "secretaria" || role === "secretary") && (
-              <li>
-                <Link
-                  to="/licencias-por-revisar"
-                  className="block px-4 py-3 rounded-md hover:bg-white/10 transition-colors"
-                  onClick={closeMenu}
-                >
-                  Licencias por Revisar
-                </Link>
-              </li>
-            )}
-
-            {/* Menú de Accesibilidad - Móvil */}
-            <li className="border-t border-white/20 mt-2 pt-2">
-              <button
-                onClick={() => setAccessibilityOpen(!accessibilityOpen)}
-                className="w-full flex items-center gap-2 px-4 py-3 rounded-md hover:bg-white/10 transition-colors text-left"
-              >
-                <AdjustmentsHorizontalIcon className="w-5 h-5" />
-                Opciones de Accesibilidad
-              </button>
-              
-              {accessibilityOpen && (
-                <div className="mx-4 mt-2 p-3 bg-white/10 rounded border border-white/20">
-                  {/* Tamaño de fuente en móvil */}
-                  <div className="mb-3">
-                    <div className="text-sm text-white/90 mb-2 flex items-center gap-2">
-                      <span>📝</span>
-                      Tamaño de Fuente: <span className="font-medium">{getFontSizeLabel()}</span>
-                    </div>
-                    
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={decreaseFontSize}
-                        disabled={fontSize === "small"}
-                        className="flex items-center gap-1 px-2 py-1 text-xs bg-white/20 rounded hover:bg-white/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-white"
-                      >
-                        <MinusIcon className="w-3 h-3" />
-                        A-
-                      </button>
-                      
-                      <button
-                        onClick={resetFontSize}
-                        className="flex items-center gap-1 px-2 py-1 text-xs bg-blue-500 rounded hover:bg-blue-600 transition-colors text-white"
-                      >
-                        <ArrowPathIcon className="w-3 h-3" />
-                        Normal
-                      </button>
-                      
-                      <button
-                        onClick={increaseFontSize}
-                        disabled={fontSize === "extra-large"}
-                        className="flex items-center gap-1 px-2 py-1 text-xs bg-white/20 rounded hover:bg-white/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-white"
-                      >
-                        <PlusIcon className="w-3 h-3" />
-                        A+
-                      </button>
-                    </div>
-                  </div>
-                  
-                  <div className="text-xs text-white/70 italic">
-                    También disponible: modo oscuro, cursor grande
-                  </div>
-                </div>
-              )}
             </li>
 
             <li className="border-t border-white/20 mt-2 pt-2">
