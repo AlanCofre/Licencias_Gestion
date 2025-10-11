@@ -10,8 +10,8 @@ export function validarPerfilPayload(body = {}) {
   } else out.email_alt = null;
 
   if (body.numero_telef != null && body.numero_telef !== '') {
-    if (!REG_TEL.test(body.numero_telefono)) errores.push('numero_telefono inválido');
-    else out.numero_telefono = String(body.numero_telefono).trim();
+    if (!REG_TEL.test(body.numero_telef)) errores.push('numero_telefono inválido');
+    else out.numero_telef = String(body.numero_telef).trim();
   } else out.numero_telef = null;
 
   out.direccion = body.direccion ? String(body.direccion).trim().slice(0, 255) : null;
