@@ -59,92 +59,55 @@ body {
   font-size: 20px;
 }
 
-/* Aplicar tamaños específicos por elemento */
-.font-size-small body,
-.font-size-small .text-base {
-  font-size: 14px !important;
+/* Cursor grande estilo Windows - más grande y mejorado */
+.large-cursor * {
+  cursor: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48" fill="white" stroke="black" stroke-width="2"><path d="M6 6L6 42L18 30L27 30L6 6Z" fill="white" stroke="black" stroke-width="2"/></svg>') 3 3, auto !important;
 }
 
-.font-size-small .text-sm {
-  font-size: 12px !important;
+/* Cursor de mano tradicional para elementos interactivos - más grande */
+.large-cursor button,
+.large-cursor a,
+.large-cursor input[type="submit"],
+.large-cursor input[type="button"],
+.large-cursor [role="button"],
+.large-cursor .cursor-pointer,
+.large-cursor label[for],
+.large-cursor select {
+  cursor: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48" fill="white" stroke="black" stroke-width="2"><g transform="translate(8,8)"><path d="M8 0C6.9 0 6 0.9 6 2V14C6 14.6 6.4 15 7 15S8 14.6 8 14V2C8 0.9 8.9 0 10 0S12 0.9 12 2V8C12 8.6 12.4 9 13 9S14 8.6 14 8V6C14 4.9 14.9 4 16 4S18 4.9 18 6V10C18 10.6 18.4 11 19 11S20 10.6 20 10V8C20 6.9 20.9 6 22 6S24 6.9 24 8V18C24 22.4 20.4 26 16 26H12C9.8 26 7.8 25 6.3 23.3L2.3 18.7C1.5 17.8 1.5 16.2 2.3 15.3C3.1 14.5 4.4 14.5 5.3 15.3L8 18V2C8 0.9 8.9 0 10 0Z" fill="white" stroke="black" stroke-width="1.5"/></g></svg>') 24 12, pointer !important;
 }
 
-.font-size-small .text-xs {
-  font-size: 10px !important;
+/* Cursor para campos de texto - I-beam más grande */
+.large-cursor input[type="text"],
+.large-cursor input[type="email"],
+.large-cursor input[type="password"],
+.large-cursor input[type="search"],
+.large-cursor input[type="url"],
+.large-cursor input[type="tel"],
+.large-cursor input[type="number"],
+.large-cursor textarea,
+.large-cursor [contenteditable] {
+  cursor: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48" fill="black"><rect x="21" y="6" width="6" height="36" fill="black"/><rect x="15" y="6" width="18" height="4" fill="black"/><rect x="15" y="38" width="18" height="4" fill="black"/></svg>') 24 24, text !important;
 }
 
-.font-size-small .text-lg {
-  font-size: 16px !important;
+/* Cursor para elementos redimensionables */
+.large-cursor .resize,
+.large-cursor [resize] {
+  cursor: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48" fill="black"><path d="M42 6L42 18L36 12L30 18L24 12L30 6L42 6Z M6 42L18 42L12 36L18 30L12 24L6 30L6 42Z" fill="black"/></svg>') 24 24, nw-resize !important;
 }
 
-.font-size-small .text-xl {
-  font-size: 18px !important;
+/* Cursor para elementos de arrastre */
+.large-cursor [draggable="true"],
+.large-cursor .draggable {
+  cursor: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48" fill="black"><path d="M24 6L30 12L27 12L27 21L36 21L36 18L42 24L36 30L36 27L27 27L27 36L30 36L24 42L18 36L21 36L21 27L12 27L12 30L6 24L12 18L12 21L21 21L21 12L18 12L24 6Z" fill="black"/></svg>') 24 24, move !important;
 }
 
-.font-size-normal body,
-.font-size-normal .text-base {
-  font-size: 16px !important;
+/* Cursor de ayuda para elementos con title o tooltip */
+.large-cursor [title]:not(button):not(a):not(input),
+.large-cursor .help-cursor {
+  cursor: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48" fill="white" stroke="black" stroke-width="2"><circle cx="24" cy="24" r="20" fill="white" stroke="black" stroke-width="2"/><path d="M24 18C21.8 18 20 19.8 20 22H22C22 20.9 22.9 20 24 20S26 20.9 26 22C26 24 24 23.5 24 26H26C26 24.5 28 24 28 22C28 19.8 26.2 18 24 18ZM23 28V30H25V28H23Z" fill="black"/></svg>') 24 24, help !important;
 }
 
-.font-size-normal .text-sm {
-  font-size: 14px !important;
-}
-
-.font-size-normal .text-xs {
-  font-size: 12px !important;
-}
-
-.font-size-normal .text-lg {
-  font-size: 18px !important;
-}
-
-.font-size-normal .text-xl {
-  font-size: 20px !important;
-}
-
-.font-size-large body,
-.font-size-large .text-base {
-  font-size: 18px !important;
-}
-
-.font-size-large .text-sm {
-  font-size: 16px !important;
-}
-
-.font-size-large .text-xs {
-  font-size: 14px !important;
-}
-
-.font-size-large .text-lg {
-  font-size: 20px !important;
-}
-
-.font-size-large .text-xl {
-  font-size: 22px !important;
-}
-
-.font-size-extra-large body,
-.font-size-extra-large .text-base {
-  font-size: 20px !important;
-}
-
-.font-size-extra-large .text-sm {
-  font-size: 18px !important;
-}
-
-.font-size-extra-large .text-xs {
-  font-size: 16px !important;
-}
-
-.font-size-extra-large .text-lg {
-  font-size: 22px !important;
-}
-
-.font-size-extra-large .text-xl {
-  font-size: 24px !important;
-}
-
-/* Ajustar elementos específicos */
+/* Asegurar que los elementos específicos mantengan el tamaño de fuente */
 .font-size-large input,
 .font-size-large textarea,
 .font-size-large button,
@@ -158,4 +121,18 @@ body {
 .font-size-large,
 .font-size-extra-large {
   line-height: 1.6 !important;
+}
+
+/* Mejorar visibilidad de elementos interactivos con cursor grande */
+.large-cursor button:hover,
+.large-cursor a:hover,
+.large-cursor [role="button"]:hover {
+  transform: scale(1.02);
+  transition: transform 0.1s ease;
+}
+
+.large-cursor input:focus,
+.large-cursor textarea:focus {
+  outline: 3px solid #2563eb;
+  outline-offset: 2px;
 }

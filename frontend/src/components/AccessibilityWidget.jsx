@@ -1,19 +1,27 @@
 import React, { useState, useRef, useEffect } from "react";
 import { 
-  UserIcon, // ← Cambiar a este ícono
+  UserIcon,
   PlusIcon,
   MinusIcon,
   ArrowPathIcon,
-  XMarkIcon
+  XMarkIcon,
+  CursorArrowRaysIcon
 } from "@heroicons/react/24/outline";
 import { useAccessibility } from "../context/AccessibilityContext";
 
 export default function AccessibilityWidget() {
   const [isOpen, setIsOpen] = useState(false);
-  const { fontSize, increaseFontSize, decreaseFontSize, resetFontSize } = useAccessibility();
+  const { 
+    fontSize, 
+    increaseFontSize, 
+    decreaseFontSize, 
+    resetFontSize,
+    largeCursor,
+    toggleLargeCursor
+  } = useAccessibility();
   const widgetRef = useRef(null);
 
-  console.log("AccessibilityWidget renderizando, fontSize:", fontSize); // Debug
+  console.log("AccessibilityWidget renderizando, fontSize:", fontSize, "largeCursor:", largeCursor); // Debug
 
   // Cerrar al hacer click fuera
   useEffect(() => {
@@ -92,7 +100,7 @@ export default function AccessibilityWidget() {
               position: 'absolute',
               top: '60px',
               right: '0',
-              width: '300px',
+              width: '320px',
               backgroundColor: 'white',
               border: '1px solid #e5e7eb',
               borderRadius: '12px',
@@ -100,7 +108,7 @@ export default function AccessibilityWidget() {
               zIndex: 99999,
               overflow: 'hidden',
               maxWidth: 'calc(100vw - 32px)',
-              transform: window.innerWidth < 340 ? 'translateX(-20px)' : 'none'
+              transform: window.innerWidth < 360 ? 'translateX(-20px)' : 'none'
             }}
           >
             {/* Header del panel */}
@@ -155,7 +163,8 @@ export default function AccessibilityWidget() {
                 border: '1px solid #e5e7eb',
                 borderRadius: '8px',
                 padding: '10px',
-                backgroundColor: '#f9fafb'
+                backgroundColor: '#f9fafb',
+                marginBottom: '12px'
               }}>
                 <h4 style={{
                   margin: '0 0 10px 0',
@@ -210,7 +219,7 @@ export default function AccessibilityWidget() {
                         e.target.style.backgroundColor = 'white';
                       }
                     }}
-                    title="Disminuir tamaño"
+                    title="Disminuir tamaño de texto"
                   >
                     <MinusIcon style={{ width: '14px', height: '14px' }} />
                     A-
@@ -239,7 +248,7 @@ export default function AccessibilityWidget() {
                     onMouseOut={(e) => {
                       e.target.style.backgroundColor = '#dbeafe';
                     }}
-                    title="Restablecer tamaño normal"
+                    title="Restablecer tamaño normal de texto"
                   >
                     <ArrowPathIcon style={{ width: '14px', height: '14px' }} />
                     Normal
@@ -273,7 +282,7 @@ export default function AccessibilityWidget() {
                         e.target.style.backgroundColor = 'white';
                       }
                     }}
-                    title="Aumentar tamaño"
+                    title="Aumentar tamaño de texto"
                   >
                     <PlusIcon style={{ width: '14px', height: '14px' }} />
                     A+
@@ -281,9 +290,80 @@ export default function AccessibilityWidget() {
                 </div>
               </div>
 
-              {/* Placeholder más compacto */}
+              {/* Cursor grande toggle */}
               <div style={{
-                marginTop: '10px',
+                border: '1px solid #e5e7eb',
+                borderRadius: '8px',
+                padding: '10px',
+                backgroundColor: '#f9fafb',
+                marginBottom: '12px'
+              }}>
+                <h4 style={{
+                  margin: '0 0 10px 0',
+                  fontWeight: '500',
+                  color: '#1f2937',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  fontSize: '13px'
+                }}>
+                  <CursorArrowRaysIcon style={{ width: '16px', height: '16px', color: '#374151' }} />
+                  Cursor Grande
+                </h4>
+                
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  marginBottom: '10px'
+                }}>
+                  <span style={{ fontSize: '12px', color: '#6b7280' }}>
+                    Estado: <span style={{ fontWeight: '500', color: largeCursor ? '#059669' : '#6b7280' }}>
+                      {largeCursor ? "Activado" : "Desactivado"}
+                    </span>
+                  </span>
+                </div>
+                
+                <button
+                  onClick={toggleLargeCursor}
+                  style={{
+                    width: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    padding: '8px 12px',
+                    fontSize: '13px',
+                    border: '1px solid ' + (largeCursor ? '#059669' : '#d1d5db'),
+                    borderRadius: '6px',
+                    backgroundColor: largeCursor ? '#ecfdf5' : 'white',
+                    color: largeCursor ? '#059669' : '#374151',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onMouseOver={(e) => {
+                    if (largeCursor) {
+                      e.target.style.backgroundColor = '#d1fae5';
+                    } else {
+                      e.target.style.backgroundColor = '#f3f4f6';
+                    }
+                  }}
+                  onMouseOut={(e) => {
+                    if (largeCursor) {
+                      e.target.style.backgroundColor = '#ecfdf5';
+                    } else {
+                      e.target.style.backgroundColor = 'white';
+                    }
+                  }}
+                  title={largeCursor ? "Desactivar cursor grande" : "Activar cursor grande"}
+                >
+                  <CursorArrowRaysIcon style={{ width: '16px', height: '16px' }} />
+                  {largeCursor ? "Desactivar" : "Activar"} Cursor Grande
+                </button>
+              </div>
+
+              {/* Placeholder para futuras opciones */}
+              <div style={{
                 fontSize: '11px',
                 color: '#6b7280',
                 fontStyle: 'italic',
@@ -297,7 +377,7 @@ export default function AccessibilityWidget() {
               </div>
             </div>
 
-            {/* Footer más compacto */}
+            {/* Footer */}
             <div style={{
               padding: '8px 14px',
               backgroundColor: '#f9fafb',
