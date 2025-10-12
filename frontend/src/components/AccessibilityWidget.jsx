@@ -5,7 +5,9 @@ import {
   MinusIcon,
   ArrowPathIcon,
   XMarkIcon,
-  CursorArrowRaysIcon
+  CursorArrowRaysIcon,
+  MoonIcon,
+  SunIcon
 } from "@heroicons/react/24/outline";
 import { useAccessibility } from "../context/AccessibilityContext";
 
@@ -17,11 +19,13 @@ export default function AccessibilityWidget() {
     decreaseFontSize, 
     resetFontSize,
     largeCursor,
-    toggleLargeCursor
+    toggleLargeCursor,
+    darkMode,
+    toggleDarkMode
   } = useAccessibility();
   const widgetRef = useRef(null);
 
-  console.log("AccessibilityWidget renderizando, fontSize:", fontSize, "largeCursor:", largeCursor); // Debug
+  console.log("AccessibilityWidget renderizando, fontSize:", fontSize, "largeCursor:", largeCursor, "darkMode:", darkMode); // Debug
 
   // Cerrar al hacer click fuera
   useEffect(() => {
@@ -157,7 +161,7 @@ export default function AccessibilityWidget() {
             </div>
 
             {/* Contenido del panel */}
-            <div style={{ padding: '14px' }}>
+            <div style={{ padding: '14px', maxHeight: '450px', overflowY: 'auto' }}>
               {/* Ajuste de tamaño de fuente */}
               <div style={{
                 border: '1px solid #e5e7eb',
@@ -362,6 +366,86 @@ export default function AccessibilityWidget() {
                 </button>
               </div>
 
+              {/* Modo oscuro toggle */}
+              <div style={{
+                border: '1px solid #e5e7eb',
+                borderRadius: '8px',
+                padding: '10px',
+                backgroundColor: '#f9fafb',
+                marginBottom: '12px'
+              }}>
+                <h4 style={{
+                  margin: '0 0 10px 0',
+                  fontWeight: '500',
+                  color: '#1f2937',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  fontSize: '13px'
+                }}>
+                  {darkMode ? (
+                    <SunIcon style={{ width: '16px', height: '16px', color: '#374151' }} />
+                  ) : (
+                    <MoonIcon style={{ width: '16px', height: '16px', color: '#374151' }} />
+                  )}
+                  Modo Oscuro
+                </h4>
+                
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  marginBottom: '10px'
+                }}>
+                  <span style={{ fontSize: '12px', color: '#6b7280' }}>
+                    Estado: <span style={{ fontWeight: '500', color: darkMode ? '#7c3aed' : '#6b7280' }}>
+                      {darkMode ? "Activado" : "Desactivado"}
+                    </span>
+                  </span>
+                </div>
+                
+                <button
+                  onClick={toggleDarkMode}
+                  style={{
+                    width: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    padding: '8px 12px',
+                    fontSize: '13px',
+                    border: '1px solid ' + (darkMode ? '#7c3aed' : '#d1d5db'),
+                    borderRadius: '6px',
+                    backgroundColor: darkMode ? '#f3e8ff' : 'white',
+                    color: darkMode ? '#7c3aed' : '#374151',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onMouseOver={(e) => {
+                    if (darkMode) {
+                      e.target.style.backgroundColor = '#e9d5ff';
+                    } else {
+                      e.target.style.backgroundColor = '#f3f4f6';
+                    }
+                  }}
+                  onMouseOut={(e) => {
+                    if (darkMode) {
+                      e.target.style.backgroundColor = '#f3e8ff';
+                    } else {
+                      e.target.style.backgroundColor = 'white';
+                    }
+                  }}
+                  title={darkMode ? "Desactivar modo oscuro" : "Activar modo oscuro"}
+                >
+                  {darkMode ? (
+                    <SunIcon style={{ width: '16px', height: '16px' }} />
+                  ) : (
+                    <MoonIcon style={{ width: '16px', height: '16px' }} />
+                  )}
+                  {darkMode ? "Desactivar" : "Activar"} Modo Oscuro
+                </button>
+              </div>
+
               {/* Placeholder para futuras opciones */}
               <div style={{
                 fontSize: '11px',
@@ -373,7 +457,7 @@ export default function AccessibilityWidget() {
                 borderRadius: '6px',
                 backgroundColor: '#f9fafb'
               }}>
-                Próximamente: Modo oscuro y más opciones
+                Próximamente: Más opciones de accesibilidad
               </div>
             </div>
 

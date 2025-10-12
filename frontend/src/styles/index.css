@@ -136,3 +136,109 @@ body {
   outline: 3px solid #2563eb;
   outline-offset: 2px;
 }
+
+
+/* Variables CSS para modo oscuro */
+:root {
+  /* Colores claros (por defecto) */
+  --bg-primary: #ffffff;
+  --bg-secondary: #f8fafc;
+  --bg-tertiary: #f1f5f9;
+  --text-primary: #1e293b;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+  --border-color: #e2e8f0;
+  --blue-600: #2563eb;
+  --blue-400: #60a5fa;
+  --blue-100: #dbeafe;
+  --gray-100: #f1f5f9;
+  --gray-200: #e2e8f0;
+  --gray-700: #334155;
+  --orange-100: #fed7aa;
+  --orange-600: #ea580c;
+  --green-100: #dcfce7;
+  --green-600: #16a34a;
+}
+
+/* Modo oscuro - redefinir variables */
+.dark-mode {
+  /* Fondos oscuros */
+  --bg-primary: #0f172a;
+  --bg-secondary: #1e293b;
+  --bg-terciary: #334155;
+  
+  /* Textos claros */
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
+  
+  /* Bordes oscuros */
+  --border-color: #475569;
+  
+  /* Colores ajustados para modo oscuro */
+  --blue-600: #3b82f6;
+  --blue-400: #60a5fa;
+  --blue-100: #1e3a8a;
+  --gray-100: #374151;
+  --gray-200: #4b5563;
+  --gray-700: #e5e7eb;
+  --orange-100: #7c2d12;
+  --orange-600: #fb923c;
+  --green-100: #14532d;
+  --green-600: #22c55e;
+}
+
+/* Aplicar variables a elementos base */
+.dark-mode {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+/* Aplicar a elementos específicos */
+.dark-mode .bg-white {
+  background-color: var(--bg-secondary) !important;
+  color: var(--text-primary) !important;
+}
+
+.dark-mode .bg-gray-50,
+.dark-mode .bg-gray-100 {
+  background-color: var(--bg-terciary) !important;
+}
+
+.dark-mode .text-gray-700,
+.dark-mode .text-gray-800,
+.dark-mode .text-gray-900 {
+  color: var(--text-primary) !important;
+}
+
+.dark-mode .text-gray-600 {
+  color: var(--text-secondary) !important;
+}
+
+.dark-mode .text-gray-500 {
+  color: var(--text-muted) !important;
+}
+
+.dark-mode .border-gray-200,
+.dark-mode .border-gray-300 {
+  border-color: var(--border-color) !important;
+}
+
+/* Sombras ajustadas para modo oscuro */
+.dark-mode .shadow-lg {
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -2px rgba(0, 0, 0, 0.2) !important;
+}
+
+.dark-mode .shadow-xl {
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.4), 0 10px 10px -5px rgba(0, 0, 0, 0.2) !important;
+}
+
+/* Gradientes ajustados */
+.dark-mode .bg-gradient-to-r {
+  background: linear-gradient(to right, #1e40af, #3b82f6) !important;
+}
+
+/* Transiciones suaves */
+* {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}

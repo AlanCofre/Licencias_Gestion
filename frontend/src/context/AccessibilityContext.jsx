@@ -5,17 +5,22 @@ const AccessibilityContext = createContext(null);
 export function AccessibilityProvider({ children }) {
   const [fontSize, setFontSize] = useState("normal");
   const [largeCursor, setLargeCursor] = useState(false);
+  const [darkMode, setDarkMode] = useState(false);
 
   useEffect(() => {
     // Cargar configuración desde localStorage
     const savedFontSize = localStorage.getItem("accessibility-font-size");
     const savedLargeCursor = localStorage.getItem("accessibility-large-cursor");
+    const savedDarkMode = localStorage.getItem("accessibility-dark-mode");
     
     if (savedFontSize) {
       setFontSize(savedFontSize);
     }
     if (savedLargeCursor === "true") {
       setLargeCursor(true);
+    }
+    if (savedDarkMode === "true") {
+      setDarkMode(true);
     }
   }, []);
 
@@ -47,6 +52,20 @@ export function AccessibilityProvider({ children }) {
     localStorage.setItem("accessibility-large-cursor", largeCursor.toString());
   }, [largeCursor]);
 
+  useEffect(() => {
+    // Aplicar modo oscuro al documento
+    const root = document.documentElement;
+    
+    if (darkMode) {
+      root.classList.add("dark-mode");
+    } else {
+      root.classList.remove("dark-mode");
+    }
+    
+    // Guardar en localStorage
+    localStorage.setItem("accessibility-dark-mode", darkMode.toString());
+  }, [darkMode]);
+
   const increaseFontSize = () => {
     const sizes = ["small", "normal", "large", "extra-large"];
     const currentIndex = sizes.indexOf(fontSize);
@@ -71,6 +90,10 @@ export function AccessibilityProvider({ children }) {
     setLargeCursor(!largeCursor);
   };
 
+  const toggleDarkMode = () => {
+    setDarkMode(!darkMode);
+  };
+
   const value = {
     fontSize,
     setFontSize,
@@ -79,6 +102,8 @@ export function AccessibilityProvider({ children }) {
     resetFontSize,
     largeCursor,
     toggleLargeCursor,
+    darkMode,
+    toggleDarkMode,
   };
 
   return (
