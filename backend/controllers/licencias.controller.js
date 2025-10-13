@@ -94,6 +94,20 @@ export const listarLicencias = async (req, res) => {
 // =====================================================
 // POST: crear licencia (con validaciones reales)
 // =====================================================
+
+function validarCampoFecha(fechaStr, campo = 'fecha') {
+  const normalizada = String(fechaStr ?? '').trim();
+
+  // Rechazar si está vacío o es el placeholder
+  if (!normalizada || normalizada === 'dd-mm-aaaa') {
+    return `${campo} es obligatorio.`;
+  }
+
+  return null; // Sin errores
+}
+
+
+
 export const crearLicencia = async (req, res) => {
   try {
     const usuarioId = req.user?.id_usuario ?? req.id ?? null;
@@ -106,11 +120,23 @@ export const crearLicencia = async (req, res) => {
       return res.status(403).json({ msg: 'Solo estudiantes pueden crear licencias' });
     }
 
+    const errores = [];
+
+    const errorInicio = validarCampoFecha(req.body.fecha_inicio, 'fecha_inicio');
+    if (errorInicio) errores.push(errorInicio);
+
+    const errorFin = validarCampoFecha(req.body.fecha_fin, 'fecha_fin');
+    if (errorFin) errores.push(errorFin);
+
+    if (errores.length > 0) {
+      return res.status(400).json({ ok: false, error: errores.join(' ') });
+    }
+
     const { fecha_inicio, fecha_fin, motivo } = req.body || {};
     const isISO = (d) => /^\d{4}-\d{2}-\d{2}$/.test(d);
 
     if (!isISO(fecha_inicio) || !isISO(fecha_fin)) {
-      return res.status(400).json({ msg: 'fecha_inicio/fecha_fin deben ser YYYY-MM-DD' });
+      return res.status(400).json({ msg: 'fecha_inicio/fecha_fin deben ser DD-MM-AAAA' });
     }
     if (new Date(fecha_inicio) > new Date(fecha_fin)) {
       return res.status(400).json({ msg: 'La fecha de inicio no puede ser posterior a la fecha fin' });
@@ -577,8 +603,15 @@ export const descargarArchivoLicencia = async (req, res) => {
        LIMIT 1
     `, [idLicencia]);
 
-    if (!rows.length)
-      return res.status(404).json({ ok: false, error: 'Archivo no encontrado para esta licencia' });
+    if (!rows.length) {
+      return res.status(404).json({
+        error: true,
+        code: "ARCHIVO_NO_ENCONTRADO",
+        message: "No se encontró ningún archivo para la licencia especificada.",
+        hint: "Verifica que el ID de licencia exista y tenga archivos asociados.",
+        timestamp: new Date().toISOString()
+      });
+    }
 
     const archivo = rows[0];
 

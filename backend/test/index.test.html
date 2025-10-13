@@ -207,11 +207,6 @@
       const id_usuario = document.getElementById('modificar_id_usuario').value;
       const id_profesor = document.getElementById('modificar_id_profesor').value;
 
-      if (!id || !estado) {
-        alert('Completa el ID de licencia y el estado.');
-        return;
-      }
-
       const res = await fetch(`http://localhost:3000/api/licencias/${id}/notificar`, {
         method: 'PUT',
         headers: {

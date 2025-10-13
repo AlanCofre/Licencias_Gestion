@@ -23,6 +23,7 @@ import {
   validarTransicionEstado,
   normalizaEstado,
 } from '../../middlewares/validarLicenciaMedica.js';
+import { decidirLicenciaSvc } from '../../services/servicio_Licencias.js';
 
 import LicenciaMedica from '../models/modelo_LicenciaMedica.js';
 
@@ -86,6 +87,10 @@ router.post(
 
 
 
+
+
+
+
 router.get('/resueltas', validarJWT, async (req, res) => {
   const { estado, desde, hasta } = req.query;
   let condiciones = [`estado IN ('aceptado', 'rechazado')`];
@@ -126,22 +131,12 @@ router.post(
 );
 
 /* ===== Rutas con :id (restringidas a numérico) ===== */
-router.get('/:id(\\d+)', validarJWT, detalleLicencia);
-router.get('/:id(\\d+)/archivo', validarJWT, descargarArchivoLicencia);
+router.get('/:id', validarJWT, detalleLicencia);
+router.get('/:id/archivo', validarJWT, descargarArchivoLicencia);
+
 
 router.post(
-  '/:id(\\d+)/decidir',
-  validarJWT,
-  tieneRol('funcionario'),
-  validateDecision,
-  cargarLicencia,
-  (req, res, next) => validarTransicionEstado(req.licencia.estado)(req, res, next),
-  (req, _res, next) => { if (req.body?.estado) req.body.estado = normalizaEstado(req.body.estado); next(); },
-  decidirLicencia
-);
-
-router.post(
-  '/:id(\\d+)/rechazar',
+  '/:id/rechazar',
   validarJWT,
   tieneRol('funcionario'),
   (req, _res, next) => { req.body = { ...(req.body || {}), decision: 'rechazado' }; next(); },
