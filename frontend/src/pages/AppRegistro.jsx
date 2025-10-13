@@ -61,7 +61,7 @@ function AppRegistro() {
       </h1>
 
       {/* Contenedor de login/registro */}
-      <div className="relative z-10 w-[90%] max-w-[50.25rem] bg-white rounded-lg shadow-md py-5 flex flex-col gap-10 items-center justify-center border-white border-30">
+      <div className="relative z-10 w-[90%] max-w-[50.25rem] bg-white rounded-lg shadow-md py-10 flex flex-col items-center justify-center border-white border-30">
         <h2 className="text-3xl font-semibold text-black text-center">
           Registro
         </h2>
@@ -132,6 +132,7 @@ function AppRegistro() {
           </button>
         </form>
 
+        </div>
         {/* Enlace al login */}
         <div className="relative z-10 mt-10 text-center text-black text-base">
           <span>¿Ya tienes una cuenta? </span>
@@ -141,7 +142,6 @@ function AppRegistro() {
           >
             Inicia sesión aquí.
           </span>
-        </div>
       </div>
     </div>
   );
