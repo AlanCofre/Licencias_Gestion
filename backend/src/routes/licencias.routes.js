@@ -24,6 +24,7 @@ import {
   validarTransicionEstado,
   normalizaEstado,
 } from '../../middlewares/validarLicenciaMedica.js';
+import { decidirLicenciaSvc } from '../../services/servicio_Licencias.js';
 
 import LicenciaMedica from '../models/modelo_LicenciaMedica.js';
 
@@ -131,12 +132,37 @@ router.put('/licencias/:id/decidir', authRequired, requireRole(['secretario']), 
 });
 
 
+
 router.put('/:id/notificar',
   authRequired,
   requireRole(['funcionario']),
   validateDecision,
-  notificarEstado
+  async (req, res) => {
+    try {
+      const idLicencia = Number(req.params.id);
+      const { estado, motivo_rechazo, observacion, fecha_inicio, fecha_fin } = req.body;
+      const actorId = req.user?.id_usuario ?? null;
+
+      const resultado = await decidirLicenciaSvc({
+        idLicencia,
+        estado,
+        motivo_rechazo,
+        observacion,
+        _fi: fecha_inicio,
+        _ff: fecha_fin,
+        idFuncionario: actorId,
+        ip: req.ip 
+      });
+
+      return res.status(200).json({ ok: true, ...resultado });
+    } catch (error) {
+      console.error('❌ Error en /notificar:', error);
+      return res.status(error.http ?? 500).json({ ok: false, error: error.message });
+    }
+  }
 );
+
+
 
 
 
