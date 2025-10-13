@@ -655,8 +655,15 @@ export const descargarArchivoLicencia = async (req, res) => {
        LIMIT 1
     `, [idLicencia]);
 
-    if (!rows.length)
-      return res.status(404).json({ ok: false, error: 'Archivo no encontrado para esta licencia' });
+    if (!rows.length) {
+      return res.status(404).json({
+        error: true,
+        code: "ARCHIVO_NO_ENCONTRADO",
+        message: "No se encontró ningún archivo para la licencia especificada.",
+        hint: "Verifica que el ID de licencia exista y tenga archivos asociados.",
+        timestamp: new Date().toISOString()
+      });
+    }
 
     const archivo = rows[0];
 

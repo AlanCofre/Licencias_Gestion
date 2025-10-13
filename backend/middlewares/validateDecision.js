@@ -1,4 +1,7 @@
-// src/middlewares/validateDecision.js
+import Usuario from '../src/models/modelo_Usuario.js';
+import LicenciaMedica from '../src/models/modelo_LicenciaMedica.js';
+import { normalizaEstado } from './validarLicenciaMedica.js';
+
 const MAP_ESTADOS = {
   aceptado: 'aceptado',
   aprobada: 'aceptado',
@@ -12,64 +15,70 @@ function normText(x) {
   return String(x ?? "").replace(/\s+/g, " ").trim();
 }
 
-function toISODate(d) {
-  const s = normText(d);
-  if (!s) return null;
-  const onlyDate = s.split("T")[0];
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(onlyDate)) return null;
-  const dt = new Date(onlyDate);
-  return isNaN(dt) ? null : onlyDate; // devolvemos YYYY-MM-DD
-}
-
-export function validateDecision(req, res, next) {
+export async function validateDecision(req, res, next) {
   try {
-    const body = req.body || {};
+    const idLicencia = Number(req.params.id);
+    if (!idLicencia) {
+      return res.status(400).json({ ok: false, error: "El campo 'id' es obligatorio." });
+    }
 
-    // Soporta 'estado' o 'decision' desde el cliente
+    const licencia = await LicenciaMedica.findByPk(idLicencia);
+    if (!licencia) {
+      return res.status(404).json({ ok: false, error: "Licencia no encontrada" });
+    }
+
+    const body = req.body || {};
     const crudo = normText(body.estado ?? body.decision);
     if (!crudo) {
       return res.status(400).json({ ok: false, error: "Debe indicar un estado/decision (aceptado|rechazado)" });
     }
 
-    const normalizado = MAP_ESTADOS[crudo.toLowerCase()];
-    if (!normalizado) {
+    const estado = MAP_ESTADOS[crudo.toLowerCase()];
+    if (!estado) {
       return res.status(400).json({ ok: false, error: "Estado/decision inválido, use aceptado|rechazado" });
     }
 
-    // Reglas por decisión
-    if (normalizado === "rechazado") {
-      const motivo = normText(body.motivo_rechazo);
+    const { id_usuario, id_profesor, motivo_rechazo } = body;
+
+    const campos = { estado, id_usuario, id_profesor };
+    for (const [campo, valor] of Object.entries(campos)) {
+      if (valor === undefined || valor === null || valor === '') {
+        return res.status(400).json({
+          ok: false,
+          error: `El campo '${campo}' es obligatorio. Por favor, complétalo.`
+        });
+      }
+    }
+
+    if (licencia.estado !== 'pendiente') {
+      return res.status(403).json({ ok: false, error: "Acción no permitida" });
+    }
+
+    const estudiante = await Usuario.findByPk(id_usuario);
+    if (!estudiante || estudiante.rol !== '2') {
+      return res.status(404).json({ ok: false, error: "Estudiante no encontrado" });
+    }
+
+    const profesor = await Usuario.findByPk(id_profesor);
+    if (!profesor || profesor.rol !== '1') {
+      return res.status(404).json({ ok: false, error: "Docente no encontrado" });
+    }
+
+    if (estado === 'rechazado') {
+      const motivo = normText(motivo_rechazo);
       if (motivo.length < 10) {
         return res.status(422).json({ ok: false, error: "motivo_rechazo es obligatorio (≥10 caracteres)" });
       }
-      req.body.motivo_rechazo = motivo; // sanitizado
+      req.body.motivo_rechazo = motivo;
     }
 
-    if (normalizado === "aceptado") {
-      const fiIn = body.correcciones?.fecha_inicio ?? body.fecha_inicio;
-      const ffIn = body.correcciones?.fecha_fin ?? body.fecha_fin;
-
-      const fi = toISODate(fiIn);
-      const ff = toISODate(ffIn);
-
-      if (!fi || !ff) {
-        return res.status(422).json({ ok: false, error: "Para aceptar debes incluir fecha_inicio y fecha_fin (YYYY-MM-DD)" });
-      }
-      if (new Date(fi) > new Date(ff)) {
-        return res.status(422).json({ ok: false, error: "fecha_inicio no puede ser mayor a fecha_fin" });
-      }
-
-      // Pasar fechas ya normalizadas al service
-      req.body._fi = fi;
-      req.body._ff = ff;
-    }
-
-    // Dejar ambos campos normalizados para compatibilidad
-    req.body.estado = normalizado;   // 'aceptado' | 'rechazado'
-    req.body.decision = normalizado; // idem, por si el service espera 'decision'
+    req.body.estado = normalizaEstado(estado);
+    req.body.decision = estado;
+    req.licencia = licencia;
 
     next();
   } catch (e) {
-    next(e);
+    console.error("❌ Error en validateDecision:", e);
+    return res.status(500).json({ ok: false, error: "Error interno al decidir licencia" });
   }
 }

@@ -69,36 +69,76 @@ router.get('/revisar', [validarJWT, tieneRol('profesor', 'secretario')], (req, r
  * - validarTransicionEstado: aplica la regla de transición usando el estado actual
  *   pendiente → (aceptado|rechazado) ✅; otras ❌
  */
-router.put(
-  '/licencias/:id/decidir',
-  authRequired,                    // verifica JWT -> req.user
-  requireRole(['secretario']),     // solo secretario/a
-  validateDecision,                // valida body de la decisión
-  cargarLicencia,                  // req.licencia disponible
-  (req, res, next) =>              // valida transición según estado actual
-    validarTransicionEstado(req.licencia.estado)(req, res, next),
-  // Ajuste pequeño: normaliza estado por consistencia antes del controller
-  (req, _res, next) => {
-    if (req.body?.estado) req.body.estado = normalizaEstado(req.body.estado);
-    next();
-  },
-  decidirLicencia                  // controller que persiste cambios
-);
+import Usuario from '../models/modelo_Usuario.js';
 
-router.put(
-  '/:id/notificar',
+router.put('/licencias/:id/decidir', authRequired, requireRole(['secretario']), async (req, res, next) => {
+  const idLicencia = Number(req.params.id);
+  if (!idLicencia) {
+    return res.status(400).json({ ok: false, error: "El campo 'id' es obligatorio." });
+  }
+
+  // Buscar licencia primero
+  const licencia = await LicenciaMedica.findByPk(idLicencia);
+  if (!licencia) {
+    return res.status(404).json({ ok: false, error: "Licencia no encontrada" });
+  }
+
+  // Validar campos obligatorios (ahora que tenemos la licencia)
+  const { estado } = req.body;
+  const campos = {
+    id_licencia: idLicencia,
+    id_usuario: licencia.id_usuario,
+    id_profesor: licencia.id_profesor,
+    estado
+  };
+
+  for (const [campo, valor] of Object.entries(campos)) {
+    if (valor === undefined || valor === null || valor === '') {
+      return res.status(400).json({
+        ok: false,
+        error: `El campo '${campo}' es obligatorio. Por favor, complétalo.`
+      });
+    }
+  }
+
+  // Validar transición de estado
+  if (licencia.estado !== 'pendiente') {
+    return res.status(403).json({ ok: false, error: "Acción no permitida" });
+  }
+
+  // Validar existencia del estudiante
+  const estudiante = await Usuario.findByPk(licencia.id_usuario);
+  if (!estudiante || estudiante.rol !== 'estudiante') {
+    return res.status(404).json({ ok: false, error: "Estudiante no encontrado" });
+  }
+
+  // Validar existencia del profesor
+  const profesor = await Usuario.findByPk(licencia.id_profesor);
+  if (!profesor || profesor.rol !== 'profesor') {
+    return res.status(404).json({ ok: false, error: "Docente no encontrado" });
+  }
+
+  // Normalizar estado
+  if (req.body?.estado) {
+    req.body.estado = normalizaEstado(req.body.estado);
+  }
+
+  // Inyectar licencia en req para el controller
+  req.licencia = licencia;
+
+  // Continuar con el controller
+  decidirLicencia(req, res, next);
+});
+
+
+router.put('/:id/notificar',
   authRequired,
-  requireRole(['secretario']),
+  requireRole(['funcionario']),
   validateDecision,
-  cargarLicencia,
-  (req, res, next) =>
-    validarTransicionEstado(req.licencia.estado)(req, res, next),
-  (req, _res, next) => {
-    if (req.body?.estado) req.body.estado = normalizaEstado(req.body.estado);
-    next();
-  },
   notificarEstado
 );
+
+
 
 
 router.get('/resueltas', validarJWT, async (req, res) => {
@@ -141,22 +181,12 @@ router.post(
 );
 
 /* ===== Rutas con :id (restringidas a numérico) ===== */
-router.get('/:id(\\d+)', validarJWT, detalleLicencia);
-router.get('/:id(\\d+)/archivo', validarJWT, descargarArchivoLicencia);
+router.get('/:id', validarJWT, detalleLicencia);
+router.get('/:id/archivo', validarJWT, descargarArchivoLicencia);
+
 
 router.post(
-  '/:id(\\d+)/decidir',
-  validarJWT,
-  tieneRol('funcionario'),
-  validateDecision,
-  cargarLicencia,
-  (req, res, next) => validarTransicionEstado(req.licencia.estado)(req, res, next),
-  (req, _res, next) => { if (req.body?.estado) req.body.estado = normalizaEstado(req.body.estado); next(); },
-  decidirLicencia
-);
-
-router.post(
-  '/:id(\\d+)/rechazar',
+  '/:id/rechazar',
   validarJWT,
   tieneRol('funcionario'),
   (req, _res, next) => { req.body = { ...(req.body || {}), decision: 'rechazado' }; next(); },
@@ -166,15 +196,5 @@ router.post(
   decidirLicencia
 );
 
-router.put(
-  '/:id(\\d+)/notificar',
-  validarJWT,
-  tieneRol('funcionario'),
-  validateDecision,
-  cargarLicencia,
-  (req, res, next) => validarTransicionEstado(req.licencia.estado)(req, res, next),
-  (req, _res, next) => { if (req.body?.estado) req.body.estado = normalizaEstado(req.body.estado); next(); },
-  notificarEstado
-);
 
 export default router;

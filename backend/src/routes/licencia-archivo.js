@@ -18,10 +18,25 @@ router.post('/licencias/:id/archivo', upload.single('file'), async (req, res) =>
     const idLicencia = Number(req.params.id);
     const { ruta_url, tipo_mime, hash, tamano } = req.body;
 
-    if (!idLicencia || !ruta_url || !tipo_mime || !hash || !tamano) {
-      return res.status(400).json({ ok: false, mensaje: 'Faltan datos obligatorios para registrar archivo' });
+    // Validación de campos obligatorios
+    const camposFaltantes = [];
+    if (!idLicencia) camposFaltantes.push("id_licencia");
+    if (!ruta_url) camposFaltantes.push("ruta_url");
+    if (!tipo_mime) camposFaltantes.push("tipo_mime");
+    if (!hash) camposFaltantes.push("hash");
+    if (!tamano) camposFaltantes.push("tamano");
+
+    if (camposFaltantes.length > 0) {
+      return res.status(400).json({
+        error: true,
+        code: "CAMPOS_OBLIGATORIOS_FALTANTES",
+        message: "Faltan campos obligatorios para registrar el archivo.",
+        missing_fields: camposFaltantes,
+        timestamp: new Date().toISOString()
+      });
     }
 
+    // Inserción en la base de datos
     await db.execute(`
       INSERT INTO ArchivoLicencia
         (id_licencia, ruta_url, tipo_mime, hash, tamano, fecha_subida)
@@ -34,16 +49,35 @@ router.post('/licencias/:id/archivo', upload.single('file'), async (req, res) =>
       ok: true,
       mensaje: 'Archivo registrado correctamente'
     });
+
   } catch (e) {
+    // Tipos de error conocidos
     if (e.message === 'TIPO_NO_PERMITIDO') {
-      return res.status(415).json({ message: 'Tipo de archivo no permitido. Acepte PDF/JPG/PNG.' });
+      return res.status(415).json({
+        error: true,
+        code: "TIPO_NO_PERMITIDO",
+        message: 'Tipo de archivo no permitido. Acepte PDF/JPG/PNG.'
+      });
     }
+
     if (e.code === 'LIMIT_FILE_SIZE') {
-      return res.status(400).json({ message: `El archivo supera el límite de ${UPLOAD_MAX_MB} MB.` });
+      return res.status(400).json({
+        error: true,
+        code: "ARCHIVO_DEMASIADO_GRANDE",
+        message: `El archivo supera el límite de ${UPLOAD_MAX_MB} MB.`
+      });
     }
+
+    // Error inesperado
     console.error('❌ Error al registrar archivo:', e);
-    res.status(500).json({ message: 'Error al subir el archivo' });
+    return res.status(500).json({
+      error: true,
+      code: "ERROR_INTERNO",
+      message: 'Error al subir el archivo',
+      detalle: e.message
+    });
   }
 });
+
 
 export default router;
