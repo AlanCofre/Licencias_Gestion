@@ -260,69 +260,14 @@ function EditarPerfil() {
             </div>
 
             {/* Recuperar contraseña */}
-            <div className="bg-white rounded-lg shadow-md p-6">
+            <div className="py-5">
               <button
                 type="button"
                 onClick={() => navigate("/reset-password")}
-                className="w-full p-3 bg-gradient-to-r from-blue-500 to-blue-400 text-white font-semibold rounded-lg shadow-md hover:shadow-lg transition-all"
+                className="w-full p-5 bg-gradient-to-r from-blue-500 to-blue-400 text-white font-semibold rounded-lg shadow-md hover:shadow-lg transition-all"
               >
                 Cambiar / Recuperar contraseña
               </button>
-            </div>
-
-            {/* Cambiar Contraseña */}
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h2 className="text-xl font-semibold text-gray-800 mb-4">Cambiar Contraseña</h2>
-              <div className="grid md:grid-cols-3 gap-6">
-                <div>
-                  <label className="block text-sm font-medium mb-2">Contraseña actual</label>
-                  <input
-                    type="password"
-                    name="contrasenaActual"
-                    value={datos.contrasenaActual}
-                    onChange={handleChange}
-                    className={`w-full px-4 py-2 border rounded-lg ${
-                      errores.contrasenaActual ? "border-red-500" : "border-gray-300"
-                    }`}
-                  />
-                  {errores.contrasenaActual && (
-                    <p className="text-sm text-red-600">{errores.contrasenaActual}</p>
-                  )}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">Nueva contraseña</label>
-                  <input
-                    type="password"
-                    name="contrasenaNueva"
-                    value={datos.contrasenaNueva}
-                    onChange={handleChange}
-                    className={`w-full px-4 py-2 border rounded-lg ${
-                      errores.contrasenaNueva ? "border-red-500" : "border-gray-300"
-                    }`}
-                  />
-                  {errores.contrasenaNueva && (
-                    <p className="text-sm text-red-600">{errores.contrasenaNueva}</p>
-                  )}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">Confirmar contraseña</label>
-                  <input
-                    type="password"
-                    name="confirmarContrasena"
-                    value={datos.confirmarContrasena}
-                    onChange={handleChange}
-                    className={`w-full px-4 py-2 border rounded-lg ${
-                      errores.confirmarContrasena ? "border-red-500" : "border-gray-300"
-                    }`}
-                  />
-                  {errores.confirmarContrasena && (
-                    <p className="text-sm text-red-600">{errores.confirmarContrasena}</p>
-                  )}
-                </div>
-              </div>
-              <p className="mt-4 text-sm text-blue-700">
-                Solo completa estos campos si deseas cambiar tu contraseña. Déjalos en blanco para mantener la actual.
-              </p>
             </div>
 
             {/* Botones */}

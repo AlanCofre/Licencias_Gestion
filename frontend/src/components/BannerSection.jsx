@@ -43,7 +43,7 @@ const BannerSection = () => {
         </Link>
 
         {isSecretary ? (
-          <Link to="/pendientes" className="inline-flex no-underline">
+          <Link to="/licencias-por-revisar" className="inline-flex no-underline">
             <button className="bg-white text-gray-700 px-6 py-3 min-w-[260px] rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-between font-sans font-medium">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
