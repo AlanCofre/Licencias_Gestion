@@ -6,7 +6,7 @@ import bannerImg from "../assets/banner-inicio.png";
 const BannerSection = () => {
   const { user } = useAuth();
   const role = String(user?.role || "").toLowerCase();
-  const isSecretary = role === "secretaria" || role === "secretary";
+  const isSecretary = role === "funcionario" || role === "funcionario";
 
   return (
     <>
