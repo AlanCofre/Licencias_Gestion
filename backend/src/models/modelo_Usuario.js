@@ -33,15 +33,20 @@ Usuario.init(
       type: DataTypes.BOOLEAN,
       allowNull: false,
       defaultValue: true
+    },
+    id_rol: {
+      type: DataTypes.INTEGER,
+      allowNull: false
     }
   },
   {
     sequelize,
     modelName: 'Usuario',
-    tableName: 'usuario',   // Nombre exacto de tu tabla en MySQL
-    timestamps: false       // Tu tabla usuario no tiene created_at/updated_at
+    tableName: 'usuario',
+    timestamps: false
   }
 );
+
 
 // ============================
 // Asociaciones

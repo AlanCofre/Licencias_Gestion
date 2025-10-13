@@ -54,13 +54,13 @@ export async function validateDecision(req, res, next) {
       return res.status(403).json({ ok: false, error: "Acción no permitida" });
     }
 
-    const estudiante = await Usuario.findByPk(id_usuario);
-    if (!estudiante || estudiante.rol !== '2') {
+    const estudiante = await Usuario.findByPk(Number(id_usuario));
+    if (!estudiante || estudiante.id_rol !== 2) {
       return res.status(404).json({ ok: false, error: "Estudiante no encontrado" });
     }
 
-    const profesor = await Usuario.findByPk(id_profesor);
-    if (!profesor || profesor.rol !== '1') {
+    const profesor = await Usuario.findByPk(Number(id_profesor));
+    if (!profesor || profesor.id_rol !== 1) {
       return res.status(404).json({ ok: false, error: "Docente no encontrado" });
     }
 
