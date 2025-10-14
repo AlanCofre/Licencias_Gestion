@@ -184,8 +184,8 @@ export default function EvaluarLicencia() {
                     <span className="text-gray-900">{lic.nombre}</span>
                   </div>
                   <div className="flex flex-col">
-                    <span className="font-medium text-gray-600">Folio:</span>
-                    <span className="text-gray-900">{lic.folio}</span>
+                    <span className="font-medium text-gray-600">id_usuario:</span>
+                    <span className="text-gray-900">{lic.id_usuario}</span>
                   </div>
                   <div className="flex flex-col">
                     <span className="font-medium text-gray-600">Correo:</span>
