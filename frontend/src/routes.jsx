@@ -17,6 +17,7 @@ import AppEditProfile from "./pages/AppEditProfile";
 import GenerarRevision from "./pages/GenerarRevision";
 import EvaluarLicencia from "./pages/EvaluarLicencia";
 import LicenciasPorRevisar from "./pages/LicenciasPorRevisar";
+import LicenciasEstudiante from "./pages/LicenciasEstudiante";
 
 export default function AppRoutes() {
   return (
@@ -42,6 +43,7 @@ export default function AppRoutes() {
       <Route path="/license-detail/:id" element={<LicenseDetail />} />
       <Route path="/license/:id" element={<LicenseDetailView />} />
       <Route path="/edit-profile" element={<AppEditProfile />} />
+      <Route path="/mis-licencias" element={<LicenciasEstudiante />} />
       
       {/* Rutas nuevas de secretaria */}
       <Route path="/evaluar/:id" element={<EvaluarLicencia />} />
