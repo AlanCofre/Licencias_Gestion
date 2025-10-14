@@ -70,7 +70,7 @@ router.get('/revisar', [validarJWT, tieneRol('profesor', 'funcionario')], (req, 
  *   pendiente → (aceptado|rechazado) ✅; otras ❌
  */
 router.post(
-  '/licencias/:id/decidir',
+  '/:id/decidir',
   authRequired,                    // verifica JWT -> req.user
   requireRole(['funcionario']),     // solo secretario/a
   validateDecision,                // valida body de la decisión

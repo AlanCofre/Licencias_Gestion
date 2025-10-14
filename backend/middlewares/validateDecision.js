@@ -38,9 +38,9 @@ export async function validateDecision(req, res, next) {
       return res.status(400).json({ ok: false, error: "Estado/decision inválido, use aceptado|rechazado" });
     }
 
-    const { id_usuario, id_profesor, motivo_rechazo } = body;
+    const { id_usuario, motivo_rechazo } = body;
 
-    const campos = { estado, id_usuario, id_profesor };
+    const campos = { estado, id_usuario };
     for (const [campo, valor] of Object.entries(campos)) {
       if (valor === undefined || valor === null || valor === '') {
         return res.status(400).json({
@@ -59,10 +59,10 @@ export async function validateDecision(req, res, next) {
       return res.status(404).json({ ok: false, error: "Estudiante no encontrado" });
     }
 
-    const profesor = await Usuario.findByPk(Number(id_profesor));
-    if (!profesor || profesor.id_rol !== 1) {
-      return res.status(404).json({ ok: false, error: "Docente no encontrado" });
-    }
+    //const profesor = await Usuario.findByPk(Number(id_profesor));
+    //if (!profesor || profesor.id_rol !== 1) {
+    //  return res.status(404).json({ ok: false, error: "Docente no encontrado" });
+    //}
 
     if (estado === 'rechazado') {
       const motivo = normText(motivo_rechazo);

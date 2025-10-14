@@ -528,7 +528,17 @@ export async function decidirLicencia(req, res) {
         return res.status(400).json({ ok: false, error: 'motivo_rechazo es obligatorio (≥10 caracteres)' });
       }
     }
-
+    if (decisionRaw === 'aceptado') {
+      // Verifica si la licencia tiene archivo/hash
+      const [archivos] = await db.execute(
+        `SELECT hash FROM ArchivoLicencia WHERE id_licencia = ? LIMIT 1`,
+        [idLicencia]
+      );
+      if (!archivos.length || !archivos[0].hash) {
+        return res.status(422).json({ ok: false, error: 'No se puede aceptar sin archivo válido (hash)' });
+      }
+    }
+    
     // Fechas (_fi/_ff) si “aceptado” ya deberían venir validadas por tu middleware validateDecision (si lo usas)
     const payload = {
       idLicencia,

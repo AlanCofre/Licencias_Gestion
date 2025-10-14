@@ -93,12 +93,18 @@ export default function EvaluarLicencia() {
 
 
   const lic = detalle[0] || {};
+  const [loadingAccion, setLoadingAccion] = useState(false);
 
   const decidirLicencia = async (estado) => {
     setMensaje("");
     setAccion(estado);
     const token = localStorage.getItem("token");
-    let body = { estado };
+    const usuario = JSON.parse(localStorage.getItem("usuario") || "{}");
+    let body = {
+      estado,
+      id_usuario: lic.id_usuario, // ID del estudiante dueño de la licencia
+    };
+
     if (estado === "rechazado") {
       body.motivo_rechazo = motivoRechazo;
     }
@@ -118,9 +124,11 @@ export default function EvaluarLicencia() {
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Error al decidir licencia");
       setMensaje(`Licencia ${estado === "aceptado" ? "aceptada" : "rechazada"} correctamente`);
-      navigate("/pendientes");
+      navigate("/licencias-por-revisar");
     } catch (e) {
       setMensaje(e.message);
+    } finally {
+      setLoadingAccion(false);
     }
   };
 
@@ -152,7 +160,7 @@ export default function EvaluarLicencia() {
                 <p className="text-gray-500">ID: {lic.id_licencia}</p>
               </div>
               <button
-                onClick={() => navigate("/pendientes")}
+                onClick={() => navigate("/licencias-por-revisar")}
                 className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300 transition-colors self-start sm:self-auto"
               >
                 ← Volver a Bandeja
@@ -234,10 +242,11 @@ export default function EvaluarLicencia() {
             <div className="flex flex-col sm:flex-row gap-4 pt-4 border-t">
               <button
                 onClick={() => decidirLicencia("aceptado")}
-                className="flex-1 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
-                disabled={accion === "aceptado"}
+                className={`flex-1 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium cursor-pointer`}
+                style={{ cursor: "pointer" }}
+                type="button"
               >
-                ✓ Aceptar Licencia
+                {loadingAccion ? "Procesando..." : "✓ Aceptar Licencia"}
               </button>
               <div className="flex-1 flex flex-col gap-2">
                 <input
@@ -248,11 +257,13 @@ export default function EvaluarLicencia() {
                   onChange={e => setMotivoRechazo(e.target.value)}
                 />
                 <button
-                  className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium"
+                  className={`px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium cursor-pointer`}
+                  style={{ cursor: "pointer" }}
                   onClick={() => decidirLicencia("rechazado")}
-                  disabled={motivoRechazo.length < 10 || accion === "rechazado"}
+                  type="button"
+                  disabled={motivoRechazo.length < 10}
                 >
-                  ✗ Rechazar Licencia
+                  {loadingAccion ? "Procesando..." : "✗ Rechazar Licencia"}
                 </button>
               </div>
             </div>
