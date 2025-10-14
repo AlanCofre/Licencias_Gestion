@@ -226,7 +226,76 @@
     }
   </script>
 
+  <hr>
+  <h2>Simular edición simultánea de una licencia</h2>
 
+  <div style="display: flex; gap: 40px;">
+    <!-- Panel A -->
+    <div>
+      <h3>Funcionario A</h3>
+      <label>ID Licencia:</label>
+      <input type="text" id="licencia_simulacion_a" placeholder="Ej: 123"><br><br>
 
+      <label>Estado:</label>
+      <select id="estado_simulacion_a">
+        <option value="aceptado">Aprobada</option>
+        <option value="rechazado">Rechazada</option>
+      </select><br><br>
+
+      <label>Motivo:</label>
+      <textarea id="motivo_simulacion_a"></textarea><br><br>
+
+      <button onclick="simularEdicion('a')">Enviar A</button>
+      <pre id="resultado_simulacion_a"></pre>
+    </div>
+
+    <!-- Panel B -->
+    <div>
+      <h3>Funcionario B</h3>
+      <label>ID Licencia:</label>
+      <input type="text" id="licencia_simulacion_b" placeholder="Ej: 123"><br><br>
+
+      <label>Estado:</label>
+      <select id="estado_simulacion_b">
+        <option value="aceptado">Aprobada</option>
+        <option value="rechazado">Rechazada</option>
+      </select><br><br>
+
+      <label>Motivo:</label>
+      <textarea id="motivo_simulacion_b"></textarea><br><br>
+
+      <button onclick="simularEdicion('b')">Enviar B</button>
+      <pre id="resultado_simulacion_b"></pre>
+    </div>
+  </div>
+
+  <script>
+    async function simularEdicion(panel) {
+      const token = localStorage.getItem('jwt');
+      if (!token) {
+        alert('Token JWT no encontrado. Inicia sesión primero.');
+        return;
+      }
+
+      const id = document.getElementById(`licencia_simulacion_${panel}`).value;
+      const estado = document.getElementById(`estado_simulacion_${panel}`).value;
+      const motivo = document.getElementById(`motivo_simulacion_${panel}`).value;
+
+      const res = await fetch(`http://localhost:3000/api/licencias/${id}/notificar`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          estado,
+          motivo_rechazo: motivo
+        })
+      });
+
+      const json = await res.json();
+      document.getElementById(`resultado_simulacion_${panel}`).textContent = JSON.stringify(json, null, 2);
+    }
+  </script>
 </body>
 </html>
