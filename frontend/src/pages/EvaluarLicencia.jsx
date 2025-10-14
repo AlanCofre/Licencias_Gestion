@@ -64,6 +64,11 @@ function AttachmentView({ detalle }) {
 }
 
 export default function EvaluarLicencia() {
+  const ROL_MAP = {
+  1: "Profesor",
+  2: "Estudiante",
+  3: "Funcionario"
+  };
   const { id } = useParams();
   const navigate = useNavigate();
   const [detalle, setDetalle] = useState([]);
@@ -179,8 +184,8 @@ export default function EvaluarLicencia() {
                     <span className="text-gray-900">{lic.nombre}</span>
                   </div>
                   <div className="flex flex-col">
-                    <span className="font-medium text-gray-600">Legajo:</span>
-                    <span className="text-gray-900">{lic.id_usuario}</span>
+                    <span className="font-medium text-gray-600">Folio:</span>
+                    <span className="text-gray-900">{lic.folio}</span>
                   </div>
                   <div className="flex flex-col">
                     <span className="font-medium text-gray-600">Correo:</span>
@@ -188,7 +193,7 @@ export default function EvaluarLicencia() {
                   </div>
                   <div className="flex flex-col">
                     <span className="font-medium text-gray-600">Rol:</span>
-                    <span className="text-gray-900">{lic.id_rol}</span>
+                    <span className="text-gray-900">{lic.nombre_rol || ROL_MAP[lic.id_rol] || lic.id_rol}</span>
                   </div>
                 </div>
               </div>
