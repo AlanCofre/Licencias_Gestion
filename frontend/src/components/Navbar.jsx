@@ -12,7 +12,7 @@ export default function Navbar() {
   const [expanded, setExpanded] = useState({});
 
   const role = String(user?.role || "").toLowerCase();
-  const isSecretary = role === "secretaria" || role === "secretary";
+  const isSecretary = role === "secretaria" || role === "secretary" || role === "funcionario";
   const displayName = user
     ? isSecretary
       ? "Sec. Juana Perez"
