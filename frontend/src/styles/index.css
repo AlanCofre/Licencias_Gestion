@@ -143,7 +143,7 @@ body {
   /* Colores claros (por defecto) */
   --bg-primary: #ffffff;
   --bg-secondary: #f8fafc;
-  --bg-tertiary: #f1f5f9;
+  --bg-terciary: #f1f5f9;
   --text-primary: #1e293b;
   --text-secondary: #475569;
   --text-muted: #64748b;
@@ -196,7 +196,7 @@ body {
 
 /* Aplicar a elementos específicos */
 .dark-mode .bg-white {
-  background-color: var(--bg-secondary) !important;
+  /* background-color: var(--bg-secondary) !important; */
   color: var(--text-primary) !important;
 }
 
@@ -242,3 +242,98 @@ body {
 * {
   transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
 }
+
+/* ================================
+   🌙 MODO OSCURO PARA LOGIN
+   ================================ */
+
+/* Títulos principales del login */
+.dark-mode h2.text-black {
+  color: #f8fafc !important;
+}
+
+/* Labels del login */
+.dark-mode label.text-black {
+  color: #f8fafc !important;
+}
+
+/* Contenedor del login en modo oscuro */
+.dark-mode .bg-white.rounded-lg {
+  background-color: #1e293b !important;
+}
+
+/* Mensaje informativo del login */
+.dark-mode .bg-blue-50 {
+  background-color: #374151 !important;
+}
+
+.dark-mode .text-gray-700 {
+  color: #f3f4f6 !important;
+}
+
+/* Texto inferior del login */
+.dark-mode .text-black {
+  color: #f8fafc !important;
+}
+
+/* Opciones de radio en modo oscuro */
+.dark-mode .text-gray-900 {
+  color: #f8fafc !important;
+}
+
+.dark-mode .text-gray-600 {
+  color: #cbd5e1 !important;
+}
+
+/* Contenedor de opciones de radio */
+.dark-mode .border-gray-300 {
+  border-color: #475569 !important;
+}
+
+.dark-mode .hover\:bg-gray-50:hover {
+  background-color: #374151 !important;
+}
+
+/* ================================
+   🌙 SOLO PÁGINA "COMO SE USA" EN MODO OSCURO
+   ================================ */
+
+/* Contenedor principal específico con grid */
+.dark-mode .bg-white.rounded-3xl.shadow-2xl.overflow-hidden.grid {
+  background-color: #1e293b !important;
+}
+
+/* Backup - cualquier contenedor con estas clases exactas */
+.dark-mode .max-w-7xl .bg-white.rounded-3xl.shadow-2xl {
+  background-color: #1e293b !important;
+}
+
+/* Área de imagen con variable CSS */
+.dark-mode .bg-\[var\(--blue-50\)\] {
+  background-color: #374151 !important;
+}
+
+/* Textos específicos en ComoUsar */
+.dark-mode .bg-white.rounded-3xl h1,
+.dark-mode .bg-white.rounded-3xl h2 {
+  color: #f8fafc !important;
+}
+
+.dark-mode .bg-white.rounded-3xl p {
+  color: #cbd5e1 !important;
+}
+
+.dark-mode .bg-white.rounded-3xl li {
+  color: #cbd5e1 !important;
+}
+
+/* Override más agresivo para el contenedor específico */
+.dark-mode .container .bg-white.rounded-3xl {
+  background-color: #1e293b !important;
+}
+
+/* Sombra del contenedor en modo oscuro */
+.dark-mode .bg-white.shadow-2xl {
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6) !important;
+}
+
