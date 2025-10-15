@@ -1,5 +1,6 @@
 // backend/src/controllers/licencias.controller.js  (ESM unificado)
 import crypto from 'crypto';
+import LicenciaMedica from '../src/models/modelo_LicenciaMedica.js';
 import db from '../config/db.js'; // ← ajusta la ruta si corresponde
 import { decidirLicenciaSvc } from '../services/servicio_Licencias.js';
 import fs from 'fs';
@@ -741,6 +742,32 @@ export const descargarArchivoLicencia = async (req, res) => {
     return res.status(500).json({ ok: false, error: 'Error interno' });
   }
 };
+
+export async function cambiarEstado(req, res, next) {
+  try {
+    const { id } = req.params;
+    const { nuevo_estado, motivo_rechazo } = req.body;
+
+    if (!['aceptado','rechazado','pendiente'].includes(nuevo_estado)) {
+      return res.status(400).json({ error: 'ESTADO_INVALIDO' });
+    }
+    if (req.user?.rol !== 'secretario') {
+      return res.status(403).json({ error: 'NO_AUTORIZADO' });
+    }
+
+    const lic = await LicenciaMedica.findByPk(id);
+    if (!lic) return res.status(404).json({ error: 'LICENCIA_NO_ENCONTRADA' });
+
+    // set de cambios
+    lic.estado = nuevo_estado;
+    if (nuevo_estado === 'rechazado') {
+      lic.motivo_rechazo = motivo_rechazo ?? lic.motivo_rechazo;
+    }
+
+    await lic.save({ userId: req.user.id }); // userId usable en afterUpdate opcional
+    return res.json({ ok: true, data: { id: lic.id_licencia, estado: lic.estado } });
+  } catch (err) { next(err); }
+}
 
 
 export default {

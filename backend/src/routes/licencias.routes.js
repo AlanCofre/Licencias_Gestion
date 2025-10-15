@@ -15,6 +15,7 @@ import {
 } from '../../controllers/licencias.controller.js';
 
 import { validarJWT, esEstudiante, tieneRol } from '../../middlewares/auth.js';
+import { cambiarEstado } from '../../controllers/licencias.controller.js';
 import { authRequired } from '../../middlewares/requireAuth.js';
 import { requireRole } from '../../middlewares/requireRole.js';
 import { validateDecision } from '../../middlewares/validateDecision.js';
@@ -71,6 +72,13 @@ router.get('/revisar', [validarJWT, tieneRol('profesor', 'secretario')], (req, r
  *   pendiente → (aceptado|rechazado) ✅; otras ❌
  */
 import Usuario from '../models/modelo_Usuario.js';
+
+router.put(
+  '/:id/estado',
+  authRequired,
+  requireRole(['secretario']),
+  cambiarEstado
+);
 
 router.put('/licencias/:id/decidir', authRequired, requireRole(['secretario']), async (req, res, next) => {
   const idLicencia = Number(req.params.id);
@@ -161,11 +169,6 @@ router.put('/:id/notificar',
     }
   }
 );
-
-
-
-
-
 
 router.get('/resueltas', validarJWT, async (req, res) => {
   const { estado, desde, hasta } = req.query;

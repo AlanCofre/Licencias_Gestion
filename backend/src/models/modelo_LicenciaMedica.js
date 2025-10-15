@@ -62,52 +62,55 @@ LicenciaMedica.init(
         }
       },
     },
-    hooks: {
-      // Reglas de negocio en creación
-      beforeCreate(inst) {
-        // Forzar pendiente en creación
-        inst.estado = 'pendiente';
+hooks: {
+  beforeCreate(inst) {
+    // Forzar pendiente en creación
+    inst.estado = 'pendiente';
 
-        // Si viene motivo_rechazo y NO está rechazado, limpiar
-        if (inst.estado !== 'rechazado' && inst.motivo_rechazo) {
-          inst.motivo_rechazo = null;
-        }
-      },
+    // Si viene motivo_rechazo y NO está rechazado, limpiar
+    if (inst.estado !== 'rechazado' && inst.motivo_rechazo) {
+      inst.motivo_rechazo = null;
+    }
+  },
 
-      // Reglas de negocio en actualización (estado y motivo)
-      beforeUpdate(inst) {
-        const prev = inst.previous('estado');
-        const next = inst.estado;
+  beforeUpdate(inst) {
+    const prev = inst.previous('estado');
+    const next = inst.estado;
 
-        // Si no cambió estado, solo validar motivo_rechazo coherente
-        if (prev === next) {
-          if (next === 'rechazado' && !inst.motivo_rechazo) {
-            throw new Error('motivo_rechazo es obligatorio cuando la licencia es rechazada');
-          }
-          if (next !== 'rechazado' && inst.motivo_rechazo) {
-            inst.motivo_rechazo = null;
-          }
-          return;
-        }
+    // Idempotente: si no cambia, solo validar coherencia de motivo
+    if (prev === next) {
+      if (next === 'rechazado' && !inst.motivo_rechazo) {
+        const err = new Error('motivo_rechazo es obligatorio cuando la licencia es rechazada');
+        err.status = 400; err.code = 'REJECTION_REASON_REQUIRED';
+        throw err;
+      }
+      if (next !== 'rechazado' && inst.motivo_rechazo) {
+        inst.motivo_rechazo = null;
+      }
+      return;
+    }
 
-        // Transiciones válidas: pendiente → aceptado|rechazado
-        const permitido =
-          prev === 'pendiente' && (next === 'aceptado' || next === 'rechazado');
+    // Transiciones válidas: pendiente → aceptado|rechazado
+    const permitido = (prev === 'pendiente') && (next === 'aceptado' || next === 'rechazado');
+    if (!permitido) {
+      const err = new Error('Transición de estado no permitida');
+      err.status = 400;
+      err.code = 'INVALID_STATE_TRANSITION';
+      throw err;
+    }
 
-        if (!permitido) {
-          throw new Error('Transición de estado no permitida');
-        }
+    // Si pasa a rechazado, exigir motivo
+    if (next === 'rechazado' && !inst.motivo_rechazo) {
+      const err = new Error('motivo_rechazo es obligatorio cuando la licencia es rechazada');
+      err.status = 400; err.code = 'REJECTION_REASON_REQUIRED';
+      throw err;
+    }
 
-        // Si pasa a rechazado, exigir motivo
-        if (next === 'rechazado' && !inst.motivo_rechazo) {
-          throw new Error('motivo_rechazo es obligatorio cuando la licencia es rechazada');
-        }
-
-        // Si pasa a aceptado, limpiar motivo_rechazo
-        if (next !== 'rechazado' && inst.motivo_rechazo) {
-          inst.motivo_rechazo = null;
-        }
-      },
+    // Si pasa a aceptado, limpiar motivo_rechazo
+    if (next !== 'rechazado' && inst.motivo_rechazo) {
+      inst.motivo_rechazo = null;
+    }
+  },
     },
   }
 );
