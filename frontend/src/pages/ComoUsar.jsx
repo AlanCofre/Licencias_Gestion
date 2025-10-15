@@ -8,7 +8,7 @@ import { useAuth } from "../context/AuthContext";
 export default function ComoUsar() {
   const { user } = useAuth();
   const role = String(user?.role || "").toLowerCase();
-  const isSecretary = role === "secretaria" || role === "secretary";
+  const isSecretary = role === "secretaria" || role === "funcionario";
 
   return (
     <div className="min-h-screen flex flex-col bg-blue-100">

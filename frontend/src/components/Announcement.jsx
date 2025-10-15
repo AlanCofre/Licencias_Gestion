@@ -5,7 +5,7 @@ import anuncioImg from "../assets/banner-generar.png";
 const Announcement = () => {
   const { user } = useAuth();
   const role = String(user?.role || "").toLowerCase();
-  const isSecretary = role === "secretaria" || role === "secretary";
+  const isSecretary = role === "secretaria" || role === "funcionario";
 
   // usar el nombre que venga del login; anteponer "Sec." si es secretaria
   const rawName = String(user?.name || "").trim();
