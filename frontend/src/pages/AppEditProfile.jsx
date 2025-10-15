@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { getMiPerfil, updateMiPerfil } from "../services/perfilService";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 
@@ -11,14 +12,10 @@ function EditarPerfil() {
 
   const [datos, setDatos] = useState({
     nombre: "",
-    apellido: "",
-    rut: "",
     correoInstitucional: "",
     correoAlternativo: "",
     telefono: "",
     direccion: "",
-    departamento: "",
-    cargo: "",
     contrasenaActual: "",
     contrasenaNueva: "",
     confirmarContrasena: "",
@@ -27,20 +24,29 @@ function EditarPerfil() {
   const [errores, setErrores] = useState({});
   const [mensajeExito, setMensajeExito] = useState("");
 
-  // Cargar datos iniciales simulados
+  // Cargar datos iniciales
   useEffect(() => {
-    const usuario = {
-      nombre: "Juliana",
-      apellido: "Pérez",
-      rut: "12.345.678-9",
-      correoInstitucional: "juliana.perez@universidad.cl",
-      correoAlternativo: "",
-      telefono: "+56 9 1234 5678",
-      direccion: "",
-      departamento: "Gestión Académica",
-      cargo: "Coordinadora de Licencias",
+    const cargar = async () => {
+      try {
+        const json = await getMiPerfil();
+        if (!json || !json.ok) throw new Error(json?.error || "Error al obtener perfil");
+        const usuario = json.data;
+        const perfil = usuario?.perfil ?? null;
+        setDatos((prev) => ({
+          ...prev,
+          nombre: usuario?.nombre ?? prev.nombre,
+          correoInstitucional: usuario?.correo_usuario ?? prev.correoInstitucional,
+          correoAlternativo: perfil?.email_alt ?? prev.correoAlternativo,
+          telefono: perfil?.numero_telef ?? prev.telefono,
+          direccion: perfil?.direccion ?? prev.direccion,
+        }));
+        if (perfil?.foto_url) setPreview(perfil.foto_url);
+      } catch (err) {
+        console.error("cargar perfil:", err);
+        setErrores((prev) => ({ ...prev, general: err.message || "No se pudo cargar perfil" }));
+      }
     };
-    setDatos((prev) => ({ ...prev, ...usuario }));
+    cargar();
   }, []);
 
   // Manejo de inputs
@@ -90,25 +96,32 @@ function EditarPerfil() {
 
   const handleGuardar = async (e) => {
     e.preventDefault();
-
     if (!validarFormulario()) return;
-
     setCargando(true);
     setMensajeExito("");
-
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      const payload = {
+        correoAlternativo: datos.correoAlternativo || null,
+        telefono: datos.telefono || null,
+        direccion: datos.direccion || null,
+      };
+      if (datos.contrasenaActual && datos.contrasenaNueva) {
+        payload.contrasenaActual = datos.contrasenaActual;
+        payload.contrasenaNueva = datos.contrasenaNueva;
+      }
+      const updated = await updateMiPerfil(payload, fotoPerfil);
+      if (!updated || !updated.ok) throw new Error(updated?.error || "Error guardando perfil");
       setMensajeExito("Perfil actualizado correctamente");
-
       setDatos((prev) => ({
         ...prev,
         contrasenaActual: "",
         contrasenaNueva: "",
         confirmarContrasena: "",
       }));
+      if (updated.data?.foto_url) setPreview(updated.data.foto_url);
     } catch (error) {
       console.error("Error al actualizar:", error);
-      setErrores({ general: "Error al actualizar el perfil. Intenta nuevamente." });
+      setErrores({ general: error.message || "Error al actualizar el perfil. Intenta nuevamente." });
     } finally {
       setCargando(false);
     }
@@ -189,29 +202,6 @@ function EditarPerfil() {
                 {errores.nombre && <p className="text-sm text-red-600">{errores.nombre}</p>}
               </div>
 
-              {/* Apellido */}
-              <div>
-                <label className="block text-sm font-medium mb-2">Apellido</label>
-                <input
-                  type="text"
-                  name="apellido"
-                  value={datos.apellido}
-                  readOnly
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700" ></input>
-              </div>
-
-              {/* RUT (solo lectura) */}
-              <div>
-                <label className="block text-sm font-medium mb-2">RUT</label>
-                <input
-                  type="text"
-                  name="rut"
-                  value={datos.rut}
-                  readOnly
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-700"
-                />
-              </div>
-
               {/* Correo institucional (solo lectura) */}
               <div>
                 <label className="block text-sm font-medium mb-2">Correo institucional</label>
@@ -267,102 +257,17 @@ function EditarPerfil() {
                   placeholder="Calle, número, ciudad"
                 />
               </div>
-
-              {/* Departamento */}
-              <div>
-                <label className="block text-sm font-medium mb-2">Departamento</label>
-                <select
-                  name="departamento"
-                  value={datos.departamento}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                >
-                  <option value="">Selecciona un departamento</option>
-                  <option value="Gestión Académica">Gestión Académica</option>
-                  <option value="Salud Estudiantil">Salud Estudiantil</option>
-                  <option value="Bienestar Estudiantil">Bienestar Estudiantil</option>
-                  <option value="Administración">Administración</option>
-                </select>
-              </div>
-
-              {/* Cargo */}
-              <div>
-                <label className="block text-sm font-medium mb-2">Cargo</label>
-                <input
-                  type="text"
-                  name="cargo"
-                  value={datos.cargo}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                  placeholder="Tu cargo en la institución"
-                />
-              </div>
             </div>
 
             {/* Recuperar contraseña */}
-            <div className="bg-white rounded-lg shadow-md p-6">
+            <div className="py-5">
               <button
                 type="button"
                 onClick={() => navigate("/reset-password")}
-                className="w-full p-3 bg-gradient-to-r from-blue-500 to-blue-400 text-white font-semibold rounded-lg shadow-md hover:shadow-lg transition-all"
+                className="w-full p-5 bg-gradient-to-r from-blue-500 to-blue-400 text-white font-semibold rounded-lg shadow-md hover:shadow-lg transition-all"
               >
                 Cambiar / Recuperar contraseña
               </button>
-            </div>
-
-            {/* Cambiar Contraseña */}
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h2 className="text-xl font-semibold text-gray-800 mb-4">Cambiar Contraseña</h2>
-              <div className="grid md:grid-cols-3 gap-6">
-                <div>
-                  <label className="block text-sm font-medium mb-2">Contraseña actual</label>
-                  <input
-                    type="password"
-                    name="contrasenaActual"
-                    value={datos.contrasenaActual}
-                    onChange={handleChange}
-                    className={`w-full px-4 py-2 border rounded-lg ${
-                      errores.contrasenaActual ? "border-red-500" : "border-gray-300"
-                    }`}
-                  />
-                  {errores.contrasenaActual && (
-                    <p className="text-sm text-red-600">{errores.contrasenaActual}</p>
-                  )}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">Nueva contraseña</label>
-                  <input
-                    type="password"
-                    name="contrasenaNueva"
-                    value={datos.contrasenaNueva}
-                    onChange={handleChange}
-                    className={`w-full px-4 py-2 border rounded-lg ${
-                      errores.contrasenaNueva ? "border-red-500" : "border-gray-300"
-                    }`}
-                  />
-                  {errores.contrasenaNueva && (
-                    <p className="text-sm text-red-600">{errores.contrasenaNueva}</p>
-                  )}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">Confirmar contraseña</label>
-                  <input
-                    type="password"
-                    name="confirmarContrasena"
-                    value={datos.confirmarContrasena}
-                    onChange={handleChange}
-                    className={`w-full px-4 py-2 border rounded-lg ${
-                      errores.confirmarContrasena ? "border-red-500" : "border-gray-300"
-                    }`}
-                  />
-                  {errores.confirmarContrasena && (
-                    <p className="text-sm text-red-600">{errores.confirmarContrasena}</p>
-                  )}
-                </div>
-              </div>
-              <p className="mt-4 text-sm text-blue-700">
-                Solo completa estos campos si deseas cambiar tu contraseña. Déjalos en blanco para mantener la actual.
-              </p>
             </div>
 
             {/* Botones */}

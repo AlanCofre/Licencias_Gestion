@@ -2,12 +2,15 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
+import { useRequestReset } from "../hooks/usePasswordReset"; // agregado
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState("");
   const [timer, setTimer] = useState(0);
-  const [loading, setLoading] = useState(false);
+  const [loadingLocal, setLoadingLocal] = useState(false); // local spinner while hook runs
   const navigate = useNavigate();
+
+  const { requestReset, loading, error } = useRequestReset();
 
   // Temporizador para bloquear reenvío
   useEffect(() => {
@@ -21,23 +24,26 @@ export default function ForgotPassword() {
   // Función para validar formato de correo
   const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
-  const handleRequestCode = () => {
+  const handleRequestCode = async () => {
     if (!isValidEmail(email)) {
       alert("Por favor ingresa un correo válido");
       return;
     }
 
-    setLoading(true);
-
-    // Simula envío de código por email
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      setLoadingLocal(true);
+      await requestReset(email);
+      // El backend imprime el código en la terminal local (dev). Indica al usuario que revise la consola del servidor.
+      alert("Si el correo existe, se generó un código. Revisa la consola del servidor para copiarlo en desarrollo.");
       setTimer(60);
-      alert("Se envió un código a tu correo.");
-
-      // Navega a ResetPassword
-      navigate("/reset-password");
-    }, 1500);
+      // Pasar email a la ruta de ResetPassword
+      navigate("/reset-password", { state: { email } });
+    } catch (err) {
+      // mostrar mensaje genérico o el error si lo desea
+      alert(err?.message || "No se pudo solicitar el código. Intenta más tarde.");
+    } finally {
+      setLoadingLocal(false);
+    }
   };
 
   return (
@@ -61,14 +67,14 @@ export default function ForgotPassword() {
 
           <button
             onClick={handleRequestCode}
-            disabled={loading || timer > 0}
+            disabled={loadingLocal || timer > 0}
             className={`w-full py-2 rounded-lg text-white font-semibold transition ${
-              loading || timer > 0
+              loadingLocal || timer > 0
                 ? "bg-gray-400 cursor-not-allowed"
                 : "bg-blue-600 hover:bg-blue-700"
             }`}
           >
-            {loading
+            {loadingLocal
               ? "Enviando..."
               : timer > 0
               ? `Reenviar en ${timer}s`

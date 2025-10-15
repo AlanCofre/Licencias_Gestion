@@ -23,6 +23,7 @@ import {
   validarTransicionEstado,
   normalizaEstado,
 } from '../../middlewares/validarLicenciaMedica.js';
+import { decidirLicenciaSvc } from '../../services/servicio_Licencias.js';
 
 import LicenciaMedica from '../models/modelo_LicenciaMedica.js';
 
@@ -57,7 +58,7 @@ router.post(
 );
 
 // Profesor o Secretario (demo simple)
-router.get('/revisar', [validarJWT, tieneRol('profesor', 'secretario')], (req, res) => {
+router.get('/revisar', [validarJWT, tieneRol('profesor', 'funcionario')], (req, res) => {
   res.json({ ok: true, msg: 'Revisando licencias...', rol: req.rol });
 });
 
@@ -68,10 +69,10 @@ router.get('/revisar', [validarJWT, tieneRol('profesor', 'secretario')], (req, r
  * - validarTransicionEstado: aplica la regla de transición usando el estado actual
  *   pendiente → (aceptado|rechazado) ✅; otras ❌
  */
-router.put(
-  '/licencias/:id/decidir',
+router.post(
+  '/:id/decidir',
   authRequired,                    // verifica JWT -> req.user
-  requireRole(['secretario']),     // solo secretario/a
+  requireRole(['funcionario']),     // solo secretario/a
   validateDecision,                // valida body de la decisión
   cargarLicencia,                  // req.licencia disponible
   (req, res, next) =>              // valida transición según estado actual
@@ -83,6 +84,10 @@ router.put(
   },
   decidirLicencia                  // controller que persiste cambios
 );
+
+
+
+
 
 
 
@@ -126,22 +131,12 @@ router.post(
 );
 
 /* ===== Rutas con :id (restringidas a numérico) ===== */
-router.get('/:id(\\d+)', validarJWT, detalleLicencia);
-router.get('/:id(\\d+)/archivo', validarJWT, descargarArchivoLicencia);
+router.get('/:id', validarJWT, detalleLicencia);
+router.get('/:id/archivo', validarJWT, descargarArchivoLicencia);
+
 
 router.post(
-  '/:id(\\d+)/decidir',
-  validarJWT,
-  tieneRol('funcionario'),
-  validateDecision,
-  cargarLicencia,
-  (req, res, next) => validarTransicionEstado(req.licencia.estado)(req, res, next),
-  (req, _res, next) => { if (req.body?.estado) req.body.estado = normalizaEstado(req.body.estado); next(); },
-  decidirLicencia
-);
-
-router.post(
-  '/:id(\\d+)/rechazar',
+  '/:id/rechazar',
   validarJWT,
   tieneRol('funcionario'),
   (req, _res, next) => { req.body = { ...(req.body || {}), decision: 'rechazado' }; next(); },

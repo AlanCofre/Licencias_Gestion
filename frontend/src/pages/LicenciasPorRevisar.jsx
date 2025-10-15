@@ -4,38 +4,32 @@ import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import { Eye, Clock, Calendar, User, GraduationCap, Search } from "lucide-react";
 
-const mockLicenciasRevision = [
-  {
-    id: "123",
-    estudiante: "Rumencio González",
-    carrera: "Ingeniería",
-    fechaEmision: "2025-09-27",
-    fechaEnvio: "2025-09-28",
-    fechaInicioReposo: "2025-10-01",
-    fechaFinReposo: "2025-10-07",
-    estado: "En revisión"
-  },
-  {
-    id: "456",
-    estudiante: "Carlos Rodríguez",
-    carrera: "Ingeniería",
-    fechaEmision: "2025-09-13",
-    fechaEnvio: "2025-09-14",
-    fechaInicioReposo: "2025-09-15",
-    fechaFinReposo: "2025-09-20",
-    estado: "En revisión"
-  },
-  {
-    id: "789",
-    estudiante: "Ana Martínez",
-    carrera: "Derecho",
-    fechaEmision: "2025-10-01",
-    fechaEnvio: "2025-10-02",
-    fechaInicioReposo: "2025-10-03",
-    fechaFinReposo: "2025-10-05",
-    estado: "En revisión"
-  }
-];
+const PAGE_SIZE = 10;
+
+function mapLicenciaBackendToFrontend(l) {
+  return {
+    id: l.id_licencia || l.id,
+    estudiante: l.nombre || l.estudiante,
+    carrera: l.carrera || l.facultad || "—",
+    fechaEmision: l.fecha_emision,
+    fechaEnvio: l.fecha_creacion || l.fechaEnvio,
+    fechaInicioReposo: l.fecha_inicio,
+    fechaFinReposo: l.fecha_fin,
+    estado: l.estado === "pendiente" ? "En revisión" : l.estado?.charAt(0).toUpperCase() + l.estado?.slice(1)
+  };
+}
+
+function formatFechaHoraSoloHora(fechaStr) {
+  if (!fechaStr) return "";
+  const d = new Date(fechaStr);
+  if (isNaN(d)) return fechaStr;
+  // YYYY-MM-DD HHh
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  const hh = String(d.getHours()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd} ${hh}h`;
+}
 
 export default function LicenciasPorRevisar() {
   const [allLicencias, setAllLicencias] = useState([]);
@@ -46,21 +40,43 @@ export default function LicenciasPorRevisar() {
   const [filterDate, setFilterDate] = useState("");
   const [filterEstado, setFilterEstado] = useState("");
   const [sortAsc, setSortAsc] = useState(false);
-  const [searchTerm, setSearchTerm] = useState(""); // búsqueda inline
+  const [searchTerm, setSearchTerm] = useState("");
+  // paginación
+  const [page, setPage] = useState(1);
+  const [totalPaginas, setTotalPaginas] = useState(1);
 
   useEffect(() => {
     const cargarLicencias = async () => {
       setLoading(true);
-      await new Promise(resolve => setTimeout(resolve, 800)); // simulación
-      const licenciasEnRevision = mockLicenciasRevision.filter(
-        licencia => licencia.estado === "En revisión"
-      );
-      setAllLicencias(licenciasEnRevision);
-      setLicencias(licenciasEnRevision);
+      try {
+        const token = localStorage.getItem("token");
+        const res = await fetch(
+          `${import.meta.env.VITE_API_BASE_URL || "http://localhost:3000"}/api/licencias/en-revision?limit=${PAGE_SIZE}&page=${page}`,
+          {
+            headers: {
+              "Authorization": `Bearer ${token}`,
+              "Accept": "application/json"
+            }
+          }
+        );
+        const data = await res.json();
+        if (!res.ok) throw new Error(data?.error || "Error al obtener licencias");
+        // data.data puede ser el array de licencias
+        const lista = (data.data || data.licencias || data)?.map(mapLicenciaBackendToFrontend) || [];
+        setAllLicencias(lista);
+        setLicencias(lista);
+        // Si el backend retorna total, úsalo para calcular páginas
+        const total = data.meta?.total || data.total || lista.length;
+        setTotalPaginas(Math.max(1, Math.ceil(total / PAGE_SIZE)));
+      } catch (e) {
+        setAllLicencias([]);
+        setLicencias([]);
+        setTotalPaginas(1);
+      }
       setLoading(false);
     };
     cargarLicencias();
-  }, []);
+  }, [page]);
 
   useEffect(() => {
     let resultado = [...allLicencias];
@@ -84,7 +100,7 @@ export default function LicenciasPorRevisar() {
     // filtrar por búsqueda (nombre)
     if (searchTerm) {
       const termLower = searchTerm.toLowerCase();
-      resultado = resultado.filter(l => l.estudiante.toLowerCase().includes(termLower));
+      resultado = resultado.filter(l => l.estudiante?.toLowerCase().includes(termLower));
     }
 
     // ordenar por fechaEmision
@@ -201,7 +217,7 @@ export default function LicenciasPorRevisar() {
                       setFilterDate("");
                       setFilterEstado("");
                       setSortAsc(false);
-                      setSearchTerm(""); // limpiar búsqueda
+                      setSearchTerm("");
                     }}
                     className="inline-flex items-center gap-2 px-3 py-2 bg-white/90 hover:bg-white rounded-md border border-gray-200 text-sm text-gray-600"
                   >
@@ -286,19 +302,19 @@ export default function LicenciasPorRevisar() {
                           <div className="text-sm space-y-1">
                             <div className="flex items-center text-gray-900">
                               <span className="font-medium text-blue-600">Emisión:</span>
-                              <span className="ml-2">{licencia.fechaEmision}</span>
+                              <span className="ml-2">{formatFechaHoraSoloHora(licencia.fechaEmision)}</span>
                             </div>
                             <div className="flex items-center text-gray-900">
                               <span className="font-medium text-green-600">Inicio reposo:</span>
-                              <span className="ml-2">{licencia.fechaInicioReposo}</span>
+                              <span className="ml-2">{formatFechaHoraSoloHora(licencia.fechaInicioReposo)}</span>
                             </div>
                             <div className="flex items-center text-gray-900">
                               <span className="font-medium text-red-600">Fin reposo:</span>
-                              <span className="ml-2">{licencia.fechaFinReposo}</span>
+                              <span className="ml-2">{formatFechaHoraSoloHora(licencia.fechaFinReposo)}</span>
                             </div>
                             <div className="flex items-center text-gray-500 text-xs">
                               <span className="font-medium">Enviado:</span>
-                              <span className="ml-2">{licencia.fechaEnvio}</span>
+                              <span className="ml-2">{formatFechaHoraSoloHora(licencia.fechaEnvio)}</span>
                             </div>
                           </div>
                         </td>
@@ -321,6 +337,26 @@ export default function LicenciasPorRevisar() {
                     ))}
                   </tbody>
                 </table>
+              </div>
+              {/* Paginación */}
+              <div className="flex justify-center items-center gap-4 py-6">
+                <button
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                  className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300 disabled:opacity-50"
+                >
+                  Anterior
+                </button>
+                <span className="text-gray-700 font-medium">
+                  Página {page} de {totalPaginas}
+                </span>
+                <button
+                  onClick={() => setPage(p => Math.min(totalPaginas, p + 1))}
+                  disabled={page === totalPaginas}
+                  className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300 disabled:opacity-50"
+                >
+                  Siguiente
+                </button>
               </div>
             </div>
           )}

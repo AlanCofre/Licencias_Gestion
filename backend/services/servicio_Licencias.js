@@ -145,18 +145,82 @@ export async function crearLicenciaConArchivo({
 /* =======================================================
  * Decidir licencia (aceptar/rechazar) — ROBUSTO
  * ======================================================= */
+async function registrarNotificacionesYAuditoria({
+  licencia,
+  estado,
+  motivo_rechazo,
+  actorId,
+  ip = '0.0.0.0',
+  conn // Sequelize transaction
+}) {
+  // Auditoría
+  await conn.sequelize.query(
+    `INSERT INTO logauditoria (accion, recurso, payload, ip, fecha, id_usuario)
+     VALUES (?, ?, ?, ?, NOW(), ?)`,
+    {
+      replacements: [
+        'cambiar estado',
+        'licenciamedica',
+        JSON.stringify({
+          id_licencia: licencia.id_licencia,
+          estado_anterior: licencia.estado,
+          estado_nuevo: estado
+        }),
+        ip,
+        actorId
+      ],
+      transaction: conn
+    }
+  );
+
+  // Notificación al estudiante
+  if (licencia.id_usuario) {
+    const mensajeEstudiante = estado === 'rechazado'
+      ? 'Tu licencia ha sido rechazada. Revisa el motivo en el sistema.'
+      : 'Tu licencia ha sido aprobada. Ya no necesitas justificar asistencia.';
+
+    await conn.sequelize.query(
+      `INSERT INTO notificacion (asunto, contenido, leido, fecha_envio, id_usuario)
+       VALUES (?, ?, 0, NOW(), ?)`,
+      {
+        replacements: [`Licencia ${estado}`, mensajeEstudiante, licencia.id_usuario],
+        transaction: conn
+      }
+    );
+  }
+
+  // Notificación al profesor (solo si fue aceptada)
+  if (estado === 'aceptado' && licencia.id_profesor) {
+    await conn.sequelize.query(
+      `INSERT INTO notificacion (asunto, contenido, leido, fecha_envio, id_usuario)
+       VALUES (?, ?, 0, NOW(), ?)`,
+      {
+        replacements: [
+          'Licencia aprobada del estudiante',
+          `La licencia del estudiante ${licencia.id_usuario} ha sido aprobada.`,
+          licencia.id_profesor
+        ],
+        transaction: conn
+      }
+    );
+  }
+
+  console.log(`📜 Auditoría y notificaciones registradas para licencia ${licencia.id_licencia}`);
+}
+
+
 export async function decidirLicenciaSvc({
   idLicencia,
-  decision, // 'aceptado' | 'rechazado'
-  estado, // compat
-  motivo_rechazo, // obligatorio si rechaza
-  observacion, // opcional
-  _fi, // fecha_inicio (YYYY-MM-DD) si se acepta
-  _ff, // fecha_fin    (YYYY-MM-DD) si se acepta
-  // Id del actor puede venir con varios nombres
-  idFuncionario, // preferido
-  idfuncionario, // compat
-  id_usuario, // compat
+  decision,
+  estado,
+  motivo_rechazo,
+  observacion,
+  _fi,
+  _ff,
+  idFuncionario,
+  idfuncionario,
+  id_usuario,
+  ip = '0.0.0.0' // ✅ IP recibida desde el controlador
 }) {
   const DEC = (decision ?? estado ?? '').toLowerCase().trim();
   if (!['aceptado', 'rechazado'].includes(DEC)) {
@@ -165,17 +229,15 @@ export async function decidirLicenciaSvc({
     throw e;
   }
 
-  // 🔐 Resolver ID del actor (funcionario que decide) — nunca null
   const actorId = idFuncionario ?? idfuncionario ?? id_usuario ?? null;
   if (!actorId) {
-    const e = new Error('REVISOR_REQUERIDO'); // id de quien decide
+    const e = new Error('REVISOR_REQUERIDO');
     e.http = 401;
     throw e;
   }
 
   const tx = await LicenciaMedica.sequelize.transaction();
   try {
-    // Bloqueo de fila para evitar carreras
     const lic = await LicenciaMedica.findByPk(idLicencia, {
       transaction: tx,
       lock: true,
@@ -200,16 +262,13 @@ export async function decidirLicenciaSvc({
     }
 
     if (DEC === 'aceptado') {
-      // 1) Debe existir archivo con hash
       let archivo = null;
       try {
         archivo = await ArchivoLicencia.findOne({
           where: { id_licencia: lic.id_licencia, hash: { [Op.ne]: null } },
           transaction: tx,
         });
-      } catch (_) {
-        /* fallback a query cruda */
-      }
+      } catch (_) {}
 
       if (!archivo) {
         const rows = await LicenciaMedica.sequelize.query(
@@ -227,22 +286,15 @@ export async function decidirLicenciaSvc({
         }
       }
 
-      // 2) Fechas a usar (de correcciones o de la licencia)
       const fechaInicio = _fi ?? lic.fecha_inicio;
       const fechaFin = _ff ?? lic.fecha_fin;
 
-      if (!fechaInicio || !fechaFin) {
-        const e = new Error('RANGO_FECHAS_INVALIDO');
-        e.http = 422;
-        throw e;
-      }
-      if (new Date(fechaInicio) > new Date(fechaFin)) {
+      if (!fechaInicio || !fechaFin || new Date(fechaInicio) > new Date(fechaFin)) {
         const e = new Error('RANGO_FECHAS_INVALIDO');
         e.http = 422;
         throw e;
       }
 
-      // 3) Evitar solape con OTRAS aceptadas del mismo usuario
       const solape = await LicenciaMedica.findOne({
         where: {
           id_usuario: lic.id_usuario,
@@ -267,29 +319,34 @@ export async function decidirLicenciaSvc({
         throw e;
       }
 
-      // 4) Persistir cambios
       lic.estado = 'aceptado';
       lic.fecha_inicio = fechaInicio;
       lic.fecha_fin = fechaFin;
       lic.motivo_rechazo = null;
       await lic.save({ transaction: tx });
 
-      await HistorialLicencias.create(
-        {
-          id_licencia: lic.id_licencia,
-          id_usuario: actorId, // ✅ nunca null
-          estado: 'aceptado',
-          observacion: observacion ?? null,
-          fecha_actualizacion: new Date(),
-        },
-        { transaction: tx }
-      );
+      await HistorialLicencias.create({
+        id_licencia: lic.id_licencia,
+        id_usuario: actorId,
+        estado: 'aceptado',
+        observacion: observacion ?? null,
+        fecha_actualizacion: new Date(),
+      }, { transaction: tx });
+
+      console.log(`🔔 Ejecutando notificaciones para licencia ${lic.id_licencia}`);
+      await registrarNotificacionesYAuditoria({
+        licencia: lic,
+        estado: DEC,
+        motivo_rechazo,
+        actorId,
+        ip,
+        conn: tx
+      });
 
       await tx.commit();
       return { ok: true, estado: 'aceptado' };
     }
 
-    // === Rechazado ===
     if (DEC === 'rechazado') {
       if (!motivo_rechazo || !String(motivo_rechazo).trim()) {
         const e = new Error('Debe incluir motivo_rechazo al rechazar');
@@ -301,22 +358,27 @@ export async function decidirLicenciaSvc({
       lic.motivo_rechazo = String(motivo_rechazo).trim();
       await lic.save({ transaction: tx });
 
-      await HistorialLicencias.create(
-        {
-          id_licencia: lic.id_licencia,
-          id_usuario: actorId, // ✅ nunca null
-          estado: 'rechazado',
-          observacion: lic.motivo_rechazo,
-          fecha_actualizacion: new Date(),
-        },
-        { transaction: tx }
-      );
+      await HistorialLicencias.create({
+        id_licencia: lic.id_licencia,
+        id_usuario: actorId,
+        estado: 'rechazado',
+        observacion: lic.motivo_rechazo,
+        fecha_actualizacion: new Date(),
+      }, { transaction: tx });
+
+      await registrarNotificacionesYAuditoria({
+        licencia: lic,
+        estado: DEC,
+        motivo_rechazo,
+        actorId,
+        ip,
+        conn: tx
+      });
 
       await tx.commit();
       return { ok: true, estado: 'rechazado' };
     }
 
-    // Nunca debería llegar aquí
     const e = new Error('DECISION_DESCONOCIDA');
     e.http = 400;
     throw e;
