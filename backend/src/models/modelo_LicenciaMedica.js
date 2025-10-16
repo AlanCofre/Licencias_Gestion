@@ -27,7 +27,7 @@ LicenciaMedica.init(
     // Usa DATEONLY para no arrastrar hora/zona
     fecha_emision: { type: DataTypes.DATEONLY, allowNull: false },
     fecha_inicio: { type: DataTypes.DATEONLY, allowNull: false },
-    fecha_fin: { type: DataTypes.DATEONLY, allowNull: false },
+    fecha_fin: { type: DataTypes.DATE, allowNull: false },
 
     estado: {
       type: DataTypes.ENUM('pendiente', 'aceptado', 'rechazado'),

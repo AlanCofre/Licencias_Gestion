@@ -19,6 +19,17 @@ function mapLicenciaBackendToFrontend(l) {
   };
 }
 
+function formatFecha(fechaStr) {
+  if (!fechaStr) return "";
+  const d = new Date(fechaStr);
+  if (isNaN(d)) return fechaStr;
+  // YYYY-MM-DD HHh
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 function formatFechaHoraSoloHora(fechaStr) {
   if (!fechaStr) return "";
   const d = new Date(fechaStr);
@@ -27,8 +38,8 @@ function formatFechaHoraSoloHora(fechaStr) {
   const yyyy = d.getFullYear();
   const mm = String(d.getMonth() + 1).padStart(2, "0");
   const dd = String(d.getDate()).padStart(2, "0");
-  const hh = String(d.getHours()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd} ${hh}h`;
+  const hh = String(d.getHours()).padStart(2,"0");
+  return `${yyyy}-${mm}-${dd} ${hh}`;
 }
 
 export default function LicenciasPorRevisar() {
@@ -302,15 +313,15 @@ export default function LicenciasPorRevisar() {
                           <div className="text-sm space-y-1">
                             <div className="flex items-center text-gray-900">
                               <span className="font-medium text-blue-600">Emisión:</span>
-                              <span className="ml-2">{formatFechaHoraSoloHora(licencia.fechaEmision)}</span>
+                              <span className="ml-2">{formatFecha(licencia.fechaEmision)}</span>
                             </div>
                             <div className="flex items-center text-gray-900">
                               <span className="font-medium text-green-600">Inicio reposo:</span>
-                              <span className="ml-2">{formatFechaHoraSoloHora(licencia.fechaInicioReposo)}</span>
+                              <span className="ml-2">{formatFecha(licencia.fechaInicioReposo)}</span>
                             </div>
                             <div className="flex items-center text-gray-900">
                               <span className="font-medium text-red-600">Fin reposo:</span>
-                              <span className="ml-2">{formatFechaHoraSoloHora(licencia.fechaFinReposo)}</span>
+                              <span className="ml-2">{formatFecha(licencia.fechaFinReposo)}</span>
                             </div>
                             <div className="flex items-center text-gray-500 text-xs">
                               <span className="font-medium">Enviado:</span>
