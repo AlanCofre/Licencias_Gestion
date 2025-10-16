@@ -14,6 +14,7 @@ import {
 } from '../../controllers/licencias.controller.js';
 
 import { validarJWT, esEstudiante, tieneRol } from '../../middlewares/auth.js';
+import { cambiarEstado } from '../../controllers/licencias.controller.js';
 import { authRequired } from '../../middlewares/requireAuth.js';
 import { requireRole } from '../../middlewares/requireRole.js';
 import { validateDecision } from '../../middlewares/validateDecision.js';
@@ -69,27 +70,104 @@ router.get('/revisar', [validarJWT, tieneRol('profesor', 'funcionario')], (req, 
  * - validarTransicionEstado: aplica la regla de transición usando el estado actual
  *   pendiente → (aceptado|rechazado) ✅; otras ❌
  */
-router.post(
-  '/:id/decidir',
-  authRequired,                    // verifica JWT -> req.user
-  requireRole(['funcionario']),     // solo secretario/a
-  validateDecision,                // valida body de la decisión
-  cargarLicencia,                  // req.licencia disponible
-  (req, res, next) =>              // valida transición según estado actual
-    validarTransicionEstado(req.licencia.estado)(req, res, next),
-  // Ajuste pequeño: normaliza estado por consistencia antes del controller
-  (req, _res, next) => {
-    if (req.body?.estado) req.body.estado = normalizaEstado(req.body.estado);
-    next();
-  },
-  decidirLicencia                  // controller que persiste cambios
+import Usuario from '../models/modelo_Usuario.js';
+
+router.put(
+  '/:id/estado',
+  authRequired,
+  requireRole(['secretario']),
+  cambiarEstado
 );
 
+router.put('/licencias/:id/decidir', authRequired, requireRole(['secretario']), async (req, res, next) => {
+  const idLicencia = Number(req.params.id);
+  if (!idLicencia) {
+    return res.status(400).json({ ok: false, error: "El campo 'id' es obligatorio." });
+  }
+
+  // Buscar licencia primero
+  const licencia = await LicenciaMedica.findByPk(idLicencia);
+  if (!licencia) {
+    return res.status(404).json({ ok: false, error: "Licencia no encontrada" });
+  }
+
+  // Validar campos obligatorios (ahora que tenemos la licencia)
+  const { estado } = req.body;
+  const campos = {
+    id_licencia: idLicencia,
+    id_usuario: licencia.id_usuario,
+    id_profesor: licencia.id_profesor,
+    estado
+  };
+
+  for (const [campo, valor] of Object.entries(campos)) {
+    if (valor === undefined || valor === null || valor === '') {
+      return res.status(400).json({
+        ok: false,
+        error: `El campo '${campo}' es obligatorio. Por favor, complétalo.`
+      });
+    }
+  }
+
+  // Validar transición de estado
+  if (licencia.estado !== 'pendiente') {
+    return res.status(403).json({ ok: false, error: "Acción no permitida" });
+  }
+
+  // Validar existencia del estudiante
+  const estudiante = await Usuario.findByPk(licencia.id_usuario);
+  if (!estudiante || estudiante.rol !== 'estudiante') {
+    return res.status(404).json({ ok: false, error: "Estudiante no encontrado" });
+  }
+
+  // Validar existencia del profesor
+  const profesor = await Usuario.findByPk(licencia.id_profesor);
+  if (!profesor || profesor.rol !== 'profesor') {
+    return res.status(404).json({ ok: false, error: "Docente no encontrado" });
+  }
+
+  // Normalizar estado
+  if (req.body?.estado) {
+    req.body.estado = normalizaEstado(req.body.estado);
+  }
+
+  // Inyectar licencia en req para el controller
+  req.licencia = licencia;
+
+  // Continuar con el controller
+  decidirLicencia(req, res, next);
+});
 
 
 
+router.put('/:id/notificar',
+  authRequired,
+  requireRole(['funcionario']),
+  validateDecision,
+  async (req, res) => {
+    try {
+      const idLicencia = Number(req.params.id);
+      const { estado, motivo_rechazo, observacion, fecha_inicio, fecha_fin } = req.body;
+      const actorId = req.user?.id_usuario ?? null;
 
+      const resultado = await decidirLicenciaSvc({
+        idLicencia,
+        estado,
+        motivo_rechazo,
+        observacion,
+        _fi: fecha_inicio,
+        _ff: fecha_fin,
+        idFuncionario: actorId,
+        ip: req.ip 
+      });
 
+      return res.status(200).json({ ok: true, ...resultado });
+    } catch (error) {
+      console.error('❌ Error en /notificar:', error);
+      return res.status(error.http ?? 500).json({ ok: false, error: error.message });
+    }
+  }
+);
 
 router.get('/resueltas', validarJWT, async (req, res) => {
   const { estado, desde, hasta } = req.query;
