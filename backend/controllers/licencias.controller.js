@@ -113,6 +113,11 @@ export const crearLicencia = async (req, res) => {
   try {
     const usuarioId = req.user?.id_usuario ?? req.id ?? null;
     const rol = (req.user?.rol ?? req.rol ?? '').toString().toLowerCase();
+    const [userRow] = await db.execute(
+      'SELECT nombre FROM Usuario WHERE id_usuario = ?',
+      [usuarioId]
+    );
+    const nombreEstudiante = userRow[0]?.nombre || usuarioId;
 
     if (!usuarioId) {
       return res.status(401).json({ msg: 'No autenticado' });
@@ -208,7 +213,7 @@ export const crearLicencia = async (req, res) => {
     `;
     const [result] = await db.execute(sqlInsert, [folio, fecha_inicio, fecha_fin, usuarioId]);
 
-    // --------- Notificación (best-effort) ----------
+    // --------- Notificación (best-effort) (la use como referencia para la secretaria) ----------
     try {
       const asunto = 'creacion de licencia';
       const contenido = `Se ha creado la licencia ${folio} con fecha de inicio ${fecha_inicio} y fin ${fecha_fin}.`;
@@ -221,7 +226,27 @@ export const crearLicencia = async (req, res) => {
     } catch (notifError) {
       console.warn('⚠️ No se pudo registrar la notificación:', notifError.message);
     }
+    // --------- Notificación a todos los funcionarios/secretarios ----------
 
+    try { 
+      const [funcionarios] = await db.execute(
+        `SELECT id_usuario FROM Usuario WHERE id_rol IN (3)` // 1: funcionario, 3: secretaria (ajusta según tus roles)
+      );
+      for (const funcionario of funcionarios) {
+        await db.execute(
+          `INSERT INTO notificacion (asunto, contenido, leido, fecha_envio, id_usuario)
+          VALUES (?, ?, 0, NOW(), ?)`,
+          [
+            'Nueva solicitud de licencia',
+            `el estudiante ${nombreEstudiante} envio una licencia ${folio} con fecha de inicio ${fecha_inicio} y fin ${fecha_fin}.`,
+            funcionario.id_usuario
+          ]
+        );
+      }
+      console.log(`🔔 [NOTIFICACIÓN] Notificado a ${funcionarios.length} funcionarios/secretarias`);
+    } catch (notifError) {
+      console.warn('⚠️ No se pudo registrar la notificación para funcionarios:', notifError.message);
+    }
 
 
     // --------- Registrar archivo (opcional) ----------
