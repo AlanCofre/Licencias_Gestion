@@ -164,7 +164,7 @@ export default function EvaluarLicencia() {
                 <h1 className="text-2xl font-bold">Evaluación de Licencia</h1>
                 <p className="text-gray-500">ID: {lic.id_licencia}</p>
               </div>
-              <button
+              <button 
                 onClick={() => navigate("/licencias-por-revisar")}
                 className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300 transition-colors self-start sm:self-auto"
               >
