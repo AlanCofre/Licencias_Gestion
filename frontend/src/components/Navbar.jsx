@@ -260,7 +260,7 @@ const UnifiedBell = () => {
               to="/login"
               className="hidden md:inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 px-4 py-2 rounded transition-colors text-sm font-medium"
             >
-              Iniciar sesión
+              Cerrar sesión
             </Link>
 
             {/* Menú móvil */}
