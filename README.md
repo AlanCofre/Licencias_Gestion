@@ -46,19 +46,30 @@ El sistema busca **agilizar la gestión**, reducir errores y centralizar la info
 - Verificar que la licencia aparezca correctamente en la vista de funcionario.
 - Revisar historial y notificaciones.
 
+---
+
 Integrantes
 
 | Nombre             | Rol                    | Correo institucional                                                    |
 | ------------------ | ---------------------- | ----------------------------------------------------------------------- |
-| Alan Cofre         | Scrum Master / Backend | [acofre2024@alu.uct.cl](mailto:acofre2024@alu.uct.cl)                   |
+| Alan Cofre         | Scrum Master / Backend | [acofre2019@alu.uct.cl](mailto:acofre2019@alu.uct.cl)                   |
 | Fabian Sanchez     | Backend                | [fsanchez2024@alu.uct.cl](mailto:fsanchez2024@alu.uct.cl)               |
-| Victor Gonzales    | Backend                | [vgonzales2024.alu.uct.cl](mailto:vgonzales2024.alu.uct.cl)             |
+| Victor Gonzales    | Backend                | [victor.gonzales2024.alu.uct.cl](mailto:victor.gonzales2024.alu.uct.cl) |
 | Matias Crisosto    | Backend                | [mcrisosto2024.alu.uct.cl](mailto:mcrisosto2024.alu.uct.cl)             |
-| Franco Araya       | Backend                | [faraya2024.alu.uct.cl](mailto:faraya2024.alu.uct.cl)                   |
-| Amanda Garcia      | Frontend               | [agarcia2024.alu.uct.cl](mailto:agarcia2024.alu.uct.cl)                 |
+| Franco Araya       | Backend                | [franco.araya2024.alu.uct.cl](mailto:franco.araya2024.alu.uct.cl)       |
+| Amanda Garcia      | Frontend               | [amanda.garcia2024.alu.uct.cl](mailto:amanda.garcia2024.alu.uct.cl)     |
 | Vicente Flores     | Frontend               | [vflores2024.alu.uct.cl](mailto:vflores2024.alu.uct.cl)                 |
 | José Cifuentes     | Frontend               | [jcifuentes2024.alu.uct.cl](mailto:jcifuentes2024.alu.uct.cl)           |
 
+---
+
 ## Estado del proyecto
 
-Tamo recien en el sprint 2 calmao q me llamaron para ir a comer...
+Sprint 2
+[Alan, edita lo q llevamos aca, q yo solo cacho lo que llevo yo y un poco del frontend]
+
+---
+
+## Licencia / Uso académico
+
+Este proyecto es académico y fue desarrollado con fines educativos en el contexto universitario. No se pretende uso comercial.
