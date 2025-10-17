@@ -97,6 +97,13 @@ export default function LicenciasPorRevisar() {
     setLicencias(resultado);
   }, [allLicencias, filterDate, filterEstado, sortAsc, searchTerm]);
 
+  // dentro del componente, después de cargar allLicencias/licencias y los estados de filtro
+  const today = new Date().toISOString().slice(0, 10);
+  const pendientesHoyList = (allLicencias || []).filter(
+    (l) => l.fechaEnvio === today
+  );
+  const pendientesHoyCount = pendientesHoyList.length;
+
   if (loading) {
     return (
       <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-50 to-indigo-100 w-full overflow-x-hidden">
@@ -133,24 +140,54 @@ export default function LicenciasPorRevisar() {
 
               {/* Estadísticas */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6 max-w-3xl mx-auto">
-                <div className="w-full bg-yellow-50 p-4 rounded-xl border border-yellow-200">
+                <div className="w-full bg-yellow-50 py-6 rounded-xl border border-yellow-200 text-center flex flex-col items-center justify-center">
                   <div className="flex items-center justify-center">
                     <Clock className="h-5 w-5 text-yellow-600 mr-2" />
                     <span className="text-yellow-800 font-semibold">
-                      {licencias.length} En Revisión
+                      {allLicencias.length} licencias en revisión
                     </span>
                   </div>
+                  {allLicencias.length !== licencias.length && (
+                    <div className="text-sm text-gray-500 mt-2">
+                      Mostrando {licencias.length} según filtros
+                    </div>
+                  )}
                 </div>
-                <div className="w-full bg-blue-50 p-4 rounded-xl border border-blue-200">
+
+                <div className="w-full bg-blue-50 p-4 rounded-xl border border-blue-200 text-center">
                   <div className="flex items-center justify-center">
                     <Calendar className="h-5 w-5 text-blue-600 mr-2" />
                     <span className="text-blue-800 font-semibold">
-                      Pendientes Hoy
+                      {pendientesHoyCount} pendientes hoy
                     </span>
                   </div>
+
+                  {pendientesHoyCount === 0 ? (
+                    <div className="text-sm text-gray-500 mt-2">
+                      Ninguna licencia enviada hoy
+                    </div>
+                  ) : (
+                    <div className="mt-3 flex flex-col items-center gap-2">
+                      <button
+                        onClick={() => {
+                          // aplica el filtro por fecha de envío igual a hoy
+                          setFilterDate(today);
+                          const tableEl = document.querySelector("table");
+                          if (tableEl) tableEl.scrollIntoView({ behavior: "smooth" });
+                        }}
+                        className="px-3 py-1 bg-white border border-blue-200 rounded text-sm text-blue-700 hover:bg-white/90"
+                      >
+                        Ver {pendientesHoyCount} de hoy
+                      </button>
+
+                      <div className="text-xs text-gray-600">
+                        (filtra la lista por fecha de envío)
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
-                {/* Controles: todo en una línea */}
+                {/* Controles */}
                 <div className="mt-6 flex items-center gap-4 flex-wrap justify-center">
                   {/* Filtro fecha */}
                   <div className="flex items-center gap-2">
