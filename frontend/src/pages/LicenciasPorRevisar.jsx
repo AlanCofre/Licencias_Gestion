@@ -258,7 +258,7 @@ export default function LicenciasPorRevisar() {
                                   {licencia.estudiante}
                                 </div>
                                 <div className="text-xs text-gray-500">
-                                  ID: {licencia.id}
+                                  ID de licencia: {licencia.id}
                                 </div>
                               </div>
                             </div>
