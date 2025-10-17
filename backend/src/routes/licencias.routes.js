@@ -79,7 +79,7 @@ router.put(
   cambiarEstado
 );
 
-router.put('/licencias/:id/decidir', authRequired, requireRole(['secretario']), async (req, res, next) => {
+router.post('/:id/decidir', authRequired, requireRole(['secretario']), async (req, res, next) => {
   const idLicencia = Number(req.params.id);
   if (!idLicencia) {
     return res.status(400).json({ ok: false, error: "El campo 'id' es obligatorio." });

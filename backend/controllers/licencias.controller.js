@@ -708,7 +708,7 @@ export async function cambiarEstado(req, res, next) {
     if (!['aceptado','rechazado','pendiente'].includes(nuevo_estado)) {
       return res.status(400).json({ error: 'ESTADO_INVALIDO' });
     }
-    if (req.user?.rol !== 'secretario') {
+    if (req.user?.rol !== 'funcionario') {
       return res.status(403).json({ error: 'NO_AUTORIZADO' });
     }
 
