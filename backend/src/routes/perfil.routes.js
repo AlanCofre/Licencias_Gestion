@@ -3,6 +3,7 @@ import { Router } from 'express';
 import requireAuth from '../../middlewares/requireAuth.js';
 import * as PerfilCtrl from '../../controllers/perfil.controller.js';
 import upload from '../../middlewares/upload.js';
+import db from "../../config/db.js";
 
 const router = Router();
 

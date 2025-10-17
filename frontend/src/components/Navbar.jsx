@@ -18,7 +18,7 @@ export default function Navbar() {
     : "Invitado";
 
     // Notificaciones combinadas
-  const [studentNotifications, setstudentNotifications] = useState([]);
+  const [studentNotifications, setStudentNotifications] = useState([]);
   const [secretaryNotifications, setSecretaryNotifications] = useState([]);
 
 
@@ -45,6 +45,43 @@ export default function Navbar() {
       return () => clearInterval(interval);
     }
   }, [isSecretary]);
+
+// === Notificaciones de ALUMNO ===
+const API = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
+
+const mapStudentNotif = (r) => ({
+  id: r.id_notificacion,                          // backend
+  text: r.asunto || "Notificación",               // lo que mostrarás
+  type: "pendiente",                              // si no tienes tipo en BD, deja fijo o infiérelo
+  date: new Date(r.fecha_envio),                  // Date para ordenar/mostrar
+  description: r.contenido ?? "",
+  read: Boolean(r.leido),                         // 0/1 -> boolean
+});
+
+useEffect(() => {
+  if (!isSecretary && role !== "profesor") {
+    const fetchStudentNotis = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        const res = await fetch(`${API}/api/notificaciones`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.msg || json.error || "Error notifs");
+        const arr = Array.isArray(json.data) ? json.data : [];
+        setStudentNotifications(arr.map(mapStudentNotif));
+        // (opcional) debug:
+        // console.log("[notifs alumno]", arr);
+      } catch (e) {
+        console.error("[notifs alumno]", e);
+      }
+    };
+    fetchStudentNotis();
+    const id = setInterval(fetchStudentNotis, 10000);
+    return () => clearInterval(id);
+  }
+}, [isSecretary, role]);
+
   // Iconos
   const TypeIcon = ({ type }) => {
     const base = "w-5 h-5";
@@ -109,28 +146,37 @@ export default function Navbar() {
     }
     const filteredNotifications = notifications; // El desarrollador puede personalizar el filtro
 
+    const API = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
+
     const unread = isSecretary
       ? notifications.filter((n) => !n.leido).length
       : filteredNotifications.filter((n) => !n.read).length;
 
     const markAsRead = async (id) => {
-      if (isSecretary) {
+      try {
         const token = localStorage.getItem("token");
-        await fetch(`${import.meta.env.VITE_API_BASE_URL || "http://localhost:3000"}/api/notificaciones/${id}/leida`, {
+        const res = await fetch(`${API}/api/notificaciones/${id}/leida`, {
           method: "PUT",
-          headers: { Authorization: `Bearer ${token}` }
+          headers: { Authorization: `Bearer ${token}` },
         });
-        setSecretaryNotifications((prev) =>
-          prev.map((n) => (n.id_notificacion === id ? { ...n, leido: true } : n))
-        );
-      } else if (role === "profesor") {
-        // TODO: implementar lógica para marcar como leída para profesor
-      } else {
-        setStudentNotifications((prev) =>
-          prev.map((n) => (n.id === id ? { ...n, read: true } : n))
-        );
+        if (!res.ok) throw new Error("Error al marcar notificación como leída");
+
+        if (isSecretary) {
+          setSecretaryNotifications((prev) =>
+            prev.map((n) =>
+              n.id_notificacion === id ? { ...n, leido: 1 } : n
+            )
+          );
+        } else if (role !== "profesor") {
+          setStudentNotifications((prev) =>
+            prev.map((n) => (n.id === id ? { ...n, read: true } : n))
+          );
+        }
+      } catch (err) {
+        console.error("[markAsRead]", err);
       }
     };
+
 
 
   return (
