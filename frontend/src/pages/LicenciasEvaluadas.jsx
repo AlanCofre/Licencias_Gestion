@@ -24,9 +24,9 @@ function AttachmentView({ file }) {
   const [open, setOpen] = useState(false);
   if (!file) return <div className="text-sm text-gray-500">Sin archivo adjunto</div>;
 
-  const filename = file.nombre_archivo || "archivo";
+  const filename = file.nombre_archivo || "licencia.pdf";
   const url = file.ruta_url || null;
-  const mimetype = file.mimetype || "";
+  const mimetype = file.mimetype || file.tipo_mime || "";
 
   const isImage =
     (mimetype && mimetype.startsWith("image/")) ||
@@ -122,8 +122,8 @@ export default function LicenciasEvaluadas() {
         const archivo = l.archivo || null;
 
         setLicense({
-          id: l.id_licencia,
-          folio: l.folio,
+          id: l.id_licencia,               // ID de la licencia (se muestra en Datos del Estudiante)
+          folio: l.folio,                  // Folio (se muestra en Datos de la Licencia)
           estado:
             l.estado === "aceptado"
               ? "Verificada"
@@ -140,7 +140,6 @@ export default function LicenciasEvaluadas() {
           usuario: {
             nombre: usuario.nombre || "—",
             id: usuario.id_usuario || "—",
-            facultad: usuario.facultad || "—",
             email: usuario.email || "—",
           },
           archivo,
@@ -204,10 +203,7 @@ export default function LicenciasEvaluadas() {
           <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-lg p-6 sm:p-8">
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-4">
-              <div>
-                <h1 className="text-2xl font-bold">Detalle de Licencia Evaluada</h1>
-                <p className="text-gray-500">ID: {license.id}</p>
-              </div>
+              <h1 className="text-2xl font-bold">Detalle de Licencia Evaluada</h1>
               <button
                 onClick={goBack}
                 className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
@@ -239,7 +235,7 @@ export default function LicenciasEvaluadas() {
               </div>
             </section>
 
-            {/* Estudiante */}
+            {/* Datos del Estudiante (sin Facultad; con ID aquí) */}
             <section className="mb-6">
               <h2 className="text-lg font-semibold mb-3 text-gray-800">
                 Datos del Estudiante
@@ -252,13 +248,9 @@ export default function LicenciasEvaluadas() {
                   </div>
                   <div>
                     <span className="font-medium text-gray-600">ID:</span>{" "}
-                    {license.usuario.id}
+                    {license.id}
                   </div>
-                  <div>
-                    <span className="font-medium text-gray-600">Facultad:</span>{" "}
-                    {license.usuario.facultad}
-                  </div>
-                  <div>
+                  <div className="sm:col-span-2">
                     <span className="font-medium text-gray-600">Email:</span>{" "}
                     {license.usuario.email}
                   </div>
@@ -266,13 +258,17 @@ export default function LicenciasEvaluadas() {
               </div>
             </section>
 
-            {/* Fechas */}
+            {/* Datos de la Licencia (incluye FOLIO aquí) */}
             <section className="mb-8">
               <h2 className="text-lg font-semibold mb-3 text-gray-800">
                 Datos de la Licencia
               </h2>
               <div className="bg-gray-50 p-4 rounded-lg border mb-6">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="font-medium text-gray-600">Folio:</span>{" "}
+                    {license.folio || "—"}
+                  </div>
                   <div>
                     <span className="font-medium text-gray-600">Emisión:</span>{" "}
                     {license.fechas.emision}
