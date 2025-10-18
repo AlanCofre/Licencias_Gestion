@@ -75,4 +75,52 @@ router.post('/subir', requireAuth, upload.single('archivo'), async (req, res) =>
   }
 })
 
+
+
+//  GET /api/archivos/mios → Listar archivos del usuario autenticado desde Supabase
+router.get('/mios', requireAuth, async (req, res) => {
+  try {
+    const id_usuario = String(req.user?.id_usuario)
+    if (!id_usuario) {
+      return res.status(401).json({ ok: false, mensaje: 'Usuario no autenticado' })
+    }
+
+    const { data: archivos, error } = await supabase.storage
+      .from('licencias')
+      .list(id_usuario, {
+        limit: 100,
+        offset: 0,
+        sortBy: { column: 'name', order: 'asc' }
+      })
+
+    if (error) throw error
+
+    const archivosConUrl = await Promise.all(
+      archivos.map(async (archivo) => {
+        const ruta = `${id_usuario}/${archivo.name}`
+        const { data: signedData, error: signedError } = await supabase.storage
+          .from('licencias')
+          .createSignedUrl(ruta, 60 * 60) // válido por 1 hora
+
+        if (signedError) throw signedError
+
+        return {
+          nombre: archivo.name,
+          url: signedData.signedUrl
+        }
+      })
+    )
+
+    return res.json({ ok: true, archivos: archivosConUrl })
+  } catch (err) {
+    console.error('❌ Error listando archivos del usuario:', err)
+    return res.status(500).json({
+      ok: false,
+      mensaje: 'Error al listar archivos',
+      detalle: err.message
+    })
+  }
+})
+
+
 export default router

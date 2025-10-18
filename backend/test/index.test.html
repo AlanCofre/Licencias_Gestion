@@ -342,5 +342,52 @@
     }
   </script>
 
+
+<!-- seccion para obtener archivos subidos -->
+  <hr>
+  <h2>Ver mis archivos subidos</h2>
+  <button onclick="verMisArchivos()">Cargar archivos</button>
+
+  <div id="archivosSubidos" style="margin-top: 20px;">
+    <!-- Aquí se mostrarán los archivos -->
+  </div>
+
+  <script>
+    async function verMisArchivos() {
+      const token = localStorage.getItem('jwt');
+      if (!token) {
+        alert('Token JWT no encontrado. Inicia sesión primero.');
+        return;
+      }
+
+      const res = await fetch('http://localhost:3000/api/archivos/mios', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const json = await res.json();
+      const contenedor = document.getElementById('archivosSubidos');
+      contenedor.innerHTML = '';
+
+      if (!json.ok || !json.archivos?.length) {
+        contenedor.innerHTML = '<p>No se encontraron archivos subidos.</p>';
+        return;
+      }
+
+      const lista = document.createElement('ul');
+      json.archivos.forEach(({ nombre, url }) => {
+        const item = document.createElement('li');
+        item.innerHTML = `<strong>${nombre}</strong> — <a href="${url}" target="_blank">Ver / Descargar</a>`;
+        lista.appendChild(item);
+      });
+
+      contenedor.appendChild(lista);
+    }
+  </script>
+
+
+
 </body>
 </html>
