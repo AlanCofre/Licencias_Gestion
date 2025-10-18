@@ -48,17 +48,59 @@ async function cargarLicencia(req, res, next) {
 router.get('/', validarJWT, listarLicencias);
 router.get('/en-revision', validarJWT, getLicenciasEnRevision);
 
+/* === Licencias del estudiante autenticado === */
+router.get('/mis-licencias', validarJWT, esEstudiante, async (req, res) => {
+  try {
+    // Acepta todas las variantes posibles que puede dejar tu middleware:
+    const idUsuario =
+      req.user?.id_usuario ??
+      req.user?.id ??
+      req.id ??
+      req.user?.sub ??
+      null;
+
+    // Si no viene, es problema de autenticación → 401
+    if (!idUsuario) {
+      return res.status(401).json({ ok: false, error: 'No autenticado' });
+    }
+
+    const [rows] = await db.execute(
+      `
+      SELECT
+        id_licencia           AS id,
+        folio,
+        DATE_FORMAT(fecha_emision, '%Y-%m-%d') AS fecha_emision,
+        DATE_FORMAT(fecha_inicio,  '%Y-%m-%d') AS fecha_inicio,
+        DATE_FORMAT(fecha_fin,     '%Y-%m-%d') AS fecha_fin,
+        estado,
+        motivo_rechazo,
+        DATE_FORMAT(fecha_creacion, '%Y-%m-%d %H:%i:%s') AS fecha_creacion
+      FROM LicenciaMedica
+      WHERE id_usuario = ?
+      ORDER BY fecha_creacion DESC
+      `,
+      [idUsuario]
+    );
+
+    // Devuelve OK con arreglo (aunque esté vacío)
+    return res.status(200).json({ ok: true, data: rows });
+  } catch (error) {
+    console.error('❌ Error en GET /mis-licencias:', error);
+    return res.status(500).json({
+      ok: false,
+      error: 'Error interno al obtener licencias del estudiante',
+    });
+  }
+});
+
 /**
- * Detalle de licencia:
- *  - Query 1: licencia + usuario (seguro)
- *  - Query 2 (opcional): archivo; si falla, NO rompe (archivo: null)
+ * Detalle de licencia (shape compatible con el FE)
  */
 router.get('/detalle/:id', validarJWT, async (req, res) => {
   try {
     const id = Number(req.params.id);
     if (!id) return res.status(400).json({ error: 'ID inválido' });
 
-    // --- Query 1: licencia + usuario
     const [rows] = await db.execute(
       `
       SELECT
@@ -103,14 +145,13 @@ router.get('/detalle/:id', validarJWT, async (req, res) => {
         ? {
             id_usuario: r.usuario_id,
             nombre: r.usuario_nombre,
-            facultad: r.usuario_facultad, // null (tu tabla no tiene esta col)
+            facultad: r.usuario_facultad,
             email: r.usuario_email,
           }
         : null,
-      archivo: null, // se completa abajo si existe
+      archivo: null,
     };
 
-    // --- Query 2 (suave): archivo usando columnas REALES de `archivolicencia`
     try {
       const [archs] = await db.execute(
         `
@@ -133,7 +174,7 @@ router.get('/detalle/:id', validarJWT, async (req, res) => {
         const a = archs[0];
         licencia.archivo = {
           id_archivo: a.id_archivo,
-          nombre_archivo: 'licencia.pdf', // no hay campo nombre; dejamos genérico
+          nombre_archivo: 'licencia.pdf',
           ruta_url: a.ruta_url,
           mimetype: a.tipo_mime,
           hash: a.hash,
@@ -158,10 +199,10 @@ router.get('/licencias/:id/archivo', validarJWT, descargarArchivoLicencia);
 router.post(
   '/crear',
   [validarJWT, esEstudiante],
-  upload.single('archivo'),   // req.file
-  validarArchivoAdjunto,      // archivo obligatorio/tipo/tamaño (o archivo_url)
-  validateLicenciaBody,       // Zod: fechas (YYYY-MM-DD, <=90 días), estado, etc.
-  crearLicencia               // tu controller (forzarás estado 'pendiente' al guardar)
+  upload.single('archivo'),
+  validarArchivoAdjunto,
+  validateLicenciaBody,
+  crearLicencia
 );
 
 // Profesor o Secretario (demo simple)
@@ -170,7 +211,8 @@ router.get('/revisar', [validarJWT, tieneRol('profesor', 'funcionario')], (req, 
 });
 
 /**
- * Decidir licencia (SECRETARIO):
+ * Decidir licencia (SECRETARIO / FUNCIONARIO):
+ * FIX: inyectamos id_usuario desde el token ANTES de validateDecision
  */
 router.put(
   '/:id/estado',
@@ -183,16 +225,35 @@ router.post(
   '/:id/decidir',
   authRequired,
   requireRole(['funcionario']),
+  // 🔧 inject id_usuario for validateDecision
+  (req, _res, next) => {
+    req.body ||= {};
+    if (!req.body.id_usuario) req.body.id_usuario = req.user?.id_usuario ?? req.user?.id ?? null;
+    // tolerancia a "estado" o "decision"
+    if (req.body.estado && !req.body.decision) req.body.decision = req.body.estado;
+    next();
+  },
   validateDecision,
   cargarLicencia,
   (req, res, next) => validarTransicionEstado(req.licencia.estado)(req, res, next),
-  (req, _res, next) => { if (req.body?.estado) req.body.estado = normalizaEstado(req.body.estado); next(); },
+  (req, _res, next) => {
+    if (req.body?.estado) req.body.estado = normalizaEstado(req.body.estado);
+    if (req.body?.decision) req.body.decision = normalizaEstado(req.body.decision);
+    next();
+  },
   decidirLicencia
 );
 
-router.put('/:id/notificar',
+router.put(
+  '/:id/notificar',
   authRequired,
   requireRole(['funcionario']),
+  // 🔧 inject id_usuario también aquí por si el middleware lo necesita
+  (req, _res, next) => {
+    req.body ||= {};
+    if (!req.body.id_usuario) req.body.id_usuario = req.user?.id_usuario ?? req.user?.id ?? null;
+    next();
+  },
   validateDecision,
   async (req, res) => {
     try {

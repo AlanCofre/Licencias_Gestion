@@ -4,6 +4,8 @@ import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import { Eye, Clock, Calendar, Search } from "lucide-react";
 
+const LIST_ENDPOINT = "/api/licencias/mis-licencias"; // ← ajusta si tu BE usa otra ruta
+
 export default function LicenciasEstudiante() {
   const [allLicencias, setAllLicencias] = useState([]);
   const [licencias, setLicencias] = useState([]);
@@ -15,20 +17,21 @@ export default function LicenciasEstudiante() {
   const [sortAsc, setSortAsc] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
 
-  // helper: normalizar objeto de licencia y formatear fechas (respeta tus cambios)
+  // helper: normalizar objeto de licencia y formatear fechas
   const normalizeLicencia = (l) => {
-    const id = l.id_licencia;
+    const id = l.id_licencia ?? l.id ?? l.ID ?? "";
+    const folio = l.folio ?? l.FOLIO ?? "";
 
     // posibles nombres que vienen desde el BE
-    const fechaCreacionRaw = l.fecha_creacion;
-    const fechaInicioRaw = l.fecha_inicio;
-    const fechaFinRaw = l.fecha_fin;
-    const estadoRaw = l.estado;
+    const fechaCreacionRaw = l.fecha_creacion ?? l.created_at ?? l.createdAt ?? "";
+    const fechaInicioRaw   = l.fecha_inicio ?? l.inicio_reposo ?? "";
+    const fechaFinRaw      = l.fecha_fin ?? l.fin_reposo ?? "";
+    const estadoRaw        = l.estado ?? l.status ?? "";
 
     const pad = (n) => String(n).padStart(2, "0");
 
     const fmtDate = (d) => {
-      if (d === null || d === undefined || d === "") return "";
+      if (!d && d !== 0) return "";
       const dt = new Date(d);
       if (isNaN(dt)) {
         const s = String(d);
@@ -39,7 +42,7 @@ export default function LicenciasEstudiante() {
 
     // formato con hora local "YYYY-MM-DD HH:MM"
     const fmtDateTime = (d) => {
-      if (d === null || d === undefined || d === "") return "";
+      if (!d && d !== 0) return "";
       const dt = new Date(d);
       if (isNaN(dt)) return String(d);
       return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())} ${pad(
@@ -57,13 +60,14 @@ export default function LicenciasEstudiante() {
     const cleanKey = String(estadoRaw || "")
       .toLowerCase()
       .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "") // quitar tildes
+      .replace(/[\u0300-\u036f]/g, "")
       .replace(/[\s_\-\.]/g, "");
 
     const estadoNormalized = STATE_MAP[cleanKey] ?? (estadoRaw ? String(estadoRaw) : "");
 
     return {
       id: String(id),
+      folio: folio ? String(folio) : "",
       // fecha para filtros (YYYY-MM-DD)
       fecha_creacion: fmtDate(fechaCreacionRaw),
       // fecha con hora para mostrar
@@ -71,7 +75,6 @@ export default function LicenciasEstudiante() {
       fechaInicioReposo: fmtDate(fechaInicioRaw),
       fechaFinReposo: fmtDate(fechaFinRaw),
       estadoNormalized,
-      // mantener campo original por si hace falta
       _raw: l,
     };
   };
@@ -82,33 +85,27 @@ export default function LicenciasEstudiante() {
       try {
         const API = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
         const token = localStorage.getItem("token");
-        const res = await fetch(`${API}/api/licencias`, {
+        const res = await fetch(`${API}${LIST_ENDPOINT}`, {
           headers: {
-            "Accept": "application/json",
-            ...(token ? { "Authorization": `Bearer ${token}` } : {})
-          }
+            Accept: "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
         });
         const json = await res.json().catch(() => ({}));
-        if (!res.ok) {
-          console.warn('Error al obtener licencias:', json);
-          setAllLicencias([]);
-          setLicencias([]);
-        } else {
-          const arr = Array.isArray(json.data)
-            ? json.data
-            : Array.isArray(json.licencias)
-            ? json.licencias
-            : Array.isArray(json)
-            ? json
-            : [];
 
-          // normalizar y formatear las fechas antes de guardar en estado
-          const normalized = arr.map(normalizeLicencia);
-          setAllLicencias(normalized);
-          setLicencias(normalized);
-        }
+        const arr = Array.isArray(json?.data)
+          ? json.data
+          : Array.isArray(json?.licencias)
+          ? json.licencias
+          : Array.isArray(json)
+          ? json
+          : [];
+
+        const normalized = arr.map(normalizeLicencia);
+        setAllLicencias(normalized);
+        setLicencias(normalized);
       } catch (e) {
-        console.error('❌ cargarLicencias error:', e);
+        console.error("❌ cargarLicencias error:", e);
         setAllLicencias([]);
         setLicencias([]);
       } finally {
@@ -129,11 +126,8 @@ export default function LicenciasEstudiante() {
 
     // Filtrar por estado (usar estado normalizado)
     if (filterEstado) {
-      resultado = resultado.filter(
-        (l) =>
-          (l.estadoNormalized || "")
-            .toLowerCase()
-            .includes(String(filterEstado).toLowerCase())
+      resultado = resultado.filter((l) =>
+        (l.estadoNormalized || "").toLowerCase().includes(String(filterEstado).toLowerCase())
       );
     }
 
@@ -142,10 +136,12 @@ export default function LicenciasEstudiante() {
       resultado = resultado.filter((l) => l.fecha_creacion === filterDate);
     }
 
-    // Filtrar por búsqueda (por ID)
+    // Búsqueda por ID o Folio
     if (searchTerm) {
-      const termLower = searchTerm.toLowerCase();
-      resultado = resultado.filter((l) => (l.id || "").toLowerCase().includes(termLower));
+      const term = searchTerm.toLowerCase().trim();
+      resultado = resultado.filter(
+        (l) => (l.id || "").toLowerCase().includes(term) || (l.folio || "").toLowerCase().includes(term)
+      );
     }
 
     // Ordenar por fecha_creacion (si no hay fecha, poner al final)
@@ -164,7 +160,7 @@ export default function LicenciasEstudiante() {
         <Navbar />
         <main className="flex-1 flex items-center justify-center">
           <div className="text-center bg-white p-8 rounded-2xl shadow-lg">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4" />
             <p className="text-lg text-gray-700">Cargando licencias...</p>
           </div>
         </main>
@@ -178,7 +174,6 @@ export default function LicenciasEstudiante() {
       <Navbar />
       <main className="flex-1 w-full">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-10 max-w-5xl">
-
           {/* Header */}
           <div className="mb-8 text-center">
             <div className="bg-white rounded-2xl shadow-lg p-8 border border-gray-100">
@@ -194,10 +189,28 @@ export default function LicenciasEstudiante() {
 
               {/* Controles de filtro */}
               <div className="mt-6 flex items-center gap-4 flex-wrap justify-center">
+                {/* Buscador por ID o Folio */}
+                <div className="flex items-center gap-2">
+                  <label htmlFor="search" className="text-sm text-gray-600">
+                    Buscar (ID o Folio)
+                  </label>
+                  <div className="flex items-center gap-2 border border-gray-200 bg-white px-2 py-1 rounded-md">
+                    <Search className="h-4 w-4 text-gray-500" />
+                    <input
+                      id="search"
+                      type="text"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      placeholder="Ej: 12 o FOL-2025-0012"
+                      className="outline-none text-sm"
+                    />
+                  </div>
+                </div>
+
                 {/* Filtro por fecha */}
                 <div className="flex items-center gap-2">
                   <label htmlFor="filterDate" className="text-sm text-gray-600">
-                    Fecha (Envíado)  
+                    Fecha (Enviado)
                   </label>
                   <input
                     id="filterDate"
@@ -216,7 +229,7 @@ export default function LicenciasEstudiante() {
                   {sortAsc ? "Ascendente ▲" : "Descendente ▼"}
                 </button>
 
-                {/* Filtro por estado (dinámico según BE) */}
+                {/* Filtro por estado */}
                 <div className="flex items-center gap-2">
                   <label htmlFor="filterEstado" className="text-sm text-gray-600">
                     Estado
@@ -258,12 +271,8 @@ export default function LicenciasEstudiante() {
               <div className="bg-gray-100 rounded-full w-24 h-24 flex items-center justify-center mx-auto mb-6">
                 <Clock className="h-12 w-12 text-gray-400" />
               </div>
-              <h2 className="text-2xl font-bold text-gray-700 mb-3">
-                No hay licencias registradas
-              </h2>
-              <p className="text-gray-500 text-lg">
-                No se encontraron resultados según tus filtros o búsqueda.
-              </p>
+              <h2 className="text-2xl font-bold text-gray-700 mb-3">No hay licencias registradas</h2>
+              <p className="text-gray-500 text-lg">No se encontraron resultados según tus filtros o búsqueda.</p>
             </div>
           ) : (
             <div className="bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-100">
@@ -282,6 +291,9 @@ export default function LicenciasEstudiante() {
                           <Clock className="h-4 w-4 mr-2" />
                           Estado
                         </div>
+                      </th>
+                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">
+                        Folio
                       </th>
                       <th className="px-6 py-4 text-center text-sm font-semibold text-gray-700 uppercase tracking-wider">
                         Acción
@@ -309,6 +321,7 @@ export default function LicenciasEstudiante() {
                             </div>
                           </div>
                         </td>
+
                         <td className="px-6 py-5 whitespace-nowrap">
                           <span
                             className={`px-3 py-2 inline-flex text-sm leading-5 font-semibold rounded-full border ${
@@ -322,6 +335,17 @@ export default function LicenciasEstudiante() {
                             {licencia.estadoNormalized || "Sin estado"}
                           </span>
                         </td>
+
+                        <td className="px-6 py-5 whitespace-nowrap">
+                          {licencia.folio ? (
+                            <span className="px-2 py-1 text-xs font-semibold rounded-md bg-blue-100 text-blue-800 border border-blue-200">
+                              {licencia.folio}
+                            </span>
+                          ) : (
+                            <span className="text-sm text-gray-400">—</span>
+                          )}
+                        </td>
+
                         <td className="px-6 py-5 whitespace-nowrap text-center">
                           <Link
                             to={`/licencia/${licencia.id}`}

@@ -6,30 +6,44 @@ import Footer from "../components/Footer";
 function formatFechaHora(fechaStr) {
   if (!fechaStr) return "";
   const d = new Date(fechaStr);
-  if (isNaN(d)) return fechaStr;
+  if (isNaN(d)) return String(fechaStr);
   // YYYY-MM-DD HH:MM
   return d.toISOString().slice(0, 16).replace("T", " ");
 }
-function AttachmentView({ detalle }) {
-  // Busca el archivo en el detalle (puede venir como array)
-  const file = detalle?.find?.(d => d.ruta_url) || detalle?.[0];
-  if (!file || !file.ruta_url) return <div className="text-sm text-gray-500">Sin archivo adjunto</div>;
 
-  const isPDF = file.tipo_mime === "application/pdf" || /\.pdf$/i.test(file.ruta_url);
-  const fileUrl = file.ruta_url?.startsWith("http")
-    ? file.ruta_url
-    : `${import.meta.env.VITE_API_BASE_URL || "http://localhost:3000"}/api/licencias/${file.id_licencia}/archivo?token=${localStorage.getItem("token")}`;
+/** Vista de archivo adjunto */
+function AttachmentView({ archivo, idLicencia }) {
+  if (!archivo || !archivo.ruta_url) {
+    return <div className="text-sm text-gray-500">Sin archivo adjunto</div>;
+  }
+
+  const API = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
+  const token = localStorage.getItem("token") || "";
+  const isPDF =
+    archivo.mimetype === "application/pdf" || /\.pdf$/i.test(archivo.ruta_url);
+
+  // Nota: el backend espera Authorization header; como <a> no manda headers,
+  // se deja el token como querystring para pruebas rápidas.
+  // Si prefieres headers estrictos, habría que implementar un fetch+blob.
+  const fileUrl = archivo.ruta_url?.startsWith("http")
+    ? archivo.ruta_url
+    : `${API}/api/licencias/${idLicencia}/archivo?token=${token}`;
+
+  const nombre =
+    archivo.nombre_archivo ||
+    (archivo.ruta_url.split("/").pop() || "licencia.pdf");
 
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-3 p-3 border rounded-lg bg-gray-50">
         <div className="flex-1">
-          <div className="font-medium text-sm">{file.ruta_url.split("/").pop()}</div>
+          <div className="font-medium text-sm break-all">{nombre}</div>
           <div className="text-xs text-gray-500">
-            {isPDF ? "Documento PDF" : file.tipo_mime}
+            {isPDF ? "Documento PDF" : archivo.mimetype || "Archivo"}
           </div>
         </div>
       </div>
+
       <div className="flex gap-2">
         {isPDF ? (
           <>
@@ -64,78 +78,152 @@ function AttachmentView({ detalle }) {
 }
 
 export default function EvaluarLicencia() {
-  const ROL_MAP = {
-  1: "Profesor",
-  2: "Estudiante",
-  3: "Funcionario"
-  };
+  const ROL_MAP = { 1: "Profesor", 2: "Estudiante", 3: "Funcionario" };
+
   const { id } = useParams();
   const navigate = useNavigate();
-  const [detalle, setDetalle] = useState([]);
+
+  const [licencia, setLicencia] = useState(null);
   const [loading, setLoading] = useState(true);
   const [mensaje, setMensaje] = useState("");
   const [motivoRechazo, setMotivoRechazo] = useState("");
-  const [accion, setAccion] = useState(null);
-
-  useEffect(() => {
-    setLoading(true);
-    setMensaje("");
-    const token = localStorage.getItem("token");
-    fetch(`${import.meta.env.VITE_API_BASE_URL || "http://localhost:3000"}/api/licencias/detalle/${id}`, {
-      headers: {
-        "Authorization": `Bearer ${token}`,
-        "Accept": "application/json"
-      }
-    })
-      .then(async res => {
-        const data = await res.json();
-        if (!res.ok) throw new Error(data?.error || "Error al obtener detalle");
-        setDetalle(data.detalle || []);
-      })
-      .catch(e => setMensaje(e.message))
-      .finally(() => setLoading(false));
-  }, [id]);
-
-
-  const lic = detalle[0] || {};
   const [loadingAccion, setLoadingAccion] = useState(false);
 
-  const decidirLicencia = async (estado) => {
-    setMensaje("");
-    setAccion(estado);
-    const token = localStorage.getItem("token");
-    const usuario = JSON.parse(localStorage.getItem("usuario") || "{}");
-    let body = {
-      estado,
-      id_usuario: lic.id_usuario, // ID del estudiante dueño de la licencia
-    };
+  useEffect(() => {
+    const cargar = async () => {
+      try {
+        setLoading(true);
+        setMensaje("");
+        const API = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
+        const token = localStorage.getItem("token") || "";
 
-    if (estado === "rechazado") {
-      body.motivo_rechazo = motivoRechazo;
-    }
-    if (estado === "aceptado") {
-      body.fecha_inicio = lic.fecha_inicio;
-      body.fecha_fin = lic.fecha_fin;
-    }
-    try {
-      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || "http://localhost:3000"}/api/licencias/${id}/decidir`, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(body)
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || "Error al decidir licencia");
-      setMensaje(`Licencia ${estado === "aceptado" ? "aceptada" : "rechazada"} correctamente`);
-      navigate("/licencias-por-revisar");
-    } catch (e) {
-      setMensaje(e.message);
-    } finally {
-      setLoadingAccion(false);
-    }
+        // Usa el endpoint de detalle estándar
+        const res = await fetch(`${API}/api/licencias/${id}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/json",
+          },
+        });
+        const json = await res.json();
+
+        if (!res.ok) {
+          throw new Error(json?.error || "Error al obtener detalle");
+        }
+
+        // Soportar distintos formatos: {licencia} ó {detalle:[...]}
+        const L =
+          json.licencia ||
+          (Array.isArray(json.detalle) && json.detalle.length
+            ? json.detalle[0]
+            : null);
+
+        if (!L) {
+          throw new Error("Detalle no disponible");
+        }
+        setLicencia(L);
+      } catch (e) {
+        setMensaje(e.message || "No se pudo cargar la licencia.");
+      } finally {
+        setLoading(false);
+      }
+    };
+    cargar();
+  }, [id]);
+
+  const decidirLicencia = async (decision) => {
+  if (!licencia) return;
+
+  const API   = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
+  const token = localStorage.getItem("token") || "";
+
+  // cuerpos por ruta
+  const bodyDecidir =
+    decision === "rechazado"
+      ? { decision, motivo_rechazo: motivoRechazo }
+      : { decision };
+
+  const bodyNotificar =
+    decision === "rechazado"
+      ? { estado: "rechazado", motivo_rechazo: motivoRechazo }
+      : {
+          estado: "aceptado",
+          // varios backends piden estas fechas al aceptar
+          fecha_inicio: licencia.fecha_inicio?.slice(0, 10),
+          fecha_fin: licencia.fecha_fin?.slice(0, 10),
+        };
+
+  const bodyEstado =
+    decision === "rechazado"
+      ? { nuevo_estado: "rechazado", motivo_rechazo: motivoRechazo }
+      : { nuevo_estado: "aceptado" };
+
+  const bodyRechazar = { motivo_rechazo: motivoRechazo };
+
+  const doFetch = async (url, method, body) => {
+    const res = await fetch(url, {
+      method,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body ?? {}),
+    });
+    const json = await res.json().catch(() => ({}));
+    return { res, json };
   };
+
+  try {
+    setMensaje("");
+    setLoadingAccion(true);
+
+    // 1) intentar /decidir
+    let { res, json } = await doFetch(
+      `${API}/api/licencias/${id}/decidir`,
+      "POST",
+      bodyDecidir
+    );
+
+    // 2) si 404, intentar /notificar
+    if (res.status === 404) {
+      ({ res, json } = await doFetch(
+        `${API}/api/licencias/${id}/notificar`,
+        "PUT",
+        bodyNotificar
+      ));
+    }
+
+    // 3) si sigue 404, intentar /estado
+    if (res.status === 404) {
+      ({ res, json } = await doFetch(
+        `${API}/api/licencias/${id}/estado`,
+        "PUT",
+        bodyEstado
+      ));
+    }
+
+    // 4) si es rechazo y aún 404, usar /rechazar (ruta legacy)
+    if (res.status === 404 && decision === "rechazado") {
+      ({ res, json } = await doFetch(
+        `${API}/api/licencias/${id}/rechazar`,
+        "POST",
+        bodyRechazar
+      ));
+    }
+
+    if (!res.ok) {
+      throw new Error(json?.error || json?.msg || `Error ${res.status}`);
+    }
+
+    setMensaje(
+      `Licencia ${decision === "aceptado" ? "aceptada" : "rechazada"} correctamente`
+    );
+    navigate("/licencias-por-revisar");
+  } catch (e) {
+    setMensaje(e.message);
+  } finally {
+    setLoadingAccion(false);
+  }
+};
 
   if (loading) {
     return (
@@ -152,6 +240,8 @@ export default function EvaluarLicencia() {
     );
   }
 
+  const lic = licencia || {};
+
   return (
     <div className="min-h-screen flex flex-col bg-blue-50 w-full overflow-x-hidden">
       <Navbar />
@@ -162,9 +252,9 @@ export default function EvaluarLicencia() {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-4">
               <div>
                 <h1 className="text-2xl font-bold">Evaluación de Licencia</h1>
-                <p className="text-gray-500">ID de licencia: {lic.id}</p>
+                <p className="text-gray-500">ID de licencia: {lic.id_licencia ?? id}</p>
               </div>
-              <button 
+              <button
                 onClick={() => navigate("/licencias-por-revisar")}
                 className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300 transition-colors self-start sm:self-auto"
               >
@@ -172,101 +262,132 @@ export default function EvaluarLicencia() {
               </button>
             </div>
 
-            {mensaje && <div className="mb-4 text-center text-red-600">{mensaje}</div>}
+            {mensaje && (
+              <div className="mb-4 text-center text-red-600">{mensaje}</div>
+            )}
 
-            {/* Datos completos del estudiante */}
+            {/* Datos del Estudiante */}
             <section className="mb-6">
-              <h2 className="text-lg font-semibold mb-3 text-gray-800">Datos del Estudiante</h2>
+              <h2 className="text-lg font-semibold mb-3 text-gray-800">
+                Datos del Estudiante
+              </h2>
               <div className="bg-gray-50 p-4 rounded-lg border">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                   <div className="flex flex-col">
                     <span className="font-medium text-gray-600">Nombre:</span>
-                    <span className="text-gray-900">{lic.nombre}</span>
+                    <span className="text-gray-900">
+                      {lic.usuario?.nombre || ""}
+                    </span>
                   </div>
                   <div className="flex flex-col">
                     <span className="font-medium text-gray-600">id_usuario:</span>
-                    <span className="text-gray-900">{lic.id_usuario}</span>
+                    <span className="text-gray-900">
+                      {lic.id_usuario ?? lic.usuario?.id_usuario ?? ""}
+                    </span>
                   </div>
                   <div className="flex flex-col">
                     <span className="font-medium text-gray-600">Correo:</span>
-                    <span className="text-gray-900">{lic.correo_usuario}</span>
+                    <span className="text-gray-900">
+                      {lic.usuario?.email || ""}
+                    </span>
                   </div>
                   <div className="flex flex-col">
                     <span className="font-medium text-gray-600">Rol:</span>
-                    <span className="text-gray-900">{lic.nombre_rol || ROL_MAP[lic.id_rol] || lic.id_rol}</span>
+                    <span className="text-gray-900">
+                      {ROL_MAP[2] /* estudiante */}
+                    </span>
                   </div>
                 </div>
               </div>
             </section>
 
-            {/* Datos completos de la licencia */}
+            {/* Datos de la Licencia */}
             <section className="mb-6">
-              <h2 className="text-lg font-semibold mb-3 text-gray-800">Datos de la Licencia</h2>
+              <h2 className="text-lg font-semibold mb-3 text-gray-800">
+                Datos de la Licencia
+              </h2>
               <div className="bg-gray-50 p-4 rounded-lg border">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                   <div className="flex flex-col">
                     <span className="font-medium text-gray-600">Folio:</span>
-                    <span className="text-gray-900">{lic.folio}</span>
+                    <span className="text-gray-900">{lic.folio || ""}</span>
                   </div>
                   <div className="flex flex-col">
-                    <span className="font-medium text-gray-600">Fecha de emisión:</span>
-                    <span className="text-gray-900">{formatFechaHora(lic.fecha_emision)}</span>
+                    <span className="font-medium text-gray-600">
+                      Fecha de emisión:
+                    </span>
+                    <span className="text-gray-900">
+                      {formatFechaHora(lic.fecha_emision)}
+                    </span>
                   </div>
                   <div className="flex flex-col">
-                    <span className="font-medium text-gray-600">Fecha inicio:</span>
-                    <span className="text-gray-900">{formatFechaHora(lic.fecha_inicio)}</span>
+                    <span className="font-medium text-gray-600">
+                      Fecha inicio:
+                    </span>
+                    <span className="text-gray-900">
+                      {formatFechaHora(lic.fecha_inicio)}
+                    </span>
                   </div>
                   <div className="flex flex-col">
                     <span className="font-medium text-gray-600">Fecha fin:</span>
-                    <span className="text-gray-900">{formatFechaHora(lic.fecha_fin)}</span>
-
+                    <span className="text-gray-900">
+                      {formatFechaHora(lic.fecha_fin)}
+                    </span>
                   </div>
                   <div className="flex flex-col">
                     <span className="font-medium text-gray-600">Estado:</span>
-                    <span className="text-gray-900">{lic.estado}</span>
+                    <span className="text-gray-900">{lic.estado || ""}</span>
                   </div>
                   {lic.motivo_rechazo && (
                     <div className="flex flex-col">
-                      <span className="font-medium text-gray-600">Motivo de rechazo:</span>
-                      <span className="text-gray-900">{lic.motivo_rechazo}</span>
+                      <span className="font-medium text-gray-600">
+                        Motivo de rechazo:
+                      </span>
+                      <span className="text-gray-900">
+                        {lic.motivo_rechazo}
+                      </span>
                     </div>
                   )}
                 </div>
               </div>
             </section>
 
-            {/* Archivo adjunto con opción de previsualización */}
+            {/* Archivo adjunto */}
             <section className="mb-8">
-              <h2 className="text-lg font-semibold mb-3 text-gray-800">Archivo Adjunto</h2>
+              <h2 className="text-lg font-semibold mb-3 text-gray-800">
+                Archivo Adjunto
+              </h2>
               <div className="border rounded-lg p-4">
-                <AttachmentView detalle={detalle} />
+                <AttachmentView archivo={lic.archivo} idLicencia={lic.id_licencia ?? id} />
               </div>
             </section>
 
-            {/* Botones para Aceptar y Rechazar */}
+            {/* Botones Aceptar / Rechazar */}
             <div className="flex flex-col sm:flex-row gap-4 pt-4 border-t">
               <button
                 onClick={() => decidirLicencia("aceptado")}
                 className={`flex-1 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium cursor-pointer`}
                 style={{ cursor: "pointer" }}
                 type="button"
+                disabled={loadingAccion}
               >
                 {loadingAccion ? "Procesando..." : "✓ Aceptar Licencia"}
               </button>
+
               <div className="flex-1 flex flex-col gap-2">
                 <input
                   type="text"
                   placeholder="Motivo de rechazo (mínimo 10 caracteres)"
                   className="w-full border rounded px-3 py-2"
                   value={motivoRechazo}
-                  onChange={e => setMotivoRechazo(e.target.value)}
+                  onChange={(e) => setMotivoRechazo(e.target.value)}
                 />
                 <button
                   className={`px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium cursor-pointer`}
                   style={{ cursor: "pointer" }}
                   onClick={() => decidirLicencia("rechazado")}
                   type="button"
-                  disabled={motivoRechazo.length < 10}
+                  disabled={motivoRechazo.length < 10 || loadingAccion}
                 >
                   {loadingAccion ? "Procesando..." : "✗ Rechazar Licencia"}
                 </button>
@@ -276,7 +397,8 @@ export default function EvaluarLicencia() {
             {/* Información de ayuda */}
             <div className="mt-6 p-4 bg-blue-50 rounded-lg">
               <p className="text-sm text-blue-700">
-                <strong>Nota:</strong> Al aceptar o rechazar, podrás agregar comentarios que serán enviados al estudiante.
+                <strong>Nota:</strong> Al aceptar o rechazar, podrás agregar
+                comentarios que serán enviados al estudiante.
               </p>
             </div>
           </div>
