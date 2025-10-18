@@ -56,8 +56,13 @@ const mockHistorialLicencias = [
 export default function HistorialLicencias() {
   const [licencias, setLicencias] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // filtros & orden (añadidos)
   const [searchTerm, setSearchTerm] = useState("");
   const [sortAsc, setSortAsc] = useState(false);
+  const [filterDate, setFilterDate] = useState("");
+  const [filterEstado, setFilterEstado] = useState("");
+
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -70,10 +75,13 @@ export default function HistorialLicencias() {
     cargarLicencias();
   }, []);
 
+  // Aplicar filtros: búsqueda por nombre (searchTerm), filtro por estado y fecha, y orden
   const licenciasFiltradas = licencias
     .filter((l) =>
-      l.estudiante.toLowerCase().includes(searchTerm.toLowerCase())
+      !searchTerm ? true : l.estudiante.toLowerCase().includes(searchTerm.toLowerCase())
     )
+    .filter((l) => (!filterEstado ? true : l.estado === filterEstado))
+    .filter((l) => (!filterDate ? true : l.fechaEmision === filterDate))
     .sort((a, b) => {
       const da = new Date(a.fechaEmision).getTime();
       const db = new Date(b.fechaEmision).getTime();
@@ -117,8 +125,22 @@ export default function HistorialLicencias() {
                 </div>
               </div>
 
-              {/* Controles */}
+              {/* Controles: búsqueda + filtros */}
               <div className="mt-6 flex items-center gap-4 flex-wrap justify-center">
+
+                {/* Filtro por fecha (emisión) */}
+                <div className="flex items-center gap-2">
+                  <label htmlFor="filterDate" className="text-sm text-gray-600">
+                    Fecha (Emisión)
+                  </label>
+                  <input
+                    id="filterDate"
+                    type="date"
+                    value={filterDate}
+                    onChange={(e) => setFilterDate(e.target.value)}
+                    className="border border-gray-200 bg-white px-3 py-1 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#048FD4]"
+                  />
+                </div>
                 {/* Ordenar */}
                 <button
                   onClick={() => setSortAsc((p) => !p)}
@@ -127,7 +149,24 @@ export default function HistorialLicencias() {
                   {sortAsc ? "Ascendente ▲" : "Descendente ▼"}
                 </button>
 
-                {/* Buscar */}
+                {/* Filtro por estado */}
+                <div className="flex items-center gap-2">
+                  <label htmlFor="filterEstado" className="text-sm text-gray-600">
+                    Estado
+                  </label>
+                  <select
+                    id="filterEstado"
+                    value={filterEstado}
+                    onChange={(e) => setFilterEstado(e.target.value)}
+                    className="border border-gray-200 bg-white px-3 py-1 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#048FD4]"
+                  >
+                    <option value="">Todos</option>
+                    <option value="Verificada">Verificada</option>
+                    <option value="Rechazada">Rechazada</option>
+                  </select>
+                </div>
+
+                {/* Buscar por estudiante (barra) */}
                 <form
                   onSubmit={(e) => e.preventDefault()}
                   className="flex items-center w-full max-w-xs bg-white border border-gray-300 rounded-lg shadow-sm px-3 py-2"
@@ -147,6 +186,8 @@ export default function HistorialLicencias() {
                   onClick={() => {
                     setSearchTerm("");
                     setSortAsc(false);
+                    setFilterDate("");
+                    setFilterEstado("");
                   }}
                   className="inline-flex items-center gap-2 px-3 py-2 bg-white/90 hover:bg-white rounded-md border border-gray-200 text-sm text-gray-600"
                 >
@@ -166,7 +207,7 @@ export default function HistorialLicencias() {
                 No hay registros en el historial
               </h2>
               <p className="text-gray-500 text-lg">
-                Aún no existen licencias procesadas.
+                No se encontraron licencias según los filtros.
               </p>
             </div>
           ) : (
