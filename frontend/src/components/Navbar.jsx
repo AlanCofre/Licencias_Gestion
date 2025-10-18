@@ -1,203 +1,328 @@
-import React, { useState, useEffect, useRef } from "react";
+// src/components/Navbar.jsx
+import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { CheckCircleIcon, BellIcon } from "@heroicons/react/24/outline";
 import { useAuth } from "../context/AuthContext";
 
 export default function Navbar() {
-  const { user } = useAuth();
+  const { user } = useAuth?.() ?? {};
   const [isOpen, setIsOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState(null);
-  const [mobileBellOpen, setMobileBellOpen] = useState(false);
-  const [mobileTab, setMobileTab] = useState("pendientes");
-  const dropdownRef = useRef(null);
-  const mobileBellRef = useRef(null);
-
-  // Estado de notificaciones con fechas (como objetos Date)
-  const [notifications, setNotifications] = useState({
-    pendientes: [
-      {
-        id: 1,
-        text: 'La licencia "Resfrío con gripe" se encuentra pendiente de revisión',
-        read: false,
-        date: new Date("2025-09-25T14:30:00"),
-      },
-    ],
-    revisadas: [
-      {
-        id: 2,
-        text: 'La licencia de "Alergias" está siendo revisada',
-        read: false,
-        date: new Date("2025-09-24T10:15:00"),
-      },
-    ],
-    verificadas: [
-      {
-        id: 3,
-        text: 'La licencia "Covid" ha sido verificada y aceptada',
-        read: false,
-        date: new Date("2025-09-23T18:45:00"),
-      },
-      {
-        id: 4,
-        text: 'La licencia "Infección estomacal" ha sido verificada y rechazada',
-        read: false,
-        date: new Date("2025-09-27T09:20:00"),
-      },
-    ],
-  });
-
-  // Marcar como leído
-  const markAsRead = (category, id) => {
-    setNotifications((prev) => ({
-      ...prev,
-      [category]: prev[category].map((n) =>
-        n.id === id ? { ...n, read: true } : n
-      ),
-    }));
-  };
-
-  const toggleMenu = () => setIsOpen(!isOpen);
-  const closeMenu = () => setIsOpen(false);
+  const [expanded, setExpanded] = useState({});
 
   const role = String(user?.role || "").toLowerCase();
+  const isSecretary = role === "secretaria" || role === "secretary" || role === "funcionario";
   const displayName = user
-    ? role === "secretaria" || role === "secretary"
+    ? isSecretary
       ? "Sec. Juana Perez"
       : user.name || user.role
     : "Invitado";
 
-  // Cerrar dropdowns al hacer click fuera
+    // Notificaciones combinadas
+  const [studentNotifications, setStudentNotifications] = useState([]);
+  const [secretaryNotifications, setSecretaryNotifications] = useState([]);
+
+
+
+  const toggleDescription = (id) => {
+    setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const toggleMenu = () => setIsOpen((v) => !v);
+  const closeMenu = () => setIsOpen(false);
+
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setOpenDropdown(null);
+    if (isSecretary) {
+      const fetchNotis = async () => {
+        const token = localStorage.getItem("token");
+        const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || "http://localhost:3000"}/api/notificaciones`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (data.ok) setSecretaryNotifications(data.data || []);
+      };
+      fetchNotis();
+      const interval = setInterval(fetchNotis, 10000); // cada 10s
+      return () => clearInterval(interval);
+    }
+  }, [isSecretary]);
+
+// === Notificaciones de ALUMNO ===
+const API = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
+
+const mapStudentNotif = (r) => ({
+  id: r.id_notificacion,                          // backend
+  text: r.asunto || "Notificación",               // lo que mostrarás
+  type: "pendiente",                              // si no tienes tipo en BD, deja fijo o infiérelo
+  date: new Date(r.fecha_envio),                  // Date para ordenar/mostrar
+  description: r.contenido ?? "",
+  read: Boolean(r.leido),                         // 0/1 -> boolean
+});
+
+useEffect(() => {
+  if (!isSecretary && role !== "profesor") {
+    const fetchStudentNotis = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        const res = await fetch(`${API}/api/notificaciones`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.msg || json.error || "Error notifs");
+        const arr = Array.isArray(json.data) ? json.data : [];
+        setStudentNotifications(arr.map(mapStudentNotif));
+        // (opcional) debug:
+        // console.log("[notifs alumno]", arr);
+      } catch (e) {
+        console.error("[notifs alumno]", e);
       }
-      if (
-        mobileBellRef.current &&
-        !mobileBellRef.current.contains(event.target)
-      ) {
-        setMobileBellOpen(false);
+    };
+    fetchStudentNotis();
+    const id = setInterval(fetchStudentNotis, 10000);
+    return () => clearInterval(id);
+  }
+}, [isSecretary, role]);
+
+  // Iconos
+  const TypeIcon = ({ type }) => {
+    const base = "w-5 h-5";
+    switch (type) {
+      case "pendiente":
+        return <span className={`${base} text-blue-600`}>🕓</span>;
+      case "revision":
+        return <span className={`${base} text-yellow-600`}>🔍</span>;
+      case "verificada":
+        return <span className={`${base} text-green-600`}>✅</span>;
+      case "soporte":
+        return <span className={`${base} text-gray-600`}>🛠️</span>;
+      default:
+        return null;
+    }
+  };
+
+  const BellSvg = ({ className = "w-6 h-6 text-white" }) => (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      stroke="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path d="M12 24c1.104 0 2-.895 2-2h-4c0 1.105.896 2 2 2zm6.364-6v-5c0-3.07-1.635-5.64-4.364-6.32V6a2 2 0 10-4 0v.68C7.271 7.36 5.636 9.93 5.636 13v5l-1.636 1.636V21h16v-1.364L18.364 18zM18 19H6v-1h12v1z" />
+    </svg>
+  );
+
+  const CheckIcon = ({ className = "w-4 h-4" }) => (
+    <svg className={className} viewBox="0 0 20 20" fill="currentColor">
+      <path fillRule="evenodd" d="M16.7 5.3a1 1 0 010 1.4l-7.1 7.1a1 1 0 01-1.4 0L3.3 8.9a1 1 0 011.4-1.4l3.1 3.1 6.4-6.4a1 1 0 011.5 0z" clipRule="evenodd" />
+    </svg>
+  );
+
+  const LogoutSvg = ({ className = "w-5 h-5" }) => (
+    <svg
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      viewBox="0 0 24 24"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+      <polyline points="16 17 21 12 16 7" />
+      <line x1="21" y1="12" x2="9" y2="12" />
+    </svg>
+  );
+
+  // Dropdown unificado
+  const UnifiedBell = () => {
+    let notifications = [];
+    if (isSecretary) {
+      notifications = secretaryNotifications;
+    } else if (role === "profesor") {
+      // TODO: implementar lógica de notificaciones para profesor
+      notifications = []; // Dejar vacío para que el desarrollador lo implemente
+    } else {
+      notifications = studentNotifications;
+    }
+    const filteredNotifications = notifications; // El desarrollador puede personalizar el filtro
+
+    const API = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
+
+    const unread = isSecretary
+      ? notifications.filter((n) => !n.leido).length
+      : filteredNotifications.filter((n) => !n.read).length;
+
+    const markAsRead = async (id) => {
+      try {
+        const token = localStorage.getItem("token");
+        const res = await fetch(`${API}/api/notificaciones/${id}/leida`, {
+          method: "PUT",
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) throw new Error("Error al marcar notificación como leída");
+
+        if (isSecretary) {
+          setSecretaryNotifications((prev) =>
+            prev.map((n) =>
+              n.id_notificacion === id ? { ...n, leido: 1 } : n
+            )
+          );
+        } else if (role !== "profesor") {
+          setStudentNotifications((prev) =>
+            prev.map((n) => (n.id === id ? { ...n, read: true } : n))
+          );
+        }
+      } catch (err) {
+        console.error("[markAsRead]", err);
       }
     };
 
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
 
-  // Función para formatear texto con colores según estado
-  const formatText = (text) => {
-    if (text.toLowerCase().includes("rechazada")) {
-      return <span className="text-red-600 font-medium">{text}</span>;
-    }
-    if (text.toLowerCase().includes("verificada")) {
-      return <span className="text-green-600 font-medium">{text}</span>;
-    }
-    return text;
-  };
 
+  return (
+    <div className="relative" data-notif-dropdown>
+      <button
+        onClick={() =>
+          setOpenDropdown((cur) => (cur === "unified" ? null : "unified"))
+        }
+        className="p-2 rounded-md hover:bg-white/10 transition-colors relative"
+      >
+        <BellSvg />
+        {unread > 0 && (
+          <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center shadow-md">
+            {unread}
+          </span>
+        )}
+      </button>
+
+      {openDropdown === "unified" && (
+        <div className="absolute right-0 mt-3 w-80 bg-white text-black shadow-xl rounded-lg z-50 max-h-80 overflow-y-auto">
+          <div className="absolute -top-2 right-6 w-4 h-4 bg-white rotate-45 shadow-md rounded-sm" />
+          {filteredNotifications.length === 0 ? (
+            <div className="p-4 text-sm text-gray-500 text-center">
+              No hay notificaciones disponibles.
+            </div>
+          ) : (
+            <ul className="relative z-10">
+              {[...filteredNotifications]
+                .sort((a, b) => {
+                  // Ordena por fecha real según el rol
+                  if (isSecretary) {
+                    return new Date(b.fecha_envio) - new Date(a.fecha_envio);
+                  }
+                  // Para alumno/profesor, usa .date si existe
+                  return new Date(b.date) - new Date(a.date);
+                })
+                .map((n) =>
+                  isSecretary ? (
+                    <li
+                      key={n.id_notificacion}
+                      className={`px-4 py-3 text-sm border-b last:border-none flex flex-col gap-1 ${
+                        n.leido ? "bg-gray-100 text-gray-500" : "bg-white"
+                      }`}
+                    >
+                      <div className="flex justify-between items-center">
+                        <span>
+                          {n.asunto}: {n.contenido}
+                        </span>
+                        {!n.leido && (
+                          <button
+                            onClick={() => markAsRead(n.id_notificacion)}
+                            className="ml-2 flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 border border-blue-600 hover:border-blue-800 px-2 py-1 rounded transition"
+                          >
+                            Marcar leída
+                          </button>
+                        )}
+                      </div>
+                      <span className="text-xs text-gray-400">
+                        {new Date(n.fecha_envio).toLocaleString("es-CL")}
+                      </span>
+                    </li>
+                  ) : (
+                    // Para alumno/profesor, deja la estructura lista para que otro dev la implemente
+                    <li
+                      key={n.id}
+                      className={`px-4 py-3 text-sm border-b last:border-none flex flex-col gap-1 ${
+                        n.read ? "bg-gray-100 text-gray-500" : "bg-white"
+                      }`}
+                    >
+                      <div className="flex justify-between items-start gap-3">
+                        <div className="flex items-center gap-2 flex-1">
+                          <TypeIcon type={n.type} />
+                          <div>
+                            <span className="font-medium">{n.text}</span>
+                            <div className="text-xs text-gray-400 mt-1">
+                              {n.date?.toLocaleString("es-CL")}
+                            </div>
+                            <div className="text-xs text-gray-500 italic">
+                              {n.type?.charAt(0).toUpperCase() + n.type?.slice(1)}
+                            </div>
+                          </div>
+                        </div>
+                        {!n.read && (
+                          <button
+                            onClick={() => markAsRead(n.id)}
+                            className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 border border-blue-600 hover:border-blue-800 px-2 py-1 rounded transition"
+                          >
+                            <CheckIcon /> Leer
+                          </button>
+                        )}
+                      </div>
+                      {expanded[n.id] && (
+                        <div className="mt-2 bg-gray-50 text-gray-700 p-2 rounded-md shadow-inner border border-gray-200 text-sm transition-all">
+                          {n.description}
+                        </div>
+                      )}
+                      {!expanded[n.id] && (
+                        <button
+                          onClick={() => toggleDescription(n.id)}
+                          className="text-xs text-gray-500 hover:text-gray-700 mt-1"
+                        >
+                          Ver más
+                        </button>
+                      )}
+                    </li>
+                  )
+                )}
+            </ul>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
   return (
     <header className="bg-[#048FD4] text-white shadow-md relative" role="banner">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-20">
           {/* Logo */}
           <div className="flex items-center">
-            <Link
-              to="/"
-              className="flex items-center focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-[#048FD4] rounded-sm p-1"
-              aria-label="MedManager - Ir al inicio"
-              onClick={closeMenu}
-            >
+            <Link to="/" onClick={closeMenu} className="flex items-center p-1">
               <span className="text-2xl font-bold tracking-wide font-display">
                 MedManager
               </span>
             </Link>
           </div>
 
-          {/* Navigation desktop */}
-          <nav
-            className="hidden md:flex flex-1 justify-center relative"
-            role="navigation"
-            aria-label="Navegación principal"
-          >
+          {/* Nav */}
+          <nav className="hidden md:flex flex-1 justify-center">
             <ul className="flex gap-8 text-sm font-medium items-center">
               <li>
                 <Link
-                  to={role === "secretaria" ? "/secretaria" : "/alumno"}
+                  to={isSecretary ? "/secretaria" : "/alumno"}
                   className="px-3 py-2 hover:bg-white/10 rounded transition-colors"
                 >
                   Inicio
                 </Link>
               </li>
-
-              {/* Botones con notificaciones en desktop */}
-              {["pendientes", "revisadas", "verificadas"].map((category) => (
-                <li key={category} className="relative" ref={dropdownRef}>
-                  <button
-                    onClick={() =>
-                      setOpenDropdown(
-                        openDropdown === category ? null : category
-                      )
-                    }
-                    className="px-3 py-2 hover:bg-white/10 rounded transition-colors relative"
-                  >
-                    {category.charAt(0).toUpperCase() + category.slice(1)}
-                    {notifications[category].filter((n) => !n.read).length >
-                      0 && (
-                      <span className="absolute -top-1 -right-2 bg-red-600 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center shadow-md">
-                        {
-                          notifications[category].filter((n) => !n.read)
-                            .length
-                        }
-                      </span>
-                    )}
-                  </button>
-
-                  {openDropdown === category && (
-                    <div className="absolute top-full mt-3 w-80 bg-white text-black shadow-xl rounded-lg z-50">
-                      <div className="absolute -top-2 left-6 w-4 h-4 bg-white rotate-45 shadow-md rounded-sm"></div>
-                      <ul className="relative z-10">
-                        {[...notifications[category]]
-                          .sort(
-                            (a, b) => new Date(b.date) - new Date(a.date)
-                          )
-                          .map((n) => (
-                            <li
-                              key={n.id}
-                              className={`px-4 py-3 text-sm border-b last:border-none flex flex-col gap-1 ${
-                                n.read
-                                  ? "bg-gray-100 text-gray-500"
-                                  : "bg-white"
-                              }`}
-                            >
-                              <div className="flex justify-between items-center">
-                                <span>{formatText(n.text)}</span>
-                                {!n.read && (
-                                  <button
-                                    onClick={() =>
-                                      markAsRead(category, n.id)
-                                    }
-                                    className="ml-2 flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 border border-blue-600 hover:border-blue-800 px-2 py-1 rounded transition"
-                                  >
-                                    <CheckCircleIcon className="w-4 h-4" />
-                                    Leer
-                                  </button>
-                                )}
-                              </div>
-                              <span className="text-xs text-gray-400">
-                                {n.date.toLocaleString("es-CL")}
-                              </span>
-                            </li>
-                          ))}
-                      </ul>
-                    </div>
-                  )}
-                </li>
-              ))}
             </ul>
           </nav>
 
-          {/* User info + mobile actions */}
+          {/* Área derecha */}
           <div className="flex items-center gap-4">
+            <UnifiedBell />
+            {isSecretary
+            }
             <div className="text-right hidden sm:block">
               <div className="text-xs opacity-90">Usuario</div>
               <Link
@@ -210,93 +335,15 @@ export default function Navbar() {
 
             <Link
               to="/login"
-              className="hidden md:inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 px-4 py-2 rounded transition-colors text-sm font-medium"
+              className="hidden md:inline-flex items-center gap-1 bg-white/10 hover:bg-white/20 px-3 py-2 rounded transition-colors text-sm font-medium"
             >
-              Iniciar sesión
+              <LogoutSvg />
             </Link>
 
-            {/* Campana de notificaciones en móvil */}
-            <div className="relative md:hidden" ref={mobileBellRef}>
-              <button
-                onClick={() => setMobileBellOpen(!mobileBellOpen)}
-                className="p-2 rounded-md hover:bg-white/10 transition-colors relative"
-                aria-label="Notificaciones"
-              >
-                <BellIcon className="w-6 h-6" />
-                {Object.values(notifications)
-                  .flat()
-                  .filter((n) => !n.read).length > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center shadow-md">
-                    {
-                      Object.values(notifications)
-                        .flat()
-                        .filter((n) => !n.read).length
-                    }
-                  </span>
-                )}
-              </button>
-
-              {mobileBellOpen && (
-                <div className="absolute right-0 mt-2 w-80 bg-white text-black shadow-xl rounded-lg z-50">
-                  {/* Tabs */}
-                  <div className="flex border-b">
-                    {["pendientes", "revisadas", "verificadas"].map((cat) => (
-                      <button
-                        key={cat}
-                        onClick={() => setMobileTab(cat)}
-                        className={`flex-1 px-3 py-2 text-sm font-medium ${
-                          mobileTab === cat
-                            ? "bg-gray-100 border-b-2 border-[#048FD4]"
-                            : "hover:bg-gray-50"
-                        }`}
-                      >
-                        {cat.charAt(0).toUpperCase() + cat.slice(1)}
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Notificaciones */}
-                  <ul className="max-h-60 overflow-y-auto">
-                    {[...notifications[mobileTab]]
-                      .sort((a, b) => new Date(b.date) - new Date(a.date))
-                      .map((n) => (
-                        <li
-                          key={n.id}
-                          className={`px-4 py-3 text-sm border-b last:border-none flex flex-col gap-1 ${
-                            n.read
-                              ? "bg-gray-100 text-gray-500"
-                              : "bg-white"
-                          }`}
-                        >
-                          <div className="flex justify-between items-center">
-                            <span>{formatText(n.text)}</span>
-                            {!n.read && (
-                              <button
-                                onClick={() => markAsRead(mobileTab, n.id)}
-                                className="ml-2 flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 border border-blue-600 hover:border-blue-800 px-2 py-1 rounded transition"
-                              >
-                                <CheckCircleIcon className="w-4 h-4" />
-                                Leer
-                              </button>
-                            )}
-                          </div>
-                          <span className="text-xs text-gray-400">
-                            {n.date.toLocaleString("es-CL")}
-                          </span>
-                        </li>
-                      ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-
-            {/* Botón menú hamburguesa */}
+            {/* Menú móvil */}
             <button
               onClick={toggleMenu}
-              className="md:hidden p-2 rounded-md hover:bg-white/10 transition-colors focus:outline-none focus:ring-2 focus:ring-white"
-              aria-controls="mobile-menu"
-              aria-expanded={isOpen}
-              aria-label={isOpen ? "Cerrar menú" : "Abrir menú"}
+              className="md:hidden p-2 rounded-md hover:bg-white/10 transition-colors"
             >
               <svg
                 className="w-6 h-6"
@@ -308,14 +355,14 @@ export default function Navbar() {
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    strokeWidth={2}
+                    strokeWidth="2"
                     d="M6 18L18 6M6 6l12 12"
                   />
                 ) : (
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    strokeWidth={2}
+                    strokeWidth="2"
                     d="M4 6h16M4 12h16M4 18h16"
                   />
                 )}
@@ -323,38 +370,6 @@ export default function Navbar() {
             </button>
           </div>
         </div>
-
-        {/* Mobile menu */}
-        <nav
-          id="mobile-menu"
-          className={`md:hidden transition-all duration-200 ease-in-out overflow-hidden ${
-            isOpen ? "max-h-96 pb-4" : "max-h-0"
-          }`}
-          aria-label="Navegación móvil"
-          role="navigation"
-        >
-          <ul className="flex flex-col gap-1 text-sm">
-            <li>
-              <Link
-                to={role === "secretaria" ? "/secretaria" : "/alumno"}
-                className="block px-4 py-3 rounded-md hover:bg-white/10 transition-colors"
-                onClick={closeMenu}
-              >
-                Inicio
-              </Link>
-            </li>
-
-            <li className="border-t border-white/20 mt-2 pt-2">
-              <Link
-                to="/login"
-                className="block px-4 py-3 rounded-md hover:bg-white/10 transition-colors font-medium"
-                onClick={closeMenu}
-              >
-                Iniciar sesión
-              </Link>
-            </li>
-          </ul>
-        </nav>
       </div>
     </header>
   );

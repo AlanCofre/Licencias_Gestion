@@ -1,5 +1,6 @@
 // backend/controllers/licencias.controller.js  (ESM unificado)
 import crypto from 'crypto';
+import LicenciaMedica from '../src/models/modelo_LicenciaMedica.js';
 import db from '../config/db.js'; // ← ajusta la ruta si corresponde
 import { decidirLicenciaSvc } from '../services/servicio_Licencias.js';
 import fs from 'fs';
@@ -112,6 +113,11 @@ export const crearLicencia = async (req, res) => {
   try {
     const usuarioId = req.user?.id_usuario ?? req.id ?? null;
     const rol = (req.user?.rol ?? req.rol ?? '').toString().toLowerCase();
+    const [userRow] = await db.execute(
+      'SELECT nombre FROM Usuario WHERE id_usuario = ?',
+      [usuarioId]
+    );
+    const nombreEstudiante = userRow[0]?.nombre || usuarioId;
 
     if (!usuarioId) {
       return res.status(401).json({ msg: 'No autenticado' });
@@ -207,7 +213,7 @@ export const crearLicencia = async (req, res) => {
     `;
     const [result] = await db.execute(sqlInsert, [folio, fecha_inicio, fecha_fin, usuarioId]);
 
-    // --------- Notificación (best-effort) ----------
+    // --------- Notificación (best-effort) (la use como referencia para la secretaria) ----------
     try {
       const asunto = 'creacion de licencia';
       const contenido = `Se ha creado la licencia ${folio} con fecha de inicio ${fecha_inicio} y fin ${fecha_fin}.`;
@@ -220,7 +226,27 @@ export const crearLicencia = async (req, res) => {
     } catch (notifError) {
       console.warn('⚠️ No se pudo registrar la notificación:', notifError.message);
     }
+    // --------- Notificación a todos los funcionarios/secretarios ----------
 
+    try { 
+      const [funcionarios] = await db.execute(
+        `SELECT id_usuario FROM Usuario WHERE id_rol IN (3)` // 1: funcionario, 3: secretaria (ajusta según tus roles)
+      );
+      for (const funcionario of funcionarios) {
+        await db.execute(
+          `INSERT INTO notificacion (asunto, contenido, leido, fecha_envio, id_usuario)
+          VALUES (?, ?, 0, NOW(), ?)`,
+          [
+            'Nueva solicitud de licencia',
+            `el estudiante ${nombreEstudiante} envio una licencia ${folio} con fecha de inicio ${fecha_inicio} y fin ${fecha_fin}.`,
+            funcionario.id_usuario
+          ]
+        );
+      }
+      console.log(`🔔 [NOTIFICACIÓN] Notificado a ${funcionarios.length} funcionarios/secretarias`);
+    } catch (notifError) {
+      console.warn('⚠️ No se pudo registrar la notificación para funcionarios:', notifError.message);
+    }
 
 
     // --------- Registrar archivo (opcional) ----------
@@ -673,6 +699,32 @@ export const descargarArchivoLicencia = async (req, res) => {
     return res.status(500).json({ ok: false, error: 'Error interno' });
   }
 };
+
+export async function cambiarEstado(req, res, next) {
+  try {
+    const { id } = req.params;
+    const { nuevo_estado, motivo_rechazo } = req.body;
+
+    if (!['aceptado','rechazado','pendiente'].includes(nuevo_estado)) {
+      return res.status(400).json({ error: 'ESTADO_INVALIDO' });
+    }
+    if (req.user?.rol !== 'funcionario') {
+      return res.status(403).json({ error: 'NO_AUTORIZADO' });
+    }
+
+    const lic = await LicenciaMedica.findByPk(id);
+    if (!lic) return res.status(404).json({ error: 'LICENCIA_NO_ENCONTRADA' });
+
+    // set de cambios
+    lic.estado = nuevo_estado;
+    if (nuevo_estado === 'rechazado') {
+      lic.motivo_rechazo = motivo_rechazo ?? lic.motivo_rechazo;
+    }
+
+    await lic.save({ userId: req.user.id }); // userId usable en afterUpdate opcional
+    return res.json({ ok: true, data: { id: lic.id_licencia, estado: lic.estado } });
+  } catch (err) { next(err); }
+}
 
 
 export default {

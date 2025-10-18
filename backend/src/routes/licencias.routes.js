@@ -14,6 +14,7 @@ import {
 } from '../../controllers/licencias.controller.js';
 
 import { validarJWT, esEstudiante, tieneRol } from '../../middlewares/auth.js';
+import { cambiarEstado } from '../../controllers/licencias.controller.js';
 import { authRequired } from '../../middlewares/requireAuth.js';
 import { requireRole } from '../../middlewares/requireRole.js';
 import { validateDecision } from '../../middlewares/validateDecision.js';
@@ -69,6 +70,15 @@ router.get('/revisar', [validarJWT, tieneRol('profesor', 'funcionario')], (req, 
  * - validarTransicionEstado: aplica la regla de transición usando el estado actual
  *   pendiente → (aceptado|rechazado) ✅; otras ❌
  */
+import Usuario from '../models/modelo_Usuario.js';
+
+router.put(
+  '/:id/estado',
+  authRequired,
+  requireRole(['funcionario']),
+  cambiarEstado
+);
+
 router.post(
   '/:id/decidir',
   authRequired,                    // verifica JWT -> req.user
@@ -87,9 +97,34 @@ router.post(
 
 
 
+router.put('/:id/notificar',
+  authRequired,
+  requireRole(['funcionario']),
+  validateDecision,
+  async (req, res) => {
+    try {
+      const idLicencia = Number(req.params.id);
+      const { estado, motivo_rechazo, observacion, fecha_inicio, fecha_fin } = req.body;
+      const actorId = req.user?.id_usuario ?? null;
 
+      const resultado = await decidirLicenciaSvc({
+        idLicencia,
+        estado,
+        motivo_rechazo,
+        observacion,
+        _fi: fecha_inicio,
+        _ff: fecha_fin,
+        idFuncionario: actorId,
+        ip: req.ip 
+      });
 
-
+      return res.status(200).json({ ok: true, ...resultado });
+    } catch (error) {
+      console.error('❌ Error en /notificar:', error);
+      return res.status(error.http ?? 500).json({ ok: false, error: error.message });
+    }
+  }
+);
 
 router.get('/resueltas', validarJWT, async (req, res) => {
   const { estado, desde, hasta } = req.query;

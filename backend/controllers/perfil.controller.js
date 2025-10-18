@@ -1,49 +1,71 @@
 import Usuario from '../src/models/modelo_Usuario.js';
 import Perfil from '../src/models/modelo_Perfil.js';
 import { validarPerfilPayload } from '../src/utils/validaciones_perfil.js';
+import db from "../config/db.js";
 
-export const obtenerMiPerfil = async (req, res) => {
+// GET /api/perfil/me
+export async function obtenerMiPerfil(req, res) {
   try {
-    const { id_usuario } = req.user;
-    const usuario = await Usuario.findByPk(id_usuario, {
-      attributes: ['id_usuario','nombre','correo_usuario','activo'],
-      include: [{ model: Perfil, as: 'perfil' }]
-    });
-    if (!usuario) return res.status(404).json({ ok:false, error:'Usuario no encontrado' });
-    res.json({ ok:true, data: usuario });
-  } catch (e) {
-    res.status(500).json({ ok:false, error: e.message });
-  }
-};
+    const id = req.user.id_usuario; // viene de requireAuth
+    const [rows] = await db.execute(
+      `SELECT 
+         id_usuario,
+         nombre,
+         correo_usuario AS correoInstitucional,
+         activo,
+         id_rol
+       FROM usuario
+       WHERE id_usuario = ?`,
+      [id]
+    );
 
-export const guardarMiPerfil = async (req, res) => {
+    if (rows.length === 0) {
+      return res.status(404).json({ ok: false, error: "Usuario no encontrado" });
+    }
+
+    res.json({ ok: true, data: rows[0] });
+  } catch (e) {
+    console.error("[obtenerMiPerfil]", e);
+    res.status(500).json({ ok: false, error: "Error al obtener perfil" });
+  }
+}
+
+// PUT /api/perfil/me
+export async function guardarMiPerfil(req, res) {
   try {
-    const { id_usuario } = req.user;
-    const { valido, errores, data } = validarPerfilPayload(req.body);
-    if (!valido) return res.status(422).json({ ok:false, error:'Payload inválido', detalles: errores });
-
-    const [perfil, created] = await Perfil.findOrCreate({
-      where: { id_usuario },
-      defaults: { id_usuario, ...data }
-    });
-    if (!created) await perfil.update(data);
-
-    res.json({ ok:true, created, data: perfil });
+    // No hay campos editables por ahora
+    res.json({ ok: true, updated: false, msg: "Sin campos editables en esta versión." });
   } catch (e) {
-    res.status(500).json({ ok:false, error: e.message });
+    console.error("[guardarMiPerfil]", e);
+    res.status(500).json({ ok: false, error: "Error guardando perfil" });
   }
-};
+}
 
-export const obtenerPerfilPorUsuario = async (req, res) => {
+// GET /api/perfil/usuario/:id_usuario  (útil para vista de otro usuario)
+export async function obtenerPerfilPorUsuario(req, res) {
   try {
     const { id_usuario } = req.params;
-    const usuario = await Usuario.findByPk(id_usuario, {
-      attributes: ['id_usuario','nombre','correo_usuario','activo'],
-      include: [{ model: Perfil, as: 'perfil' }]
-    });
-    if (!usuario) return res.status(404).json({ ok:false, error:'Usuario no encontrado' });
-    res.json({ ok:true, data: usuario });
+    const [rows] = await db.execute(
+      `SELECT 
+         id_usuario,
+         nombre,
+         email        AS correoInstitucional,
+         email_alt    AS correoAlternativo,
+         numero_telef AS telefono,
+         direccion,
+         rol
+       FROM usuario
+       WHERE id_usuario = ?`,
+      [id_usuario]
+    );
+    if (rows.length === 0) {
+      return res.status(404).json({ ok: false, error: "Usuario no encontrado" });
+    }
+    res.json({ ok: true, data: rows[0] });
   } catch (e) {
-    res.status(500).json({ ok:false, error: e.message });
+    console.error("[obtenerPerfilPorUsuario]", e);
+    res.status(500).json({ ok: false, error: "Error al obtener perfil" });
   }
-};
+}
+
+export default { obtenerMiPerfil, guardarMiPerfil, obtenerPerfilPorUsuario };

@@ -17,16 +17,26 @@ function isPositiveInt(n) {
  * POST /archivos/subir-archivo
  * Body JSON:
  * {
- *   ruta_url: string,
+ *   ruta_url: string (<=4096),
  *   tipo_mime: "application/pdf",
  *   hash: "<sha256 hex 64>",
- *   tamano: int (bytes),
- *   id_licencia: int
+ *   tamano: int (bytes, <= 10MB),
+ *   id_licencia: int (debe existir en licenciamedica),
+ *   nombre_archivo?: string
  * }
+ *
+ * Regla: una licencia (y por ende su folio) solo puede tener UN archivo.
  */
 router.post('/subir-archivo', async (req, res) => {
   try {
-    const { ruta_url, tipo_mime, hash, tamano, id_licencia } = req.body || {};
+    const {
+      ruta_url,
+      tipo_mime,
+      hash,
+      tamano,
+      id_licencia,
+      nombre_archivo // opcional; se puede persistir si existe la columna
+    } = req.body || {};
 
     // --- Validaciones básicas ---
     if (!ruta_url || typeof ruta_url !== 'string' || ruta_url.trim().length === 0 || ruta_url.length > 4096) {
@@ -50,29 +60,44 @@ router.post('/subir-archivo', async (req, res) => {
       return res.status(400).json({ ok: false, error: 'id_licencia inválido' });
     }
 
-    // --- Verificar que la licencia médica exista ---
-    const [lic] = await pool.execute(
-      'SELECT id_licencia FROM licenciamedica WHERE id_licencia = ?',
+    // --- Verificar que la licencia médica exista y obtener su folio (para mensaje) ---
+    const [licRows] = await pool.execute(
+      'SELECT id_licencia, folio FROM licenciamedica WHERE id_licencia = ?',
       [Number(id_licencia)]
     );
-    if (!lic.length) {
+    if (!licRows.length) {
       return res.status(404).json({ ok: false, error: 'Licencia médica no encontrada' });
     }
+    const folioLic = licRows[0].folio;
 
-    // --- Verificar si ya existe un archivo con el mismo hash ---
-    const [dup] = await pool.execute(
-      'SELECT id_archivo, id_licencia FROM archivolicencia WHERE hash = ?',
+    // --- Regla de negocio: una licencia (folio) solo puede tener UN archivo ---
+    const [dupLic] = await pool.execute(
+      'SELECT id_archivo FROM archivolicencia WHERE id_licencia = ? LIMIT 1',
+      [Number(id_licencia)]
+    );
+    if (dupLic.length > 0) {
+      return res.status(409).json({
+        ok: false,
+        mensaje: `Esta licencia (folio ${folioLic}) ya tiene un archivo registrado. No se permiten duplicados.`,
+        campo: 'id_licencia'
+      });
+    }
+
+    // --- Verificar si ya existe un archivo con el mismo hash (contenido duplicado global) ---
+    const [dupHash] = await pool.execute(
+      'SELECT id_archivo, id_licencia FROM archivolicencia WHERE hash = ? LIMIT 1',
       [hash.toLowerCase()]
     );
-    if (dup.length > 0) {
+    if (dupHash.length > 0) {
       return res.status(400).json({
         ok: false,
         error: 'Ya existe un archivo con el mismo contenido (hash duplicado)',
-        duplicado: dup[0]
+        duplicado: dupHash[0]
       });
     }
 
     // --- Insertar el nuevo archivo ---
+    // (Mantengo las columnas originales para evitar errores si la tabla no tiene nombre_archivo)
     const sql = `
       INSERT INTO archivolicencia
         (ruta_url, tipo_mime, hash, tamano, fecha_subida, id_licencia)
@@ -92,6 +117,15 @@ router.post('/subir-archivo', async (req, res) => {
       data: { id_archivo: r.insertId }
     });
   } catch (error) {
+    // Si agregas un índice único a nivel BD (UNIQUE(id_licencia)), caerá aquí si se intenta duplicar
+    if (String(error?.code) === 'ER_DUP_ENTRY') {
+      return res.status(409).json({
+        ok: false,
+        mensaje: 'Esta licencia ya tiene un archivo registrado. No se permiten duplicados.',
+        campo: 'id_licencia'
+      });
+    }
+
     console.error('❌ Error al insertar archivo:', error);
     return res.status(500).json({ ok: false, error: 'Error interno del servidor' });
   }

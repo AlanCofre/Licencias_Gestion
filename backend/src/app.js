@@ -2,7 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import detailsRouter from './detail/details.js';
 import insertRouter from './insert/insert.js';
-import notificationRouter from './notification/notificacion.js';
+import notificacionesRouter from './routes/notificaciones.route.js';
 import licenciasRouter from './routes/licencias.routes.js';
 import healthRouter from './routes/health.route.js';
 import usuarioRoutes from './routes/usuario.route.js';
@@ -36,7 +36,7 @@ app.use('/api/licencias', licenciasRouter);
 // Resto de rutas existentes
 app.use('/licencias', detailsRouter);        // legacy / vistas
 app.use('/archivos', insertRouter);
-app.use('/notificaciones', notificationRouter);
+app.use('/api/notificaciones', notificacionesRouter);
 app.use('/usuarios', usuarioRoutes);
 app.use('/api', perfilRouter);
 
