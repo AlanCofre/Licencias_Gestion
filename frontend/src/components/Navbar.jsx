@@ -19,6 +19,16 @@ export default function Navbar() {
       : user.name || user.role || t("user.defaultName")
     : t("user.guest");
 
+  // nuevo: iniciales para placeholder si no hay imagen
+  const initials = user?.name
+    ? user.name
+        .split(" ")
+        .map((n) => n[0] ?? "")
+        .slice(0, 2)
+        .join("")
+        .toUpperCase()
+    : "";
+
   // Notificaciones combinadas
   const [allNotifications, setAllNotifications] = useState([
     {
@@ -262,9 +272,20 @@ export default function Navbar() {
               <div className="text-xs opacity-90">{t("user.label")}</div>
               <Link
                 to="/edit-profile"
-                className="font-semibold text-sm hover:underline hover:text-gray-200 transition-colors"
+                className="inline-flex items-center gap-3 max-w-[220px] font-semibold text-sm hover:underline hover:text-gray-200 transition-colors"
               >
-                {displayName}
+                {user?.avatar || user?.photoURL ? (
+                  <img
+                    src={user.avatar || user.photoURL}
+                    alt={displayName}
+                    className="w-9 h-9 rounded-full object-cover border-2 border-white/30"
+                  />
+                ) : (
+                  <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center text-sm font-semibold text-white">
+                    {initials || "U"}
+                  </div>
+                )}
+                <span className="truncate">{displayName}</span>
               </Link>
             </div>
 
