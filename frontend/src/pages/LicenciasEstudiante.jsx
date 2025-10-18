@@ -246,7 +246,7 @@ export default function LicenciasEstudiante() {
                         </td>
                         <td className="px-6 py-5 whitespace-nowrap text-center">
                           <Link
-                            to={`/licencia/${licencia.id}`}
+                            to={`/detalle-licencia/${licencia.id}`}
                             className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-medium rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
                           >
                             <Eye className="h-4 w-4 mr-2" />
