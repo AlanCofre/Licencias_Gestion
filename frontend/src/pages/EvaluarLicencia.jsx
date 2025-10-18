@@ -162,7 +162,7 @@ export default function EvaluarLicencia() {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-4">
               <div>
                 <h1 className="text-2xl font-bold">Evaluación de Licencia</h1>
-                <p className="text-gray-500">ID: {lic.id_licencia}</p>
+                <p className="text-gray-500">ID de licencia: {lic.id_licencia}</p>
               </div>
               <button 
                 onClick={() => navigate("/licencias-por-revisar")}
