@@ -2,9 +2,11 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { useTranslation } from "react-i18next";
 
 export default function Navbar() {
   const { user } = useAuth?.() ?? {};
+  const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState(null);
   const [expanded, setExpanded] = useState({});
@@ -13,48 +15,48 @@ export default function Navbar() {
   const isSecretary = role === "secretaria" || role === "secretary";
   const displayName = user
     ? isSecretary
-      ? "Sec. Juana Perez"
-      : user.name || user.role
-    : "Invitado";
+      ? `${t("prefix.secretary")} ${user.name || t("user.defaultName")}`
+      : user.name || user.role || t("user.defaultName")
+    : t("user.guest");
 
   // Notificaciones combinadas
   const [allNotifications, setAllNotifications] = useState([
     {
       id: 1,
-      text: "Nueva licencia subida por Juan Pérez",
-      description: "Licencia médica nueva. Revisar documentos y confirmar recepción.",
+      text: t("notifications.newLicense", { name: "Juan Pérez" }),
+      description: t("notifications.newLicenseDesc"),
       type: "pendiente",
       read: false,
       date: new Date("2025-09-26T09:10:00"),
     },
     {
       id: 2,
-      text: "Licencia de María González pendiente",
-      description: "Licencia médica requiere revisión.",
+      text: t("notifications.licensePending", { name: "María González" }),
+      description: t("notifications.licensePendingDesc"),
       type: "pendiente",
       read: false,
       date: new Date("2025-09-27T11:45:00"),
     },
     {
       id: 3,
-      text: "Licencia de alergias en revisión",
-      description: "Tu solicitud de licencia está en proceso de evaluación.",
+      text: t("notifications.allergyLicense"),
+      description: t("notifications.allergyLicenseDesc"),
       type: "revision",
       read: false,
       date: new Date("2025-09-24T10:15:00"),
     },
     {
       id: 4,
-      text: "Licencia Covid aceptada",
-      description: "Licencia revisada y aceptada. Tu ausencia queda registrada.",
+      text: t("notifications.covidAccepted"),
+      description: t("notifications.covidAcceptedDesc"),
       type: "verificada",
       read: false,
       date: new Date("2025-09-23T18:45:00"),
     },
     {
       id: 5,
-      text: "Mantenimiento del sistema programado",
-      description: "Habrá mantenimiento en el servidor mañana a las 22:00 hrs. El sistema no estará disponible durante una hora.",
+      text: t("notifications.systemMaintenance"),
+      description: t("notifications.systemMaintenanceDesc"),
       type: "soporte",
       read: false,
       date: new Date("2025-09-28T12:00:00"),
@@ -114,7 +116,11 @@ export default function Navbar() {
 
   const CheckIcon = ({ className = "w-4 h-4" }) => (
     <svg className={className} viewBox="0 0 20 20" fill="currentColor">
-      <path fillRule="evenodd" d="M16.7 5.3a1 1 0 010 1.4l-7.1 7.1a1 1 0 01-1.4 0L3.3 8.9a1 1 0 011.4-1.4l3.1 3.1 6.4-6.4a1 1 0 011.5 0z" clipRule="evenodd" />
+      <path
+        fillRule="evenodd"
+        d="M16.7 5.3a1 1 0 010 1.4l-7.1 7.1a1 1 0 01-1.4 0L3.3 8.9a1 1 0 011.4-1.4l3.1 3.1 6.4-6.4a1 1 0 011.5 0z"
+        clipRule="evenodd"
+      />
     </svg>
   );
 
@@ -164,7 +170,7 @@ export default function Navbar() {
             <div className="absolute -top-2 right-6 w-4 h-4 bg-white rotate-45 shadow-md rounded-sm" />
             {filteredNotifications.length === 0 ? (
               <div className="p-4 text-sm text-gray-500 text-center">
-                No hay notificaciones disponibles.
+                {t("notifications.empty")}
               </div>
             ) : (
               <ul className="relative z-10">
@@ -186,7 +192,7 @@ export default function Navbar() {
                               {n.date.toLocaleString("es-CL")}
                             </div>
                             <div className="text-xs text-gray-500 italic">
-                              {n.type.charAt(0).toUpperCase() + n.type.slice(1)}
+                              {t(`notifications.type.${n.type}`)}
                             </div>
                           </div>
                         </div>
@@ -195,7 +201,7 @@ export default function Navbar() {
                             onClick={() => markAsRead(n.id)}
                             className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 border border-blue-600 hover:border-blue-800 px-2 py-1 rounded transition"
                           >
-                            <CheckIcon /> Leer
+                            <CheckIcon /> {t("notifications.read")}
                           </button>
                         )}
                       </div>
@@ -211,7 +217,7 @@ export default function Navbar() {
                           onClick={() => toggleDescription(n.id)}
                           className="text-xs text-gray-500 hover:text-gray-700 mt-1"
                         >
-                          Ver más
+                          {t("notifications.viewMore")}
                         </button>
                       )}
                     </li>
@@ -228,7 +234,6 @@ export default function Navbar() {
     <header className="bg-[#048FD4] text-white shadow-md relative" role="banner">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-20">
-          {/* Logo */}
           <div className="flex items-center">
             <Link to="/" onClick={closeMenu} className="flex items-center p-1">
               <span className="text-2xl font-bold tracking-wide font-display">
@@ -237,7 +242,6 @@ export default function Navbar() {
             </Link>
           </div>
 
-          {/* Nav */}
           <nav className="hidden md:flex flex-1 justify-center">
             <ul className="flex gap-8 text-sm font-medium items-center">
               <li>
@@ -245,18 +249,17 @@ export default function Navbar() {
                   to={isSecretary ? "/secretaria" : "/alumno"}
                   className="px-3 py-2 hover:bg-white/10 rounded transition-colors"
                 >
-                  Inicio
+                  {t("nav.home")}
                 </Link>
               </li>
             </ul>
           </nav>
 
-          {/* Área derecha */}
           <div className="flex items-center gap-4">
             <UnifiedBell />
 
             <div className="text-right hidden sm:block">
-              <div className="text-xs opacity-90">Usuario</div>
+              <div className="text-xs opacity-90">{t("user.label")}</div>
               <Link
                 to="/edit-profile"
                 className="font-semibold text-sm hover:underline hover:text-gray-200 transition-colors"
@@ -272,7 +275,6 @@ export default function Navbar() {
               <LogoutSvg />
             </Link>
 
-            {/* Menú móvil */}
             <button
               onClick={toggleMenu}
               className="md:hidden p-2 rounded-md hover:bg-white/10 transition-colors"

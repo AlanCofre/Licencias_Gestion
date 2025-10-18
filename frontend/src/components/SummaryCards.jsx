@@ -1,5 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 
 function Card({title, value, meta, to, colorClass}) {
   return (
@@ -80,5 +81,21 @@ export default function SummaryCards({ totals = {}, lastLicense = null }) {
         </div>
       </div>
     </section>
+  );
+}
+
+export function StatsCards({ total, todayCount, shown }) {
+  const { t } = useTranslation();
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl mx-auto">
+      <div className="bg-yellow-50 p-4 rounded-xl text-center">
+        <div>{t("stats.pending", { count: total })}</div>
+        {total !== shown && <div className="text-sm text-gray-500 mt-2">{t("stats.showingFiltered", { count: shown })}</div>}
+      </div>
+      <div className="bg-blue-50 p-4 rounded-xl text-center">
+        <div>{t("stats.pendingToday", { count: todayCount })}</div>
+      </div>
+    </div>
   );
 }
