@@ -297,5 +297,50 @@
       document.getElementById(`resultado_simulacion_${panel}`).textContent = JSON.stringify(json, null, 2);
     }
   </script>
+
+  <hr>
+  <h2>Subir archivo directamente a Supabase</h2>
+
+  <input type="file" id="archivoSupabase"><br><br>
+  <button onclick="subirArchivoSupabase()">Subir archivo</button>
+
+  <pre id="resultadoSupabase"></pre>
+
+  <script>
+    async function subirArchivoSupabase() {
+      const archivo = document.getElementById('archivoSupabase').files[0];
+      const resultado = document.getElementById('resultadoSupabase');
+      const token = localStorage.getItem('jwt');
+
+      if (!archivo) {
+        resultado.textContent = '⚠️ Selecciona un archivo primero.';
+        return;
+      }
+
+      if (!token) {
+        resultado.textContent = '⚠️ Inicia sesión para obtener el token JWT.';
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('archivo', archivo);
+
+      try {
+        const res = await fetch('http://localhost:3000/api/archivos/subir', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`
+          },
+          body: formData
+        });
+
+        const json = await res.json();
+        resultado.textContent = JSON.stringify(json, null, 2);
+      } catch (err) {
+        resultado.textContent = '❌ Error al subir archivo: ' + err.message;
+      }
+    }
+  </script>
+
 </body>
 </html>
