@@ -69,15 +69,6 @@ app.listen(PORT, async () => {
     console.error('❌ Error conectando a MySQL al iniciar:', err.message);
   }
 
-  // Precarga de licencias (usa el nombre real de la tabla: LicenciaMedica)
-  try {
-    const [licencias] = await db.execute(
-      'SELECT * FROM LicenciaMedica ORDER BY fecha_emision DESC LIMIT 5'
-    );
-    console.log('📦 Licencias precargadas al iniciar:', licencias);
-  } catch (err) {
-    console.error('❌ Error al precargar licencias:', err.message);
-  }
 });
 
 export default app;

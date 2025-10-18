@@ -50,47 +50,43 @@ function _puedeVerArchivo(user, idPropietario) {
 // ===============================================
 // GET: listar licencias del usuario autenticado
 // ===============================================
-export const listarLicencias = async (req, res) => {
+// backend/controllers/licencias.controller.js
+export async function listarLicencias(req, res) {
   try {
-    const usuarioId = req.user?.id_usuario ?? req.id ?? null;
-    if (!usuarioId) return res.status(401).json({ ok: false, error: 'No autenticado' });
+    // intentar distintas propiedades que el middleware pueda haber colocado
+    const idUsuario = req.user?.id_usuario ?? req.user?.id ?? req.user?.sub ?? null;
+    if (!idUsuario) {
+      return res.status(401).json({ ok: false, mensaje: 'No autenticado' });
+    }
 
-    // Paginación opcional (por si luego la usas en la tabla)
-    const page = Math.max(1, parseInt(req.query.page || '1', 10));
-    const pageSize = Math.min(100, Math.max(1, parseInt(req.query.pageSize || '50', 10)));
-    const offset = (page - 1) * pageSize;
+    const page = Number.parseInt(req.query.page, 10) || 1;
+    const limit = Number.parseInt(req.query.limit, 10) || 10;
+    const offset = Math.max(0, (page - 1) * limit);
 
     const [rows] = await db.execute(
       `
       SELECT
-        id_licencia           AS id,
-        DATE_FORMAT(fecha_emision, '%Y-%m-%d') AS fecha_emision,
+        id_licencia AS id,
+        DATE_FORMAT(fecha_creacion, '%Y-%m-%d %H:%i:%s') AS fecha_creacionFull,
+        DATE_FORMAT(fecha_creacion, '%Y-%m-%d')           AS fecha_creacion,
+        DATE_FORMAT(fecha_inicio,   '%Y-%m-%d')           AS fecha_inicio,
+        DATE_FORMAT(fecha_fin,      '%Y-%m-%d')           AS fecha_fin,
         estado
       FROM LicenciaMedica
       WHERE id_usuario = ?
-      ORDER BY fecha_emision DESC, id_licencia DESC
+      ORDER BY fecha_creacion DESC
       LIMIT ? OFFSET ?
       `,
-      [usuarioId, pageSize, offset]
+      [idUsuario, limit, offset]
     );
 
-    // total para meta (no imprescindible si no quieres)
-    const [countRows] = await db.execute(
-      `SELECT COUNT(*) AS total FROM LicenciaMedica WHERE id_usuario = ?`,
-      [usuarioId]
-    );
-    const total = countRows?.[0]?.total ?? 0;
-
-    return res.json({
-      ok: true,
-      data: rows,               
-      meta: { total, page, pageSize }
-    });
-  } catch (error) {
-    console.error('[licencias:listarLicencias] error:', error);
-    return res.status(500).json({ ok: false, error: 'Error al listar licencias' });
+    return res.json({ ok: true, data: rows });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ ok: false, mensaje: 'Error al listar licencias' });
   }
-};
+}
+
 
 // =====================================================
 // POST: crear licencia (con validaciones reales)

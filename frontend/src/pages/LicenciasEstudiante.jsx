@@ -1,35 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import { Eye, Clock, Calendar, Search } from "lucide-react";
-
-const mockLicencias = [
-  {
-    id: "123",
-    fechaEmision: "2025-09-27",
-    fechaEnvio: "2025-09-28",
-    fechaInicioReposo: "2025-10-01",
-    fechaFinReposo: "2025-10-07",
-    estado: "En revisión"
-  },
-  {
-    id: "456",
-    fechaEmision: "2025-09-13",
-    fechaEnvio: "2025-09-14",
-    fechaInicioReposo: "2025-09-15",
-    fechaFinReposo: "2025-09-20",
-    estado: "Aceptada"
-  },
-  {
-    id: "789",
-    fechaEmision: "2025-10-01",
-    fechaEnvio: "2025-10-02",
-    fechaInicioReposo: "2025-10-03",
-    fechaFinReposo: "2025-10-05",
-    estado: "Rechazada"
-  }
-];
 
 export default function LicenciasEstudiante() {
   const [allLicencias, setAllLicencias] = useState([]);
@@ -42,42 +15,143 @@ export default function LicenciasEstudiante() {
   const [sortAsc, setSortAsc] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
 
+  // helper: normalizar objeto de licencia y formatear fechas (respeta tus cambios)
+  const normalizeLicencia = (l) => {
+    const id = l.id_licencia;
+
+    // posibles nombres que vienen desde el BE
+    const fechaCreacionRaw = l.fecha_creacion;
+    const fechaInicioRaw = l.fecha_inicio;
+    const fechaFinRaw = l.fecha_fin;
+    const estadoRaw = l.estado;
+
+    const pad = (n) => String(n).padStart(2, "0");
+
+    const fmtDate = (d) => {
+      if (d === null || d === undefined || d === "") return "";
+      const dt = new Date(d);
+      if (isNaN(dt)) {
+        const s = String(d);
+        return s.length >= 10 ? s.slice(0, 10) : s;
+      }
+      return dt.toISOString().slice(0, 10); // YYYY-MM-DD
+    };
+
+    // formato con hora local "YYYY-MM-DD HH:MM"
+    const fmtDateTime = (d) => {
+      if (d === null || d === undefined || d === "") return "";
+      const dt = new Date(d);
+      if (isNaN(dt)) return String(d);
+      return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())} ${pad(
+        dt.getHours()
+      )}:${pad(dt.getMinutes())}`;
+    };
+
+    // normalizar estados del BE a etiquetas amigables
+    const STATE_MAP = {
+      pendiente: "Pendiente",
+      aceptado: "Aceptado",
+      rechazado: "Rechazado",
+    };
+
+    const cleanKey = String(estadoRaw || "")
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "") // quitar tildes
+      .replace(/[\s_\-\.]/g, "");
+
+    const estadoNormalized = STATE_MAP[cleanKey] ?? (estadoRaw ? String(estadoRaw) : "");
+
+    return {
+      id: String(id),
+      // fecha para filtros (YYYY-MM-DD)
+      fecha_creacion: fmtDate(fechaCreacionRaw),
+      // fecha con hora para mostrar
+      fecha_creacionFull: fmtDateTime(fechaCreacionRaw),
+      fechaInicioReposo: fmtDate(fechaInicioRaw),
+      fechaFinReposo: fmtDate(fechaFinRaw),
+      estadoNormalized,
+      // mantener campo original por si hace falta
+      _raw: l,
+    };
+  };
+
   useEffect(() => {
     const cargarLicencias = async () => {
       setLoading(true);
-      await new Promise((resolve) => setTimeout(resolve, 800));
-      setAllLicencias(mockLicencias);
-      setLicencias(mockLicencias);
-      setLoading(false);
+      try {
+        const API = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
+        const token = localStorage.getItem("token");
+        const res = await fetch(`${API}/api/licencias`, {
+          headers: {
+            "Accept": "application/json",
+            ...(token ? { "Authorization": `Bearer ${token}` } : {})
+          }
+        });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          console.warn('Error al obtener licencias:', json);
+          setAllLicencias([]);
+          setLicencias([]);
+        } else {
+          const arr = Array.isArray(json.data)
+            ? json.data
+            : Array.isArray(json.licencias)
+            ? json.licencias
+            : Array.isArray(json)
+            ? json
+            : [];
+
+          // normalizar y formatear las fechas antes de guardar en estado
+          const normalized = arr.map(normalizeLicencia);
+          setAllLicencias(normalized);
+          setLicencias(normalized);
+        }
+      } catch (e) {
+        console.error('❌ cargarLicencias error:', e);
+        setAllLicencias([]);
+        setLicencias([]);
+      } finally {
+        setLoading(false);
+      }
     };
     cargarLicencias();
   }, []);
 
+  // opciones dinámicas de estados según lo que trae el BE (normalizado)
+  const estadosUnicos = useMemo(() => {
+    const s = new Set(allLicencias.map((x) => x.estadoNormalized).filter(Boolean));
+    return Array.from(s).sort();
+  }, [allLicencias]);
+
   useEffect(() => {
     let resultado = [...allLicencias];
 
-    // Filtrar por estado
+    // Filtrar por estado (usar estado normalizado)
     if (filterEstado) {
-      resultado = resultado.filter((l) => l.estado === filterEstado);
-    }
-
-    // Filtrar por fecha
-    if (filterDate) {
-      resultado = resultado.filter((l) => l.fechaEmision === filterDate);
-    }
-
-    // Filtrar por búsqueda (por ID, ya que no hay nombre)
-    if (searchTerm) {
-      const termLower = searchTerm.toLowerCase();
-      resultado = resultado.filter((l) =>
-        l.id.toLowerCase().includes(termLower)
+      resultado = resultado.filter(
+        (l) =>
+          (l.estadoNormalized || "")
+            .toLowerCase()
+            .includes(String(filterEstado).toLowerCase())
       );
     }
 
-    // Ordenar por fechaEmision
+    // Filtrar por fecha (YYYY-MM-DD)
+    if (filterDate) {
+      resultado = resultado.filter((l) => l.fecha_creacion === filterDate);
+    }
+
+    // Filtrar por búsqueda (por ID)
+    if (searchTerm) {
+      const termLower = searchTerm.toLowerCase();
+      resultado = resultado.filter((l) => (l.id || "").toLowerCase().includes(termLower));
+    }
+
+    // Ordenar por fecha_creacion (si no hay fecha, poner al final)
     resultado.sort((a, b) => {
-      const da = new Date(a.fechaEmision).getTime();
-      const db = new Date(b.fechaEmision).getTime();
+      const da = a.fecha_creacion ? new Date(a.fecha_creacion).getTime() : 0;
+      const db = b.fecha_creacion ? new Date(b.fecha_creacion).getTime() : 0;
       return sortAsc ? da - db : db - da;
     });
 
@@ -123,7 +197,7 @@ export default function LicenciasEstudiante() {
                 {/* Filtro por fecha */}
                 <div className="flex items-center gap-2">
                   <label htmlFor="filterDate" className="text-sm text-gray-600">
-                    Fecha (Emisión)
+                    Fecha (Envíado)  
                   </label>
                   <input
                     id="filterDate"
@@ -142,7 +216,7 @@ export default function LicenciasEstudiante() {
                   {sortAsc ? "Ascendente ▲" : "Descendente ▼"}
                 </button>
 
-                {/* Filtro por estado */}
+                {/* Filtro por estado (dinámico según BE) */}
                 <div className="flex items-center gap-2">
                   <label htmlFor="filterEstado" className="text-sm text-gray-600">
                     Estado
@@ -154,9 +228,11 @@ export default function LicenciasEstudiante() {
                     className="border border-gray-200 bg-white px-3 py-1 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#048FD4]"
                   >
                     <option value="">Todos</option>
-                    <option value="En revisión">En revisión</option>
-                    <option value="Aceptada">Aceptada</option>
-                    <option value="Rechazada">Rechazada</option>
+                    {estadosUnicos.map((s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
@@ -218,30 +294,32 @@ export default function LicenciasEstudiante() {
                         <td className="px-6 py-5 whitespace-nowrap">
                           <div className="text-sm space-y-1">
                             <div className="flex items-center text-gray-900">
-                              <span className="font-medium text-blue-600">Emisión:</span>
-                              <span className="ml-2">{licencia.fechaEmision}</span>
+                              <span className="font-medium text-blue-600">Enviado el:</span>
+                              <span className="ml-2">
+                                {licencia.fecha_creacionFull || licencia.fecha_creacion || "-"}
+                              </span>
                             </div>
                             <div className="flex items-center text-gray-900">
-                              <span className="font-medium text-green-600">Inicio:</span>
-                              <span className="ml-2">{licencia.fechaInicioReposo}</span>
+                              <span className="font-medium text-green-600">Inicio reposo:</span>
+                              <span className="ml-2">{licencia.fechaInicioReposo || "-"}</span>
                             </div>
                             <div className="flex items-center text-gray-900">
-                              <span className="font-medium text-red-600">Fin:</span>
-                              <span className="ml-2">{licencia.fechaFinReposo}</span>
+                              <span className="font-medium text-red-600">Fin reposo:</span>
+                              <span className="ml-2">{licencia.fechaFinReposo || "-"}</span>
                             </div>
                           </div>
                         </td>
                         <td className="px-6 py-5 whitespace-nowrap">
                           <span
                             className={`px-3 py-2 inline-flex text-sm leading-5 font-semibold rounded-full border ${
-                              licencia.estado === "Aceptada"
+                              (licencia.estadoNormalized || "").toLowerCase().includes("acept")
                                 ? "bg-green-100 text-green-800 border-green-200"
-                                : licencia.estado === "Rechazada"
+                                : (licencia.estadoNormalized || "").toLowerCase().includes("rechaz")
                                 ? "bg-red-100 text-red-800 border-red-200"
                                 : "bg-yellow-100 text-yellow-800 border-yellow-200"
                             }`}
                           >
-                            {licencia.estado}
+                            {licencia.estadoNormalized || "Sin estado"}
                           </span>
                         </td>
                         <td className="px-6 py-5 whitespace-nowrap text-center">
