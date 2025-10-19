@@ -32,7 +32,7 @@ const VerificarResultados = () => {
 
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-blue-100 flex flex-col">
+    <div className="min-h-screen flex flex-col bg-gradient-to-b from-blue-50 to-blue-100 dark:bg-app dark:bg-none">
       <Navbar />
       
       <main id="main-content" className="flex-1 container mx-auto px-4 py-8">

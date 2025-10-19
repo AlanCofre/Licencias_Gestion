@@ -119,7 +119,7 @@ function EditarPerfil() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-b from-blue-50 to-blue-100">
+    <div className="min-h-screen flex flex-col bg-gradient-to-b from-blue-50 to-blue-100 dark:bg-app dark:bg-none">
       <Navbar />
 
       <main id="contenido-principal" className="flex-1 container mx-auto px-4 py-8">

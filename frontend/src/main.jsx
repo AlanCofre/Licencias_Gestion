@@ -1,11 +1,16 @@
 import React from "react";
-import ReactDOM from "react-dom/client";
-import App from "./app";
+import { createRoot } from "react-dom/client";
+import App from "./app.jsx";
+import { AccessibilityProvider } from "./context/AccessibilityContext";
+import { AuthProvider } from "./context/AuthContext";
 import "./styles/index.css";
-import "./i18.js";
 
-ReactDOM.createRoot(document.getElementById("root")).render(
+createRoot(document.getElementById("root")).render(
   <React.StrictMode>
-    <App />
+    <AuthProvider>
+      <AccessibilityProvider>
+        <App />
+      </AccessibilityProvider>
+    </AuthProvider>
   </React.StrictMode>
 );

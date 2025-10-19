@@ -126,7 +126,7 @@ export default function GenerarRevision() {
   const hoy = new Date().toISOString().split("T")[0];
 
   return (
-    <div className="min-h-screen flex flex-col bg-blue-100">
+    <div className="min-h-screen flex flex-col bg-gradient-to-b from-blue-50 to-blue-100 dark:bg-app dark:bg-none">
       <Navbar />
 
       {/* Banner superior */}

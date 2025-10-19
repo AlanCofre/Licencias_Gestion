@@ -201,7 +201,7 @@ export default function EvaluarLicencia() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex flex-col bg-blue-50 w-full overflow-x-hidden">
+    <div className="min-h-screen flex flex-col bg-gradient-to-b from-blue-50 to-blue-100 dark:bg-app dark:bg-none">
         <Navbar />
         <main className="flex-1 flex items-center justify-center w-full">
           <div className="text-center">
@@ -215,7 +215,7 @@ export default function EvaluarLicencia() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-blue-50 w-full overflow-x-hidden">
+    <div className="min-h-screen flex flex-col bg-blue-50 w-full overflow-x-hidden dark:bg-app dark:bg-none">
       <Navbar />
       
       <main className="flex-1 w-full">
@@ -228,9 +228,9 @@ export default function EvaluarLicencia() {
                 <h1 className="text-2xl font-bold">Evaluación de Licencia</h1>
                 <p className="text-gray-500">ID de licencia: {license.id}</p>
               </div>
-              <button 
-                onClick={() => navigate("/licencias-por-revisar")}
-                className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300 transition-colors self-start sm:self-auto"
+              <button
+                onClick={goBackToBandeja}
+                className="btn-back inline-flex items-center gap-2 px-3 py-2 rounded-md text-sm border border-gray-200 bg-white hover:bg-white/90 dark:bg-transparent dark:border-app dark:text-text dark:hover:bg-surface/80"
               >
                 ← Volver a Bandeja
               </button>

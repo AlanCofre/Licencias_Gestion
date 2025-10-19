@@ -106,7 +106,7 @@ export default function LicenciasPorRevisar() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-50 to-indigo-100 w-full overflow-x-hidden">
+      <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-50 to-indigo-100 w-full overflow-x-hidden dark:bg-app dark:bg-none">
         <Navbar />
         <main className="flex-1 flex items-center justify-center">
           <div className="text-center bg-white p-8 rounded-2xl shadow-lg">
@@ -120,7 +120,7 @@ export default function LicenciasPorRevisar() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-50 to-indigo-100 w-full overflow-x-hidden">
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-50 to-indigo-100 w-full overflow-x-hidden dark:bg-app dark:bg-none">
       <Navbar />
       <main className="flex-1 w-full">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-10 max-w-7xl">

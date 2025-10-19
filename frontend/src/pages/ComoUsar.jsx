@@ -11,7 +11,7 @@ export default function ComoUsar() {
   const isSecretary = role === "secretaria" || role === "secretary";
 
   return (
-    <div className="min-h-screen flex flex-col bg-blue-100">
+    <div className="min-h-screen flex flex-col bg-gradient-to-b from-blue-50 to-blue-100 dark:bg-app dark:bg-none">
       <Navbar />
 
       {/* Banner reutilizado */}

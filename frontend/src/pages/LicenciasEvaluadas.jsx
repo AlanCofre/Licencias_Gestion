@@ -172,7 +172,7 @@ export default function LicenciasEvaluadas() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex flex-col bg-blue-50 w-full overflow-x-hidden">
+      <div className="min-h-screen flex flex-col bg-blue-50 w-full overflow-x-hidden dark:bg-app dark:bg-none">
         <Navbar />
         <main className="flex-1 flex items-center justify-center w-full">
           <div className="text-center">
@@ -186,7 +186,7 @@ export default function LicenciasEvaluadas() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-blue-50 w-full overflow-x-hidden">
+    <div className="min-h-screen flex flex-col bg-blue-50 w-full overflow-x-hidden dark:bg-app dark:bg-none">
       <Navbar />
 
       <main className="flex-1 w-full">
