@@ -1,18 +1,23 @@
 import React from "react";
 import { useAuth } from "../context/AuthContext";
+import { useTranslation } from "react-i18next";
 import anuncioImg from "../assets/banner-generar.png";
 
 const Announcement = () => {
   const { user } = useAuth();
+  const { t } = useTranslation();
+
   const role = String(user?.role || "").toLowerCase();
   const isSecretary = role === "secretaria" || role === "funcionario";
 
   // usar el nombre que venga del login; anteponer "Sec." si es secretaria
   const rawName = String(user?.name || "").trim();
-  const cleanName = rawName.replace(/^Sec\.?\s*/i, ""); // evitar doble prefijo
+  const cleanName = rawName.replace(/^Sec\.?\s*/i, "");
   const displayName = isSecretary
-    ? cleanName ? `Sec. ${cleanName}` : "Sec. Usuario"
-    : rawName || "Usuario";
+    ? cleanName
+      ? `${t("announcement.prefixSec")} ${cleanName}`
+      : `${t("announcement.prefixSec")} ${t("announcement.userFallback")}`
+    : rawName || t("announcement.userFallback");
 
   return (
     <div className="container mx-auto px-8 py-20">
@@ -22,36 +27,26 @@ const Announcement = () => {
             {isSecretary ? (
               <>
                 <h2 className="text-4xl lg:text-5xl font-sans font-bold text-gray-800 mb-6 leading-tight">
-                  Bienvenida, {displayName}
+                  {t("announcement.secretaryTitle", { name: displayName })}
                 </h2>
                 <div className="space-y-6 text-gray-600 leading-relaxed text-xl lg:text-lg font-sans">
-                  <p>
-                    Este es tu panel de trabajo. Desde aquí puedes revisar las licencias pendientes,
-                    generar revisiones cuando falte documentación y consultar el historial de acciones.
-                  </p>
+                  <p>{t("announcement.secretaryParagraph1")}</p>
                   <p className="text-base text-gray-500 max-w-xl">
-                    Accede rápidamente a "Pendientes" para atender nuevos casos o a "Historial" para
-                    revisar gestiones anteriores. Usa "Generar Revisión" para solicitar información adicional.
+                    {t("announcement.secretaryParagraph2")}
                   </p>
                 </div>
               </>
             ) : (
               <>
                 <h2 className="text-4xl lg:text-5xl font-sans font-bold text-gray-800 mb-6 leading-tight">
-                  La nueva manera de verificar
+                  {t("announcement.userTitleLine1")}
                   <br />
-                  tus licencias medicas.
+                  {t("announcement.userTitleLine2")}
                 </h2>
                 <div className="space-y-6 text-gray-600 leading-relaxed text-xl lg:text-lg font-sans">
-                  <p>
-                    Ahora puedes verificar el estado de tus licencias medicas;
-                    <br />
-                    Gracias a esto, puedes saber si tus licencias fueron validadas,
-                    <br />
-                    rechazadas o si aun están en proceso de revisión.
-                  </p>
+                  <p>{t("announcement.userParagraph1")}</p>
                   <p className="text-base text-gray-500 max-w-xl">
-                    Para más información, solo basta con darle click a este anuncio.
+                    {t("announcement.userParagraph2")}
                   </p>
                 </div>
               </>
@@ -62,7 +57,7 @@ const Announcement = () => {
             <div className="w-full h-full bg-gradient-to-r from-white/50 to-[var(--blue-50)] flex items-center">
               <img
                 src={anuncioImg}
-                alt="Verificación"
+                alt={t("announcement.altText")}
                 className="w-full h-full object-cover min-h-[320px] lg:min-h-[380px]"
               />
             </div>

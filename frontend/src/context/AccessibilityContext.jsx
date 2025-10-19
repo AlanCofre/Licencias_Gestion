@@ -1,122 +1,106 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useState, useEffect, useCallback, useContext } from "react";
 
 const AccessibilityContext = createContext(null);
 
 export function AccessibilityProvider({ children }) {
-  const [fontSize, setFontSize] = useState("normal");
-  const [largeCursor, setLargeCursor] = useState(false);
-  const [darkMode, setDarkMode] = useState(false);
+  // font size: "small" | "normal" | "large" | "extra-large"
+  const [fontSize, setFontSize] = useState(() => {
+    try {
+      return localStorage.getItem("fontSize") || "normal";
+    } catch {
+      return "normal";
+    }
+  });
 
-  useEffect(() => {
-    // Cargar configuración desde localStorage
-    const savedFontSize = localStorage.getItem("accessibility-font-size");
-    const savedLargeCursor = localStorage.getItem("accessibility-large-cursor");
-    const savedDarkMode = localStorage.getItem("accessibility-dark-mode");
-    
-    if (savedFontSize) {
-      setFontSize(savedFontSize);
+  const [largeCursor, setLargeCursor] = useState(() => {
+    try {
+      return localStorage.getItem("largeCursor") === "true";
+    } catch {
+      return false;
     }
-    if (savedLargeCursor === "true") {
-      setLargeCursor(true);
-    }
-    if (savedDarkMode === "true") {
-      setDarkMode(true);
-    }
-  }, []);
+  });
 
-  useEffect(() => {
-    // Aplicar tamaño de fuente al documento
-    const root = document.documentElement;
-    
-    // Remover clases anteriores de fuente
-    root.classList.remove("font-size-small", "font-size-normal", "font-size-large", "font-size-extra-large");
-    
-    // Agregar nueva clase de fuente
-    root.classList.add(`font-size-${fontSize}`);
-    
-    // Guardar en localStorage
-    localStorage.setItem("accessibility-font-size", fontSize);
-  }, [fontSize]);
-
-  useEffect(() => {
-    // Aplicar cursor grande al documento
-    const root = document.documentElement;
-    
-    if (largeCursor) {
-      root.classList.add("large-cursor");
-    } else {
-      root.classList.remove("large-cursor");
+  const [darkMode, setDarkMode] = useState(() => {
+    try {
+      return localStorage.getItem("darkMode") === "true";
+    } catch {
+      return false;
     }
-    
-    // Guardar en localStorage
-    localStorage.setItem("accessibility-large-cursor", largeCursor.toString());
-  }, [largeCursor]);
+  });
 
+  // Persist and apply dark mode class on <html>
   useEffect(() => {
-    // Aplicar modo oscuro al documento
-    const root = document.documentElement;
-    
-    if (darkMode) {
-      root.classList.add("dark-mode");
-    } else {
-      root.classList.remove("dark-mode");
+    try {
+      localStorage.setItem("darkMode", darkMode ? "true" : "false");
+    } catch {}
+    if (typeof document !== "undefined") {
+      document.documentElement.classList.toggle("dark", !!darkMode);
     }
-    
-    // Guardar en localStorage
-    localStorage.setItem("accessibility-dark-mode", darkMode.toString());
   }, [darkMode]);
 
-  const increaseFontSize = () => {
-    const sizes = ["small", "normal", "large", "extra-large"];
-    const currentIndex = sizes.indexOf(fontSize);
-    if (currentIndex < sizes.length - 1) {
-      setFontSize(sizes[currentIndex + 1]);
+  // Persist and apply large cursor
+  useEffect(() => {
+    try {
+      localStorage.setItem("largeCursor", largeCursor ? "true" : "false");
+    } catch {}
+    if (typeof document !== "undefined") {
+      document.documentElement.classList.toggle("large-cursor", !!largeCursor);
     }
-  };
+  }, [largeCursor]);
 
-  const decreaseFontSize = () => {
-    const sizes = ["small", "normal", "large", "extra-large"];
-    const currentIndex = sizes.indexOf(fontSize);
-    if (currentIndex > 0) {
-      setFontSize(sizes[currentIndex - 1]);
+  // Persist and apply font size as class on root (font-size-normal etc)
+  useEffect(() => {
+    try {
+      localStorage.setItem("fontSize", fontSize);
+    } catch {}
+    if (typeof document !== "undefined") {
+      document.documentElement.classList.remove(
+        "font-size-small",
+        "font-size-normal",
+        "font-size-large",
+        "font-size-extra-large"
+      );
+      document.documentElement.classList.add(`font-size-${fontSize}`);
     }
-  };
+  }, [fontSize]);
 
-  const resetFontSize = () => {
-    setFontSize("normal");
-  };
+  const increaseFontSize = useCallback(() => {
+    setFontSize((prev) => {
+      const order = ["small", "normal", "large", "extra-large"];
+      const idx = Math.min(order.length - 1, Math.max(0, order.indexOf(prev)));
+      return order[Math.min(order.length - 1, idx + 1)];
+    });
+  }, []);
 
-  const toggleLargeCursor = () => {
-    setLargeCursor(!largeCursor);
-  };
+  const decreaseFontSize = useCallback(() => {
+    setFontSize((prev) => {
+      const order = ["small", "normal", "large", "extra-large"];
+      const idx = Math.min(order.length - 1, Math.max(0, order.indexOf(prev)));
+      return order[Math.max(0, idx - 1)];
+    });
+  }, []);
 
-  const toggleDarkMode = () => {
-    setDarkMode(!darkMode);
-  };
+  const resetFontSize = useCallback(() => setFontSize("normal"), []);
 
-  const value = {
-    fontSize,
-    setFontSize,
-    increaseFontSize,
-    decreaseFontSize,
-    resetFontSize,
-    largeCursor,
-    toggleLargeCursor,
-    darkMode,
-    toggleDarkMode,
-  };
+  const toggleLargeCursor = useCallback(() => setLargeCursor((v) => !v), []);
+  const toggleDarkMode = useCallback(() => setDarkMode((v) => !v), []);
 
   return (
-    <AccessibilityContext.Provider value={value}>
+    <AccessibilityContext.Provider
+      value={{
+        fontSize,
+        increaseFontSize,
+        decreaseFontSize,
+        resetFontSize,
+        largeCursor,
+        toggleLargeCursor,
+        darkMode,
+        toggleDarkMode,
+      }}
+    >
       {children}
     </AccessibilityContext.Provider>
   );
 }
 
-export const useAccessibility = () => {
-  const context = useContext(AccessibilityContext);
-  if (!context) {
-    throw new Error("useAccessibility debe usarse dentro de AccessibilityProvider");
-  }
-  return context;
-};
+export const useAccessibility = () => useContext(AccessibilityContext);

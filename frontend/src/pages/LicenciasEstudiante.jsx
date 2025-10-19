@@ -156,7 +156,7 @@ export default function LicenciasEstudiante() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-50 to-indigo-100">
+      <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-50 to-indigo-100 dark:bg-app dark:bg-none">
         <Navbar />
         <main className="flex-1 flex items-center justify-center">
           <div className="text-center bg-white p-8 rounded-2xl shadow-lg">
@@ -170,7 +170,7 @@ export default function LicenciasEstudiante() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-50 to-indigo-100 w-full overflow-x-hidden">
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-50 to-indigo-100 w-full overflow-x-hidden dark:bg-app dark:bg-none">
       <Navbar />
       <main className="flex-1 w-full">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-10 max-w-5xl">
@@ -217,14 +217,14 @@ export default function LicenciasEstudiante() {
                     type="date"
                     value={filterDate}
                     onChange={(e) => setFilterDate(e.target.value)}
-                    className="border border-gray-200 bg-white px-3 py-1 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#048FD4]"
+                    className="border border-gray-200 bg-white px-3 py-1 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#048FD4] dark:bg-transparent dark:border-app dark:text-text"
                   />
                 </div>
 
                 {/* Orden asc/desc */}
                 <button
                   onClick={() => setSortAsc((prev) => !prev)}
-                  className="inline-flex items-center gap-2 px-3 py-2 bg-white/90 hover:bg-white rounded-md border border-gray-200 text-sm font-medium shadow-sm"
+                  className="inline-flex items-center gap-2 px-3 py-2 bg-white/90 hover:bg-white rounded-md border border-gray-200 text-sm font-medium shadow-sm dark:bg-surface dark:border-app dark:text-text dark:hover:bg-surface/80"
                 >
                   {sortAsc ? "Ascendente ▲" : "Descendente ▼"}
                 </button>
@@ -238,7 +238,7 @@ export default function LicenciasEstudiante() {
                     id="filterEstado"
                     value={filterEstado}
                     onChange={(e) => setFilterEstado(e.target.value)}
-                    className="border border-gray-200 bg-white px-3 py-1 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#048FD4]"
+                    className="border border-gray-200 bg-white px-3 py-1 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#048FD4] dark:bg-transparent dark:border-app dark:text-text"
                   >
                     <option value="">Todos</option>
                     {estadosUnicos.map((s) => (
@@ -257,7 +257,7 @@ export default function LicenciasEstudiante() {
                     setSortAsc(false);
                     setSearchTerm("");
                   }}
-                  className="inline-flex items-center gap-2 px-3 py-2 bg-white/90 hover:bg-white rounded-md border border-gray-200 text-sm text-gray-600"
+                  className="inline-flex items-center gap-2 px-3 py-2 bg-white/90 hover:bg-white rounded-md border border-gray-200 text-sm dark:bg-surface dark:border-app dark:text-muted"
                 >
                   Limpiar filtros
                 </button>
@@ -348,7 +348,7 @@ export default function LicenciasEstudiante() {
 
                         <td className="px-6 py-5 whitespace-nowrap text-center">
                           <Link
-                            to={`/licencia/${licencia.id}`}
+                            to={`/detalle-licencia/${licencia.id}`}
                             className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-medium rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
                           >
                             <Eye className="h-4 w-4 mr-2" />

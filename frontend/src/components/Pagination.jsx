@@ -1,19 +1,15 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 
-export default function Pagination({ page, totalPages, onChange }) {
-  if (!totalPages || totalPages <= 1) return null;
-  const prev = () => onChange(Math.max(1, page - 1));
-  const next = () => onChange(Math.min(totalPages, page + 1));
+export default function Pagination({ onPrev, onNext }) {
+  const { t } = useTranslation();
   return (
-    <div className="flex items-center gap-3 justify-center mt-6">
-      <button onClick={prev} disabled={page === 1} className="px-3 py-1 bg-white rounded shadow disabled:opacity-50">
-        Anterior
+    <div className="flex gap-2 justify-center">
+      <button onClick={onPrev} className="px-3 py-1 bg-white border rounded">
+        {t("pagination.prev")}
       </button>
-      <div className="text-sm text-gray-600">
-        Página {page} de {totalPages}
-      </div>
-      <button onClick={next} disabled={page === totalPages} className="px-3 py-1 bg-white rounded shadow disabled:opacity-50">
-        Siguiente
+      <button onClick={onNext} className="px-3 py-1 bg-white border rounded">
+        {t("pagination.next")}
       </button>
     </div>
   );

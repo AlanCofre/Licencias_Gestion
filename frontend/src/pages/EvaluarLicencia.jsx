@@ -227,7 +227,7 @@ export default function EvaluarLicencia() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex flex-col bg-blue-50 w-full overflow-x-hidden">
+    <div className="min-h-screen flex flex-col bg-gradient-to-b from-blue-50 to-blue-100 dark:bg-app dark:bg-none">
         <Navbar />
         <main className="flex-1 flex items-center justify-center w-full">
           <div className="text-center">
@@ -243,7 +243,7 @@ export default function EvaluarLicencia() {
   const lic = licencia || {};
 
   return (
-    <div className="min-h-screen flex flex-col bg-blue-50 w-full overflow-x-hidden">
+    <div className="min-h-screen flex flex-col bg-blue-50 w-full overflow-x-hidden dark:bg-app dark:bg-none">
       <Navbar />
       <main className="flex-1 w-full">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-10 max-w-none">

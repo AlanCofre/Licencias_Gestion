@@ -1,17 +1,18 @@
 import React, { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 
 export default function ConfirmModal({
   open,
   title,
-  confirmLabel = "Confirmar",
+  confirmLabel = "confirm",
   onClose,
   onConfirm,
   loading,
 }) {
+  const { t } = useTranslation();
   const [note, setNote] = useState("");
   const [error, setError] = useState("");
 
-  // Cuando se abra el modal, limpiar nota y error
   useEffect(() => {
     if (open) {
       setNote("");
@@ -22,9 +23,9 @@ export default function ConfirmModal({
   if (!open) return null;
 
   const handleConfirm = () => {
-    // Si es rechazo, validar que haya nota
-    if (confirmLabel.toLowerCase() === "rechazar" && note.trim() === "") {
-      setError("Debe ingresar una razón para rechazar.");
+    const isReject = confirmLabel.toLowerCase() === t("btn.reject").toLowerCase();
+    if (isReject && note.trim() === "") {
+      setError(t("confirmModal.errorNote"));
       return;
     }
     setError("");
@@ -32,14 +33,17 @@ export default function ConfirmModal({
     setNote("");
   };
 
+  const isReject = confirmLabel.toLowerCase() === t("btn.reject").toLowerCase();
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
       <div className="bg-white rounded-lg w-full max-w-xl p-6 shadow-lg">
         <h3 className="text-lg font-semibold mb-3">{title}</h3>
+
         <p className="text-sm text-gray-600 mb-2">
-          {confirmLabel.toLowerCase() === "rechazar"
-            ? "Escribe la razón del rechazo (obligatorio):"
-            : "Agrega una nota u observación (opcional):"}
+          {isReject
+            ? t("confirmModal.rejectMsg")
+            : t("confirmModal.noteMsg")}
         </p>
 
         <textarea
@@ -48,9 +52,9 @@ export default function ConfirmModal({
           className="w-full border rounded p-2 mb-2"
           rows={4}
           placeholder={
-            confirmLabel.toLowerCase() === "rechazar"
-              ? "Motivo del rechazo..."
-              : "Notas (opcional)..."
+            isReject
+              ? t("confirmModal.rejectPlaceholder")
+              : t("confirmModal.notePlaceholder")
           }
         />
 
@@ -61,20 +65,39 @@ export default function ConfirmModal({
             onClick={onClose}
             className="px-4 py-2 bg-gray-100 rounded hover:bg-gray-200"
           >
-            Cancelar
+            {t("btn.cancel")}
           </button>
           <button
             onClick={handleConfirm}
             disabled={loading}
             className={`px-4 py-2 text-white rounded disabled:opacity-50 ${
-              confirmLabel.toLowerCase() === "rechazar"
+              isReject
                 ? "bg-red-600 hover:bg-red-700"
                 : "bg-green-600 hover:bg-green-700"
             }`}
           >
-            {loading ? "Procesando..." : confirmLabel}
+            {loading ? t("btn.loading") : confirmLabel}
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// Versión simple con traducción unificada
+export function ConfirmModalSimple({ title, children, onConfirm, onCancel }) {
+  const { t } = useTranslation();
+  return (
+    <div className="modal">
+      <h3>{title ?? t("evaluar.title")}</h3>
+      <div>{children}</div>
+      <div className="flex gap-2">
+        <button onClick={onCancel} className="btn">
+          {t("btn.cancel")}
+        </button>
+        <button onClick={onConfirm} className="btn btn-primary">
+          {t("btn.submit")}
+        </button>
       </div>
     </div>
   );
