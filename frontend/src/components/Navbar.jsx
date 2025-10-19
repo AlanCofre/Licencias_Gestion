@@ -19,6 +19,16 @@ export default function Navbar() {
       : user.name || user.role || t("user.defaultName")
     : t("user.guest");
 
+  // nuevo: iniciales para placeholder si no hay imagen
+  const initials = user?.name
+    ? user.name
+        .split(" ")
+        .map((n) => n[0] ?? "")
+        .slice(0, 2)
+        .join("")
+        .toUpperCase()
+    : "";
+    
     // Notificaciones combinadas
   const [studentNotifications, setStudentNotifications] = useState([]);
   const [secretaryNotifications, setSecretaryNotifications] = useState([]);
