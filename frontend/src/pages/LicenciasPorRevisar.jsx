@@ -124,13 +124,6 @@ export default function LicenciasPorRevisar() {
     setLicencias(resultado);
   }, [allLicencias, filterDate, filterEstado, sortAsc, searchTerm]);
 
-  // dentro del componente, después de cargar allLicencias/licencias y los estados de filtro
-  const today = new Date().toISOString().slice(0, 10);
-  const pendientesHoyList = (allLicencias || []).filter(
-    (l) => l.fechaEnvio === today
-  );
-  const pendientesHoyCount = pendientesHoyList.length;
-
   if (loading) {
     return (
       <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-50 to-indigo-100 w-full overflow-x-hidden dark:bg-app dark:bg-none">
@@ -166,55 +159,33 @@ export default function LicenciasPorRevisar() {
               </div>
 
               {/* Estadísticas */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6 max-w-3xl mx-auto">
-                <div className="w-full bg-yellow-50 py-6 rounded-xl border border-yellow-200 text-center flex flex-col items-center justify-center">
-                  <div className="flex items-center justify-center">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+                <div className="bg-yellow-50 p-4 rounded-xl border border-yellow-200">
+                  <div className="flex items-center">
                     <Clock className="h-5 w-5 text-yellow-600 mr-2" />
                     <span className="text-yellow-800 font-semibold">
-                      {allLicencias.length} licencias en revisión
+                      {licencias.length} En Revisión
                     </span>
                   </div>
-                  {allLicencias.length !== licencias.length && (
-                    <div className="text-sm text-gray-500 mt-2">
-                      Mostrando {licencias.length} según filtros
-                    </div>
-                  )}
                 </div>
-
-                <div className="w-full bg-blue-50 p-4 rounded-xl border border-blue-200 text-center">
-                  <div className="flex items-center justify-center">
+                <div className="bg-blue-50 p-4 rounded-xl border border-blue-200">
+                  <div className="flex items-center">
                     <Calendar className="h-5 w-5 text-blue-600 mr-2" />
                     <span className="text-blue-800 font-semibold">
-                      {pendientesHoyCount} pendientes hoy
+                      Pendientes Hoy
                     </span>
                   </div>
-
-                  {pendientesHoyCount === 0 ? (
-                    <div className="text-sm text-gray-500 mt-2">
-                      Ninguna licencia enviada hoy
-                    </div>
-                  ) : (
-                    <div className="mt-3 flex flex-col items-center gap-2">
-                      <button
-                        onClick={() => {
-                          // aplica el filtro por fecha de envío igual a hoy
-                          setFilterDate(today);
-                          const tableEl = document.querySelector("table");
-                          if (tableEl) tableEl.scrollIntoView({ behavior: "smooth" });
-                        }}
-                        className="px-3 py-1 bg-white border border-blue-200 rounded text-sm text-blue-700 hover:bg-white/90"
-                      >
-                        Ver {pendientesHoyCount} de hoy
-                      </button>
-
-                      <div className="text-xs text-gray-600">
-                        (filtra la lista por fecha de envío)
-                      </div>
-                    </div>
-                  )}
+                </div>
+                <div className="bg-green-50 p-4 rounded-xl border border-green-200">
+                  <div className="flex items-center">
+                    <GraduationCap className="h-5 w-5 text-green-600 mr-2" />
+                    <span className="text-green-800 font-semibold">
+                      Múltiples Carreras
+                    </span>
+                  </div>
                 </div>
               </div>
-                {/* Controles */}
+                {/* Controles: todo en una línea */}
                 <div className="mt-6 flex items-center gap-4 flex-wrap justify-center">
                   {/* Filtro fecha */}
                   <div className="flex items-center gap-2">
@@ -282,94 +253,123 @@ export default function LicenciasPorRevisar() {
             </div>
           ) : (
             <div className="bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-100">
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-gradient-to-r from-blue-50 to-indigo-50">
-                      <tr>
-                        <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gradient-to-r from-blue-50 to-indigo-50">
+                    <tr>
+                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">
+                        <div className="flex items-center">
+                          <User className="h-4 w-4 mr-2" />
+                          Estudiante
+                        </div>
+                      </th>
+                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">
+                        <div className="flex items-center">
+                          <GraduationCap className="h-4 w-4 mr-2" />
+                          Carrera
+                        </div>
+                      </th>
+                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">
+                        <div className="flex items-center">
+                          <Calendar className="h-4 w-4 mr-2" />
+                          Fechas
+                        </div>
+                      </th>
+                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">
+                        <div className="flex items-center">
+                          <Clock className="h-4 w-4 mr-2" />
+                          Estado
+                        </div>
+                      </th>
+                      <th className="px-6 py-4 text-center text-sm font-semibold text-gray-700 uppercase tracking-wider">
+                        Acción
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-100">
+                    {licencias.map((licencia) => (
+                      <tr key={licencia.id} className="hover:bg-blue-50 transition-colors duration-200">
+                        <td className="px-6 py-5 whitespace-nowrap">
                           <div className="flex items-center">
-                            <User className="h-4 w-4 mr-2" />
-                            Estudiante
+                            <div className="bg-blue-100 rounded-full p-2 mr-3">
+                              <User className="h-4 w-4 text-blue-600" />
+                            </div>
+                            <div>
+                              <div className="text-sm font-semibold text-gray-900">
+                                {licencia.estudiante}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                ID: {licencia.id}
+                              </div>
+                            </div>
                           </div>
-                        </th>
-                        <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">
-                          <div className="flex items-center">
-                            <Calendar className="h-4 w-4 mr-2" />
-                            Fechas
+                        </td>
+                        <td className="px-6 py-5 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900 bg-gray-50 px-3 py-1 rounded-full inline-block">
+                            {licencia.carrera}
                           </div>
-                        </th>
-                        <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">
-                          <div className="flex items-center">
-                            <Clock className="h-4 w-4 mr-2" />
-                            Estado
+                        </td>
+                        <td className="px-6 py-5 whitespace-nowrap">
+                          <div className="text-sm space-y-1">
+                            <div className="flex items-center text-gray-900">
+                              <span className="font-medium text-blue-600">Emisión:</span>
+                              <span className="ml-2">{formatFecha(licencia.fechaEmision)}</span>
+                            </div>
+                            <div className="flex items-center text-gray-900">
+                              <span className="font-medium text-green-600">Inicio reposo:</span>
+                              <span className="ml-2">{formatFecha(licencia.fechaInicioReposo)}</span>
+                            </div>
+                            <div className="flex items-center text-gray-900">
+                              <span className="font-medium text-red-600">Fin reposo:</span>
+                              <span className="ml-2">{formatFecha(licencia.fechaFinReposo)}</span>
+                            </div>
+                            <div className="flex items-center text-gray-500 text-xs">
+                              <span className="font-medium">Enviado:</span>
+                              <span className="ml-2">{formatFechaHoraSoloHora(licencia.fechaEnvio)}</span>
+                            </div>
                           </div>
-                        </th>
-                        <th className="px-6 py-4 text-center text-sm font-semibold text-gray-700 uppercase tracking-wider">
-                          Acción
-                        </th>
+                        </td>
+                        <td className="px-6 py-5 whitespace-nowrap">
+                          <span className="px-3 py-2 inline-flex text-sm leading-5 font-semibold rounded-full bg-gradient-to-r from-yellow-100 to-orange-100 text-yellow-800 border border-yellow-200">
+                            <Clock className="h-4 w-4 mr-1" />
+                            {licencia.estado}
+                          </span>
+                        </td>
+                        <td className="px-6 py-5 whitespace-nowrap text-center">
+                          <Link
+                            to={`/evaluar/${licencia.id}`}
+                            className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-medium rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
+                          >
+                            <Eye className="h-4 w-4 mr-2" />
+                            Ver Detalle
+                          </Link>
+                        </td>
                       </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-100">
-                      {licencias.map((licencia) => (
-                        <tr key={licencia.id} className="hover:bg-blue-50 transition-colors duration-200">
-                          <td className="px-6 py-5 whitespace-nowrap">
-                            <div className="flex items-center">
-                              <div className="bg-blue-100 rounded-full p-2 mr-3">
-                                <User className="h-4 w-4 text-blue-600" />
-                              </div>
-                              <div>
-                                <div className="text-sm font-semibold text-gray-900">
-                                  {licencia.estudiante}
-                                </div>
-                                <div className="text-xs text-gray-500">
-                                  ID de licencia: {licencia.id}
-                                </div>
-                              </div>
-                            </div>
-                          </td>
-
-                          <td className="px-6 py-5 whitespace-nowrap">
-                            <div className="text-sm space-y-1">
-                              <div className="flex items-center text-gray-900">
-                                <span className="font-medium text-blue-600">Emisión:</span>
-                                <span className="ml-2">{licencia.fechaEmision}</span>
-                              </div>
-                              <div className="flex items-center text-gray-900">
-                                <span className="font-medium text-green-600">Inicio reposo:</span>
-                                <span className="ml-2">{licencia.fechaInicioReposo}</span>
-                              </div>
-                              <div className="flex items-center text-gray-900">
-                                <span className="font-medium text-red-600">Fin reposo:</span>
-                                <span className="ml-2">{licencia.fechaFinReposo}</span>
-                              </div>
-                              <div className="flex items-center text-gray-500 text-xs">
-                                <span className="font-medium">Enviado:</span>
-                                <span className="ml-2">{licencia.fechaEnvio}</span>
-                              </div>
-                            </div>
-                          </td>
-
-                          <td className="px-6 py-5 whitespace-nowrap">
-                            <span className="px-3 py-2 inline-flex text-sm leading-5 font-semibold rounded-full bg-gradient-to-r from-yellow-100 to-orange-100 text-yellow-800 border border-yellow-200">
-                              <Clock className="h-4 w-4 mr-1" />
-                              {licencia.estado}
-                            </span>
-                          </td>
-                          <td className="px-6 py-5 whitespace-nowrap text-center">
-                            <Link
-                              to={`/evaluar/${licencia.id}`}
-                              className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-medium rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
-                            >
-                              <Eye className="h-4 w-4 mr-2" />
-                              Ver Detalle
-                            </Link>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                    ))}
+                  </tbody>
+                </table>
               </div>
+              {/* Paginación */}
+              <div className="flex justify-center items-center gap-4 py-6">
+                <button
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                  className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300 disabled:opacity-50"
+                >
+                  Anterior
+                </button>
+                <span className="text-gray-700 font-medium">
+                  Página {page} de {totalPaginas}
+                </span>
+                <button
+                  onClick={() => setPage(p => Math.min(totalPaginas, p + 1))}
+                  disabled={page === totalPaginas}
+                  className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300 disabled:opacity-50"
+                >
+                  Siguiente
+                </button>
+              </div>
+            </div>
           )}
         </div>
       </main>
