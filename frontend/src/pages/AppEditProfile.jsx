@@ -1,3 +1,4 @@
+// frontend/src/pages/AppEditProfile.jsx
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { getMiPerfil, updateMiPerfil } from "../services/perfilService";
@@ -30,24 +31,32 @@ function EditarPerfil() {
       try {
         const json = await getMiPerfil();
         if (!json || !json.ok) throw new Error(json?.error || "Error al obtener perfil");
+
         const usuario = json.data;
         const perfil = usuario?.perfil ?? null;
+
         setDatos((prev) => ({
           ...prev,
           nombre: usuario?.nombre ?? prev.nombre,
-          correoInstitucional: usuario?.correo_usuario ?? prev.correoInstitucional,
+          // 👇 Cambio aplicado: autocompletar con `correo_usuario`
+          correoInstitucional: usuario?.correoInstitucional ?? prev.correoInstitucional,
           correoAlternativo: perfil?.email_alt ?? prev.correoAlternativo,
           telefono: perfil?.numero_telef ?? prev.telefono,
           direccion: perfil?.direccion ?? prev.direccion,
         }));
+
         if (perfil?.foto_url) setPreview(perfil.foto_url);
       } catch (err) {
         console.error("cargar perfil:", err);
-        setErrores((prev) => ({ ...prev, general: err.message || "No se pudo cargar perfil" }));
+        setErrores((prev) => ({
+          ...prev,
+          general: err.message || "No se pudo cargar perfil",
+        }));
       }
     };
     cargar();
   }, []);
+
 
   // Manejo de inputs
   const handleChange = (e) => {
@@ -121,7 +130,9 @@ function EditarPerfil() {
       if (updated.data?.foto_url) setPreview(updated.data.foto_url);
     } catch (error) {
       console.error("Error al actualizar:", error);
-      setErrores({ general: error.message || "Error al actualizar el perfil. Intenta nuevamente." });
+      setErrores({
+        general: error.message || "Error al actualizar el perfil. Intenta nuevamente.",
+      });
     } finally {
       setCargando(false);
     }
@@ -158,17 +169,10 @@ function EditarPerfil() {
               {preview ? (
                 <img src={preview} alt="Preview" className="w-full h-full object-cover" />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-gray-500">
-                  Foto
-                </div>
+                <div className="w-full h-full flex items-center justify-center text-gray-500">Foto</div>
               )}
             </div>
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleImageChange}
-              className="mt-4 text-sm"
-            />
+            <input type="file" accept="image/*" onChange={handleImageChange} className="mt-4 text-sm" />
           </div>
 
           {/* Mensajes */}
