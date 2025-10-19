@@ -1,106 +1,206 @@
+// src/pages/DetalleLicencia.jsx
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
-import samplePDF from "../assets/sample.pdf";
 
-// Mock data de licencias
-const mockDatabase = {
-  "123": {
-    student: {
-      name: "Rumencio González",
-      studentId: "20201234",
-      faculty: "Ingeniería",
-      email: "rgonzalez@alu.uct.cl"
+// ---------- utils ----------
+function isPDF(nameOrMime = "") {
+  return /application\/pdf/i.test(nameOrMime) || /\.pdf$/i.test(String(nameOrMime));
+}
+function isImage(nameOrMime = "") {
+  return /^image\//i.test(nameOrMime) || /\.(png|jpe?g|gif|webp|bmp|tiff?)$/i.test(String(nameOrMime));
+}
+function fmtDate(dateStr) {
+  if (!dateStr) return "—";
+  const d = new Date(dateStr);
+  if (!isNaN(d)) return d.toISOString().slice(0, 10); // YYYY-MM-DD
+  return dateStr;
+}
+function fmtDateTime(dateStr) {
+  if (!dateStr) return "—";
+  const d = new Date(dateStr);
+  if (!isNaN(d)) {
+    const iso = d.toISOString();
+    return iso.slice(0, 10) + " " + iso.slice(11, 16); // YYYY-MM-DD HH:MM
+  }
+  return dateStr;
+}
+const notEmpty = (s) => (s && String(s).trim() !== "" ? s : undefined);
+
+// ---------- Normaliza distintas respuestas del backend ----------
+function normalizeDetalle(apiPayload) {
+  // Admite {ok,data}, {data} o el objeto directo
+  const root = apiPayload?.data ?? apiPayload;
+
+  // Algunos controladores devuelven {licencia, archivos:[...]} o campos planos
+  const lic = root?.licencia ?? root;
+
+  // Campos esperados de licenciamedica
+  const id = lic?.id_licencia ?? lic?.id ?? lic?.licencia_id ?? null;
+  const folio = lic?.folio ?? lic?.nro_folio ?? null;
+  const estado = lic?.estado ?? null;
+  const motivoRechazo = lic?.motivo_rechazo ?? lic?.motivoRechazo ?? null;
+
+  // Fechas (BD: fecha_inicio (date), fecha_fin (date), fecha_creacion (datetime))
+  const fechaInicio = lic?.fecha_inicio ?? lic?.inicio ?? null;
+  const fechaFin = lic?.fecha_fin ?? lic?.fin ?? null;
+  const fechaCreacion = lic?.fecha_creacion ?? lic?.creada_en ?? lic?.created_at ?? null;
+
+  // Estudiante (puede venir anidado en distintas claves)
+  const est =
+    lic?.estudiante ??
+    lic?.usuarioSolicitante ??
+    lic?.datos_estudiante ??
+    root?.estudiante ??
+    root?.usuario ??
+    root?.alumno ??
+    root?.perfil ??
+    {};
+
+  const joined = [est?.nombres, est?.apellidos, est?.apellido_paterno, est?.apellido_materno]
+    .filter(Boolean)
+    .join(" ");
+  const nombre = (est?.nombre ?? notEmpty(joined)) ?? "—";
+  const rut =
+    est?.rut ??
+    (est?.rut_sin_dv && est?.dv ? `${est.rut_sin_dv}-${est.dv}` : undefined) ??
+    est?.dni ??
+    est?.run ??
+    "—";
+  const email = est?.correoInstitucional ?? est?.email ?? est?.correo ?? est?.correo_institucional ?? "—";
+
+  // Si el BE sólo envió ids, guárdalos para fallback
+  const estudianteId =
+    lic?.id_usuario ??
+    lic?.id_estudiante ??
+    root?.id_usuario ??
+    root?.id_estudiante ??
+    est?.id_usuario ??
+    est?.id ??
+    null;
+
+  const estudiante = {
+    nombre,
+    rut,
+    email,
+    idLicencia: id ?? "—", // requisito: mostrar ID aquí
+  };
+
+  // Archivo (último o único posible)
+  const archBase =
+    lic?.archivo ??
+    root?.archivo ??
+    (Array.isArray(root?.archivos) ? root.archivos[0] : null) ??
+    (Array.isArray(lic?.archivos) ? lic.archivos[0] : null) ??
+    null;
+
+  const archivo = archBase
+    ? {
+        nombre: archBase?.nombre_archivo ?? archBase?.filename ?? archBase?.nombre ?? "archivo",
+        mimetype: archBase?.mimetype ?? archBase?.mimeType ?? "",
+        url: archBase?.ruta_url ?? archBase?.url ?? archBase?.descarga ?? null,
+      }
+    : null;
+
+  return {
+    estudiante,
+    estudianteId, // <- para fallback
+    licencia: {
+      folio: folio ?? "—",
+      estado: estado ?? "—",
+      motivoRechazo: motivoRechazo ?? "",
+      fechas: {
+        inicio: fechaInicio ? fmtDate(fechaInicio) : "—",
+        fin: fechaFin ? fmtDate(fechaFin) : "—",
+        creada: fechaCreacion ? fmtDateTime(fechaCreacion) : "—",
+      },
     },
-    dates: {
-      from: "2025-10-01",
-      to: "2025-10-07",
-      submitted: "2025-09-28",
-      emissionDate: "2025-09-27",
-      restStart: "2025-10-01",
-      restEnd: "2025-10-07"
-    },
-    attachment: {
-      filename: "certificado_medico.pdf",
-      mimetype: "application/pdf"
-    }
-  },
-  "456": {
-    student: {
-      name: "Carlos Rodríguez",
-      studentId: "20195678",
-      faculty: "Ingeniería",
-      email: "crodriguez@alu.uct.cl"
-    },
-    dates: {
-      from: "2025-09-15",
-      to: "2025-09-20",
-      submitted: "2025-09-14",
-      emissionDate: "2025-09-13",
-      restStart: "2025-09-15",
-      restEnd: "2025-09-20"
-    },
-    attachment: {
-      filename: "radiografia.jpg",
-      mimetype: "image/jpeg"
-    }
-  },
-  "789": {
-    student: {
-      name: "Ana Martínez",
-      studentId: "20221122",
-      faculty: "Derecho",
-      email: "amartinez@alu.uct.cl"
-    },
-    dates: {
-      from: "2025-10-03",
-      to: "2025-10-05",
-      submitted: "2025-10-02",
-      emissionDate: "2025-10-01",
-      restStart: "2025-10-03",
-      restEnd: "2025-10-05"
-    },
-    attachment: {
-      filename: "receta_medica.pdf",
-      mimetype: "application/pdf"
+    archivo,
+  };
+}
+
+// ---------- Intentos de obtener estudiante si no vino completo ----------
+async function tryFetchEstudiante(headers, estudianteId) {
+  // Lista de endpoints candidatos en orden
+  const candidates = [
+    { url: "http://localhost:3000/api/usuarios/me", byId: false },
+    { url: "http://localhost:3000/api/perfil/me", byId: false },
+    estudianteId ? { url: `http://localhost:3000/api/usuarios/${estudianteId}`, byId: true } : null,
+    estudianteId ? { url: `http://localhost:3000/api/perfiles/${estudianteId}`, byId: true } : null,
+  ].filter(Boolean);
+
+  for (const c of candidates) {
+    try {
+      const res = await fetch(c.url, { headers });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) continue;
+
+      const root = json?.data ?? json;
+      const est = root?.usuario ?? root?.perfil ?? root;
+
+      const joined = [est?.nombres, est?.apellidos, est?.apellido_paterno, est?.apellido_materno]
+        .filter(Boolean)
+        .join(" ");
+      const nombre = (est?.nombre ?? notEmpty(joined)) ?? undefined;
+      const rut =
+        est?.rut ??
+        (est?.rut_sin_dv && est?.dv ? `${est.rut_sin_dv}-${est.dv}` : undefined) ??
+        est?.dni ??
+        est?.run ??
+        undefined;
+      const email = est?.correoInstitucional ?? est?.email ?? est?.correo ?? est?.correo_institucional ?? undefined;
+
+      if (nombre || rut || email) {
+        return {
+          nombre: nombre ?? "—",
+          rut: rut ?? "—",
+          email: email ?? "—",
+        };
+      }
+    } catch {
+      // continua con el siguiente endpoint
     }
   }
-};
+  return null;
+}
 
+// ---------- Adjuntos ----------
 function AttachmentView({ file }) {
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [open, setOpen] = useState(false);
 
-  if (!file) return <div className="text-sm text-gray-500">Sin archivo adjunto</div>;
+  if (!file?.url) {
+    return <div className="text-sm text-gray-500">Sin archivo adjunto</div>;
+  }
 
-  const { filename, mimetype } = file;
-  const isImage = mimetype?.startsWith?.("image/") || /\.(jpg|jpeg|png|gif)$/i.test(filename);
-  const isPDF = mimetype === "application/pdf" || /\.pdf$/i.test(filename);
-  const fileUrl = isPDF ? samplePDF : null;
+  const puedePDF = isPDF(file.mimetype || file.nombre);
+  const puedeImg = isImage(file.mimetype || file.nombre);
 
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-3 p-3 border rounded-lg bg-gray-50">
         <div className="flex-1">
-          <div className="font-medium text-sm">{filename}</div>
+          <div className="font-medium text-sm break-all">{file.nombre}</div>
           <div className="text-xs text-gray-500">
-            {isPDF ? "Documento PDF" : isImage ? "Imagen" : "Archivo adjunto"}
+            {puedePDF ? "Documento PDF" : puedeImg ? "Imagen" : "Archivo"}
           </div>
         </div>
       </div>
 
-      {isPDF ? (
+      {(puedePDF || puedeImg) ? (
         <div className="flex gap-2">
           <button
-            onClick={() => setIsModalOpen(true)}
+            onClick={() => setOpen(true)}
             className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
           >
             Previsualizar
           </button>
           <a
-            href={fileUrl}
-            download={filename}
-            className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 text-sm"
+            href={file.url}
+            target="_blank"
+            rel="noreferrer"
+            download={file.nombre}
+            className="px-4 py-2 bg-gray-700 text-white rounded hover:bg-gray-800 text-sm"
           >
             Descargar
           </a>
@@ -111,20 +211,27 @@ function AttachmentView({ file }) {
         </div>
       )}
 
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
-          <div className="relative bg-white w-11/12 h-5/6 rounded-lg overflow-hidden shadow-lg">
-            <iframe src={fileUrl} title={filename} className="w-full h-full" />
+      {open && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center">
+          <div className="relative bg-white w-11/12 md:w-4/5 h-5/6 rounded-lg overflow-hidden shadow-xl">
+            {puedePDF ? (
+              <iframe title={file.nombre} src={file.url} className="w-full h-full" />
+            ) : (
+              <img src={file.url} alt={file.nombre} className="w-full h-full object-contain" />
+            )}
             <button
-              onClick={() => setIsModalOpen(false)}
-              className="absolute top-3 right-3 bg-gray-700 text-white rounded-full w-8 h-8 flex items-center justify-center hover:bg-gray-900"
+              onClick={() => setOpen(false)}
+              className="absolute top-3 right-3 bg-gray-800 text-white rounded-full w-9 h-9 grid place-items-center hover:bg-black"
+              aria-label="Cerrar previsualización"
             >
               ✕
             </button>
             <a
-              href={fileUrl}
-              download={filename}
-              className="absolute bottom-4 right-4 px-4 py-2 bg-blue-600 text-white rounded shadow hover:bg-blue-700"
+              href={file.url}
+              download={file.nombre}
+              target="_blank"
+              rel="noreferrer"
+              className="absolute bottom-4 right-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 shadow"
             >
               Descargar
             </a>
@@ -135,30 +242,81 @@ function AttachmentView({ file }) {
   );
 }
 
-export default function LicenciaDetalle() {
+// ---------- Página ----------
+export default function DetalleLicencia() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [license, setLicense] = useState(null);
+  const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState("");
 
   useEffect(() => {
-    const loadLicense = async () => {
-      setLoading(true);
-      await new Promise(resolve => setTimeout(resolve, 500));
-      const mockData = mockDatabase[id] || mockDatabase["123"];
-      setLicense({ id: id || "123", ...mockData });
-      setLoading(false);
+    let mounted = true;
+
+    async function fetchDetalle() {
+      try {
+        setLoading(true);
+        setErr("");
+
+        const token = localStorage.getItem("token");
+        const headers = {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        };
+
+        // Intento 1: /api/licencias/detalle/:id
+        let res = await fetch(`http://localhost:3000/api/licencias/detalle/${id}`, { headers });
+        let json;
+
+        // Si no existe ese endpoint, intento 2: /api/licencias/:id
+        if (!res.ok) {
+          res = await fetch(`http://localhost:3000/api/licencias/${id}`, { headers });
+        }
+        json = await res.json().catch(() => ({}));
+
+        if (!res.ok) {
+          throw new Error(json?.msg || json?.mensaje || json?.error || "No se pudo obtener el detalle.");
+        }
+
+        // 1) normalizamos
+        const normalized = normalizeDetalle(json);
+
+        // 2) fallback: si faltan datos de estudiante, intentamos pedirlos
+        if (
+          (!normalized.estudiante?.nombre || normalized.estudiante.nombre === "—") ||
+          (!normalized.estudiante?.email || normalized.estudiante.email === "—") ||
+          (!normalized.estudiante?.rut || normalized.estudiante.rut === "—")
+        ) {
+          const extra = await tryFetchEstudiante(headers, normalized.estudianteId);
+          if (extra) {
+            normalized.estudiante = {
+              ...normalized.estudiante,
+              ...extra,
+            };
+          }
+        }
+
+        if (mounted) setData(normalized);
+      } catch (e) {
+        if (mounted) setErr(e.message || "Error inesperado");
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    }
+
+    fetchDetalle();
+    return () => {
+      mounted = false;
     };
-    loadLicense();
   }, [id]);
 
   if (loading) {
     return (
-      <div className="min-h-screen flex flex-col bg-blue-50 w-full overflow-x-hidden dark:bg-app dark:bg-none">
+      <div className="min-h-screen flex flex-col bg-blue-50 dark:bg-app">
         <Navbar />
-        <main className="flex-1 flex items-center justify-center w-full">
+        <main className="flex-1 grid place-items-center">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4" />
             <p className="text-lg">Cargando licencia...</p>
           </div>
         </main>
@@ -167,20 +325,42 @@ export default function LicenciaDetalle() {
     );
   }
 
+  if (err) {
+    return (
+      <div className="min-h-screen flex flex-col bg-blue-50 dark:bg-app">
+        <Navbar />
+        <main className="flex-1 grid place-items-center px-4">
+          <div className="max-w-xl w-full bg-white rounded-lg shadow p-6">
+            <h2 className="text-xl font-semibold mb-2">No se pudo cargar el detalle</h2>
+            <p className="text-red-600 mb-4">{err}</p>
+            <button
+              onClick={() => navigate("/mis-licencias")}
+              className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
+            >
+              ← Volver a Licencias
+            </button>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  const { estudiante, licencia, archivo } = data ?? {};
+
   return (
-    <div className="min-h-screen flex flex-col bg-blue-50 w-full overflow-x-hidden dark:bg-app dark:bg-none">
+    <div className="min-h-screen flex flex-col bg-blue-50 dark:bg-app">
       <Navbar />
       <main className="flex-1 w-full">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-10 max-w-none">
           <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-lg p-6 sm:p-8">
-
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-4">
               <div>
                 <h1 className="text-2xl font-bold">Detalle de Licencia</h1>
-                <p className="text-gray-500">ID: {license.id}</p>
+                {licencia?.folio && <p className="text-gray-500">Folio: {licencia.folio}</p>}
               </div>
-              <button 
+              <button
                 onClick={() => navigate("/mis-licencias")}
                 className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300 transition-colors self-start sm:self-auto"
               >
@@ -195,19 +375,15 @@ export default function LicenciaDetalle() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                   <div className="flex flex-col">
                     <span className="font-medium text-gray-600">Nombre:</span>
-                    <span className="text-gray-900">{license.student.name}</span>
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="font-medium text-gray-600">Legajo:</span>
-                    <span className="text-gray-900">{license.student.studentId}</span>
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="font-medium text-gray-600">Facultad:</span>
-                    <span className="text-gray-900">{license.student.faculty}</span>
+                    <span className="text-gray-900">{estudiante?.nombre ?? "—"}</span>
                   </div>
                   <div className="flex flex-col">
                     <span className="font-medium text-gray-600">Email:</span>
-                    <span className="text-gray-900">{license.student.email}</span>
+                    <span className="text-gray-900 break-all">{estudiante?.email ?? "—"}</span>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="font-medium text-gray-600">ID de licencia:</span>
+                    <span className="text-gray-900">{estudiante?.idLicencia ?? "—"}</span>
                   </div>
                 </div>
               </div>
@@ -219,21 +395,32 @@ export default function LicenciaDetalle() {
               <div className="bg-gray-50 p-4 rounded-lg border">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                   <div className="flex flex-col">
-                    <span className="font-medium text-gray-600">Fecha de emisión:</span>
-                    <span className="text-gray-900">{license.dates.emissionDate}</span>
+                    <span className="font-medium text-gray-600">Folio:</span>
+                    <span className="text-gray-900">{licencia?.folio ?? "—"}</span>
                   </div>
                   <div className="flex flex-col">
-                    <span className="font-medium text-gray-600">Fecha enviada:</span>
-                    <span className="text-gray-900">{license.dates.submitted}</span>
+                    <span className="font-medium text-gray-600">Estado:</span>
+                    <span className="text-gray-900 capitalize">{licencia?.estado ?? "—"}</span>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="font-medium text-gray-600">Fecha de envío:</span>
+                    <span className="text-gray-900">{licencia?.fechas?.creada ?? "—"}</span>
                   </div>
                   <div className="flex flex-col">
                     <span className="font-medium text-gray-600">Inicio de reposo:</span>
-                    <span className="text-gray-900">{license.dates.restStart}</span>
+                    <span className="text-gray-900">{licencia?.fechas?.inicio ?? "—"}</span>
                   </div>
                   <div className="flex flex-col">
                     <span className="font-medium text-gray-600">Fin de reposo:</span>
-                    <span className="text-gray-900">{license.dates.restEnd}</span>
+                    <span className="text-gray-900">{licencia?.fechas?.fin ?? "—"}</span>
                   </div>
+
+                  {licencia?.motivoRechazo ? (
+                    <div className="flex flex-col sm:col-span-2">
+                      <span className="font-medium text-gray-600">Motivo de rechazo:</span>
+                      <span className="text-gray-900">{licencia.motivoRechazo}</span>
+                    </div>
+                  ) : null}
                 </div>
               </div>
             </section>
@@ -242,10 +429,9 @@ export default function LicenciaDetalle() {
             <section className="mb-8">
               <h2 className="text-lg font-semibold mb-3 text-gray-800">Archivo Adjunto</h2>
               <div className="border rounded-lg p-4">
-                <AttachmentView file={license.attachment} />
+                <AttachmentView file={archivo} />
               </div>
             </section>
-
           </div>
         </div>
       </main>
