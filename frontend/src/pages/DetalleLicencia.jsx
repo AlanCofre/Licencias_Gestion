@@ -3,6 +3,9 @@ import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
+const API_BASE =
+  import.meta.env.VITE_API_URL?.replace(/\/+$/, "") || "http://localhost:3000";
+
 
 // ---------- utils ----------
 function isPDF(nameOrMime = "") {
@@ -265,7 +268,7 @@ export default function DetalleLicencia() {
         };
 
         // Intento 1: /api/licencias/detalle/:id
-        let res = await fetch(`http://localhost:3000/api/licencias/detalle/${id}`, { headers });
+        let res = await fetch(`${API_BASE}/api/licencias/detalle/${id}`, { headers });
         let json;
 
         // Si no existe ese endpoint, intento 2: /api/licencias/:id

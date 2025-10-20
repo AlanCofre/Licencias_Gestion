@@ -7,6 +7,30 @@ import Footer from "../components/Footer";
 const API_BASE =
   import.meta.env.VITE_API_URL?.replace(/\/+$/, "") || "http://localhost:3000";
 
+function formatFecha(fechaStr) {
+  if (!fechaStr) return "";
+  const d = new Date(fechaStr);
+  if (isNaN(d)) return fechaStr;
+  // YYYY-MM-DD HHh
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function formatFechaHoraSoloHora(fechaStr) {
+  if (!fechaStr) return "";
+  const d = new Date(fechaStr);
+  if (isNaN(d)) return fechaStr;
+  // YYYY-MM-DD HHh
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  const hh = String(d.getHours()).padStart(2,"0");
+  return `${yyyy}-${mm}-${dd} ${hh}`;
+}
+
+
 // --------- Helpers ---------
 function fmtDate(d) {
   if (!d) return "-";
@@ -131,12 +155,6 @@ export default function LicenciasEvaluadas() {
               ? "Rechazada"
               : "—",
           motivo: l.motivo_rechazo || "",
-          fechas: {
-            emision: fmtDate(l.fecha_emision),
-            inicio: fmtDate(l.fecha_inicio),
-            fin: fmtDate(l.fecha_fin),
-            creacion: fmtDate(l.fecha_creacion),
-          },
           usuario: {
             nombre: usuario.nombre || "—",
             id: usuario.id_usuario || "—",
@@ -271,23 +289,23 @@ export default function LicenciasEvaluadas() {
                   </div>
                   <div>
                     <span className="font-medium text-gray-600">Emisión:</span>{" "}
-                    {license.fechas.emision}
+                    {formatFecha(licencia.fechaEmision)}
                   </div>
                   <div>
                     <span className="font-medium text-gray-600">
                       Envío (creación):
                     </span>{" "}
-                    {license.fechas.creacion}
+                    {formatFechaHoraSoloHora(licencia.fechaEnvio)}
                   </div>
                   <div>
                     <span className="font-medium text-gray-600">
                       Inicio reposo:
                     </span>{" "}
-                    {license.fechas.inicio}
+                    {formatFecha(licencia.fechaInicioReposo)}
                   </div>
                   <div>
                     <span className="font-medium text-gray-600">Fin reposo:</span>{" "}
-                    {license.fechas.fin}
+                    {formatFecha(licencia.fechaFinReposo)}
                   </div>
                 </div>
               </div>
