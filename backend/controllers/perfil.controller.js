@@ -1,7 +1,16 @@
-import Usuario from '../src/models/modelo_Usuario.js';
-import Perfil from '../src/models/modelo_Perfil.js';
-import { validarPerfilPayload } from '../src/utils/validaciones_perfil.js';
+// controllers/perfil.controller.js
 import db from "../config/db.js";
+import { validarPerfilPayload } from "../src/utils/validaciones_perfil.js"; // valida email_alt, numero_telef, direccion, foto_url
+// Nota: este controlador usa SQL plano contra tablas: usuario, perfil
+
+function _buildPerfilFromRow(row) {
+  return {
+    email_alt: row.email_alt ?? null,
+    numero_telef: row.numero_telef ?? null,
+    direccion: row.direccion ?? null,
+    foto_url: row.foto_url ?? null,
+  };
+}
 
 // GET /api/perfil/me
 export async function obtenerMiPerfil(req, res) {
@@ -9,13 +18,18 @@ export async function obtenerMiPerfil(req, res) {
     const id = req.user.id_usuario; // viene de requireAuth
     const [rows] = await db.execute(
       `SELECT 
-         id_usuario,
-         nombre,
-         correo_usuario AS correoInstitucional,
-         activo,
-         id_rol
-       FROM usuario
-       WHERE id_usuario = ?`,
+          u.id_usuario,
+          u.nombre,
+          u.correo_usuario AS correoInstitucional,
+          u.activo,
+          u.id_rol,
+          p.email_alt,
+          p.numero_telef,
+          p.direccion,
+          p.foto_url
+       FROM usuario u
+       LEFT JOIN perfil p ON p.id_usuario = u.id_usuario
+       WHERE u.id_usuario = ?`,
       [id]
     );
 
@@ -23,48 +37,120 @@ export async function obtenerMiPerfil(req, res) {
       return res.status(404).json({ ok: false, error: "Usuario no encontrado" });
     }
 
-    res.json({ ok: true, data: rows[0] });
+    const u = rows[0];
+    return res.json({
+      ok: true,
+      data: {
+        id_usuario: u.id_usuario,
+        nombre: u.nombre,
+        correoInstitucional: u.correoInstitucional,
+        activo: u.activo,
+        id_rol: u.id_rol,
+        perfil: _buildPerfilFromRow(u),
+      },
+    });
   } catch (e) {
     console.error("[obtenerMiPerfil]", e);
-    res.status(500).json({ ok: false, error: "Error al obtener perfil" });
+    return res.status(500).json({ ok: false, error: "Error al obtener perfil" });
   }
 }
 
 // PUT /api/perfil/me
 export async function guardarMiPerfil(req, res) {
   try {
-    // No hay campos editables por ahora
-    res.json({ ok: true, updated: false, msg: "Sin campos editables en esta versión." });
+    const id = req.user.id_usuario;
+
+    // 1) Construir payload desde body (sea JSON o multipart/form-data)
+    const body = {
+      email_alt: req.body?.email_alt ?? null,
+      numero_telef: req.body?.numero_telef ?? null,
+      direccion: req.body?.direccion ?? null,
+      foto_url: req.body?.foto_url ?? null,
+    };
+
+    // Si vino archivo (upload.single('foto')), intentar tomar su URL/ruta
+    if (req.file) {
+      // adapta según tu middleware de storage:
+      // - local: req.file.path
+      // - supabase/s3: quizá req.file.location o un campo personalizado
+      body.foto_url = req.file.location || req.file.path || body.foto_url || null;
+    }
+
+    // 2) Validar
+    const { valido, errores, data } = validarPerfilPayload(body);
+    if (!valido) {
+      return res.status(400).json({ ok: false, error: "Payload inválido", detalles: errores });
+    }
+
+    // 3) UPSERT a tabla perfil (id_usuario es UNIQUE)
+    await db.execute(
+      `INSERT INTO perfil (id_usuario, email_alt, numero_telef, direccion, foto_url)
+       VALUES (?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE
+         email_alt = VALUES(email_alt),
+         numero_telef = VALUES(numero_telef),
+         direccion = VALUES(direccion),
+         foto_url = VALUES(foto_url)`,
+      [id, data.email_alt, data.numero_telef, data.direccion, data.foto_url]
+    );
+
+    // 4) Devolver el estado actualizado
+    const [rows] = await db.execute(
+      `SELECT p.email_alt, p.numero_telef, p.direccion, p.foto_url
+       FROM perfil p
+       WHERE p.id_usuario = ?`,
+      [id]
+    );
+
+    const perfil = rows[0] || { email_alt: null, numero_telef: null, direccion: null, foto_url: null };
+
+    return res.json({ ok: true, data: perfil });
   } catch (e) {
     console.error("[guardarMiPerfil]", e);
-    res.status(500).json({ ok: false, error: "Error guardando perfil" });
+    return res.status(500).json({ ok: false, error: "Error guardando perfil" });
   }
 }
 
-// GET /api/perfil/usuario/:id_usuario  (útil para vista de otro usuario)
+// GET /api/perfil/usuario/:id_usuario
 export async function obtenerPerfilPorUsuario(req, res) {
   try {
     const { id_usuario } = req.params;
     const [rows] = await db.execute(
       `SELECT 
-         id_usuario,
-         nombre,
-         email        AS correoInstitucional,
-         email_alt    AS correoAlternativo,
-         numero_telef AS telefono,
-         direccion,
-         rol
-       FROM usuario
-       WHERE id_usuario = ?`,
+          u.id_usuario,
+          u.nombre,
+          u.correo_usuario AS correoInstitucional,
+          u.activo,
+          u.id_rol,
+          p.email_alt,
+          p.numero_telef,
+          p.direccion,
+          p.foto_url
+       FROM usuario u
+       LEFT JOIN perfil p ON p.id_usuario = u.id_usuario
+       WHERE u.id_usuario = ?`,
       [id_usuario]
     );
+
     if (rows.length === 0) {
       return res.status(404).json({ ok: false, error: "Usuario no encontrado" });
     }
-    res.json({ ok: true, data: rows[0] });
+
+    const u = rows[0];
+    return res.json({
+      ok: true,
+      data: {
+        id_usuario: u.id_usuario,
+        nombre: u.nombre,
+        correoInstitucional: u.correoInstitucional,
+        activo: u.activo,
+        id_rol: u.id_rol,
+        perfil: _buildPerfilFromRow(u),
+      },
+    });
   } catch (e) {
     console.error("[obtenerPerfilPorUsuario]", e);
-    res.status(500).json({ ok: false, error: "Error al obtener perfil" });
+    return res.status(500).json({ ok: false, error: "Error al obtener perfil" });
   }
 }
 

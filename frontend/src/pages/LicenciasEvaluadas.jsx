@@ -146,6 +146,10 @@ export default function LicenciasEvaluadas() {
         const archivo = l.archivo || null;
 
         setLicense({
+          fechaEmision: l.fecha_emision || null,
+          fechaEnvio: l.fecha_creacion || null,
+          fechaInicioReposo: l.fecha_inicio || null,
+          fechaFinReposo: l.fecha_fin || null,
           id: l.id_licencia,               // ID de la licencia (se muestra en Datos del Estudiante)
           folio: l.folio,                  // Folio (se muestra en Datos de la Licencia)
           estado:
@@ -289,23 +293,23 @@ export default function LicenciasEvaluadas() {
                   </div>
                   <div>
                     <span className="font-medium text-gray-600">Emisión:</span>{" "}
-                    {formatFecha(licencia.fechaEmision)}
+                    {formatFecha(license.fechaEmision)}
                   </div>
                   <div>
                     <span className="font-medium text-gray-600">
                       Envío (creación):
                     </span>{" "}
-                    {formatFechaHoraSoloHora(licencia.fechaEnvio)}
+                    {formatFechaHoraSoloHora(license.fechaEnvio)}
                   </div>
                   <div>
                     <span className="font-medium text-gray-600">
                       Inicio reposo:
                     </span>{" "}
-                    {formatFecha(licencia.fechaInicioReposo)}
+                    {formatFecha(license.fechaInicioReposo)}
                   </div>
                   <div>
                     <span className="font-medium text-gray-600">Fin reposo:</span>{" "}
-                    {formatFecha(licencia.fechaFinReposo)}
+                    {formatFecha(license.fechaFinReposo)}
                   </div>
                 </div>
               </div>
