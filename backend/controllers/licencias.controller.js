@@ -1,12 +1,15 @@
 // backend/controllers/licencias.controller.js  (ESM unificado)
 import crypto from 'crypto';
 import LicenciaMedica from '../src/models/modelo_LicenciaMedica.js';
-import db from '../config/db.js'; // ← ajusta la ruta si corresponde
+import db from '../config/db.js';
 import { decidirLicenciaSvc } from '../services/servicio_Licencias.js';
 import fs from 'fs';
 import path from 'path';
 import http from 'http';
 import https from 'https';
+
+// ✉️ Servicio de correos (solo para "nueva licencia")
+import { notificarNuevaLicencia } from '../services/servicio_Correo.js';
 
 // === Utilidad: hash SHA-256 de un Buffer/String → hex 64
 function sha256FromBuffer(bufOrStr) {
@@ -139,11 +142,14 @@ export const crearLicencia = async (req, res) => {
   try {
     const usuarioId = req.user?.id_usuario ?? req.id ?? null;
     const rol = (req.user?.rol ?? req.rol ?? '').toString().toLowerCase();
+
+    // ✉️ obtener también correo para el mail
     const [userRow] = await db.execute(
-      'SELECT nombre FROM Usuario WHERE id_usuario = ?',
+      'SELECT nombre, correo_usuario AS correo FROM Usuario WHERE id_usuario = ?',
       [usuarioId]
     );
     const nombreEstudiante = userRow[0]?.nombre || usuarioId;
+    const correoEstudiante = userRow[0]?.correo || null;
 
     if (!usuarioId) return res.status(401).json({ msg: 'No autenticado' });
     if (rol && rol !== 'estudiante') {
@@ -225,7 +231,7 @@ export const crearLicencia = async (req, res) => {
       [folio, fecha_inicio, fecha_fin, usuarioId]
     );
 
-    // Notificaciones (best-effort)
+    // Notificaciones (best-effort en BD)
     try {
       const asunto = 'creacion de licencia';
       const contenido = `Se ha creado la licencia ${folio} con fecha de inicio ${fecha_inicio} y fin ${fecha_fin}.`;
@@ -251,6 +257,42 @@ export const crearLicencia = async (req, res) => {
       }
     } catch (archivoError) {
       console.error('❌ Error al registrar archivo:', archivoError.message);
+    }
+
+    // ✉️ Enviar correo a TODOS los funcionarios (id_rol=3, activos) — SIN usar SECRETARIA_EMAILS
+    try {
+      const idLicencia = result.insertId;
+
+      // 1) Leer correos de funcionarios activos
+      const [destRows] = await db.execute(
+        `SELECT correo_usuario AS correo
+           FROM Usuario
+          WHERE id_rol = 3 AND activo = 1 AND correo_usuario IS NOT NULL`
+      );
+
+      const destinatarios = Array.isArray(destRows)
+        ? [...new Set(destRows.map(r => (r.correo || '').trim()).filter(Boolean))]
+        : [];
+
+      console.log('✉️ Funcionarios destino:', destinatarios);
+
+      if (!destinatarios.length) {
+        console.warn('✉️ [crearLicencia] No hay funcionarios (id_rol=3) activos con correo; correo omitido.');
+      } else {
+        const enlaceDetalle = `${process.env.APP_BASE_URL || 'http://localhost:5173'}/licencias/${idLicencia}`;
+
+        await notificarNuevaLicencia({
+          folio,
+          estudiante: { nombre: nombreEstudiante, correo: correoEstudiante },
+          fechaCreacionISO: new Date().toISOString(),
+          enlaceDetalle,
+          to: destinatarios, // ← lista dinámica, evita fallback
+        }).then(r => {
+          if (!r?.ok) console.error('✉️ Email nueva licencia falló:', r?.error);
+        });
+      }
+    } catch (e) {
+      console.warn('✉️ [crearLicencia] envío correo omitido:', e?.message || e);
     }
 
     return res.status(201).json({
@@ -359,10 +401,9 @@ export const licenciasResueltas = async (req, res) => {
   }
 };
 
-
 // =====================================================
 // ✅ FIX: Detalle de licencia con shape que espera el FE
-// GET /api/licencias/:id   → { ok:true, licencia:{..., usuario:{...}, archivo:{...}|null } }
+// GET /api/licencias/:id
 // =====================================================
 export const detalleLicencia = async (req, res) => {
   try {
@@ -373,7 +414,6 @@ export const detalleLicencia = async (req, res) => {
     if (!usuarioId) return res.status(401).json({ error: 'No autenticado' });
     if (!id) return res.status(400).json({ error: 'ID de licencia inválido' });
 
-    // Licencia + usuario (seguro)
     const [rows] = await db.execute(
       `
       SELECT
@@ -404,7 +444,6 @@ export const detalleLicencia = async (req, res) => {
 
     const r = rows[0];
 
-    // Si no es funcionario, solo puede ver si es dueño
     if (rol !== 'funcionario' && Number(r.id_usuario) !== Number(usuarioId)) {
       return res.status(403).json({ error: 'No autorizado' });
     }
@@ -426,10 +465,9 @@ export const detalleLicencia = async (req, res) => {
             email: r.usuario_email,
           }
         : null,
-      archivo: null, // abajo intentamos poblar
+      archivo: null,
     };
 
-    // Archivo: suave (si falla, no rompe)
     try {
       const [archs] = await db.execute(
         `
@@ -471,7 +509,7 @@ export const detalleLicencia = async (req, res) => {
 };
 
 // =====================================================
-// POST (legacy): versión original con validaciones básicas
+// POST (legacy)
 // =====================================================
 export const crearLicenciaLegacy = async (req, res) => {
   try {
@@ -522,7 +560,7 @@ export const crearLicenciaLegacy = async (req, res) => {
   }
 };
 
-// === Controller: decidirLicencia (el rol lo valida el router)
+// === Controller: decidirLicencia (sin correos)
 export async function decidirLicencia(req, res) {
   try {
     const idLicencia   = Number(req.params.id);
@@ -680,6 +718,9 @@ export const descargarArchivoLicencia = async (req, res) => {
   }
 };
 
+// =====================================================
+// ⬅️ Restaurado: cambiarEstado (named export)
+// =====================================================
 export async function cambiarEstado(req, res, next) {
   try {
     const { id } = req.params;
@@ -700,7 +741,7 @@ export async function cambiarEstado(req, res, next) {
       lic.motivo_rechazo = motivo_rechazo ?? lic.motivo_rechazo;
     }
 
-    await lic.save({ userId: req.user.id }); // userId usable en afterUpdate opcional
+    await lic.save({ userId: req.user.id });
     return res.json({ ok: true, data: { id: lic.id_licencia, estado: lic.estado } });
   } catch (err) { next(err); }
 }
@@ -715,4 +756,5 @@ export default {
   decidirLicencia,
   descargarArchivoLicencia,
   licenciasResueltas,
+  cambiarEstado, // ← también en el default por si acaso
 };

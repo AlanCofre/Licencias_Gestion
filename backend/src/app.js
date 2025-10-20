@@ -1,3 +1,4 @@
+// backend/src/app.js
 import express from 'express';
 import cors from 'cors';
 import detailsRouter from './detail/details.js';
@@ -7,10 +8,10 @@ import licenciasRouter from './routes/licencias.routes.js';
 import healthRouter from './routes/health.route.js';
 import usuarioRoutes from './routes/usuario.route.js';
 import perfilRouter from './routes/perfil.routes.js';
-
+import devMailRoutes from './routes/dev.mail.routes.js';
 import db from './../config/db.js';
 
-const app = express();
+const app = express();                // ← declara app ANTES de usarla
 const PORT = process.env.PORT || 3000;
 
 console.log('[env] JWT_SECRET set?', !!process.env.JWT_SECRET);
@@ -26,11 +27,16 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+/* === Rutas de DEV (solo en desarrollo) === */
+if (process.env.NODE_ENV !== "production") {
+  app.use(express.json());
+  app.use(devMailRoutes); // aquí ya existe app
+}
+
 /* === Rutas === */
 app.use(healthRouter);
 
 // ⚠️ Montar licencias SOLO una vez con prefijo fijo
-//    → dentro de licencias.routes.js define rutas relativas (ej: router.patch('/:id/decision', ...))
 app.use('/api/licencias', licenciasRouter);
 
 // Resto de rutas existentes
@@ -64,7 +70,6 @@ app.listen(PORT, async () => {
   } catch (err) {
     console.error('❌ Error conectando a MySQL al iniciar:', err.message);
   }
-
 });
 
 export default app;
