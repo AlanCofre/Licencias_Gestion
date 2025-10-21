@@ -11,7 +11,6 @@ function mapLicenciaBackendToFrontend(l) {
   return {
     id: l.id_licencia || l.id,
     estudiante: l.estudiante_nombre || l.nombre || "Estudiante",
-    carrera: l.facultad || "—",
     fechaEmision: l.fecha_emision,
     fechaEnvio: l.fecha_creacion,
     fechaInicioReposo: l.fecha_inicio,
@@ -275,12 +274,6 @@ export default function LicenciasPorRevisar() {
                       </th>
                       <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">
                         <div className="flex items-center">
-                          <GraduationCap className="h-4 w-4 mr-2" />
-                          Carrera
-                        </div>
-                      </th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">
-                        <div className="flex items-center">
                           <Calendar className="h-4 w-4 mr-2" />
                           Fechas
                         </div>
@@ -308,11 +301,6 @@ export default function LicenciasPorRevisar() {
                               <div className="text-sm font-semibold text-gray-900">{licencia.estudiante}</div>
                               <div className="text-xs text-gray-500">ID: {licencia.id}</div>
                             </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-5 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900 bg-gray-50 px-3 py-1 rounded-full inline-block">
-                            {licencia.carrera}
                           </div>
                         </td>
                         <td className="px-6 py-5 whitespace-nowrap">
