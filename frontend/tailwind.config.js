@@ -1,17 +1,13 @@
 /** @type {import('tailwindcss').Config} */
-export default {
+module.exports = {
   content: [
     "./index.html",
-    "./src/**/*.{js,ts,jsx,tsx}",
+    "./src/**/*.{js,jsx,ts,tsx}",
   ],
+  darkMode: "class", // <- usar clase .dark
   theme: {
-    extend: {
-      fontFamily: {
-        'sans': ['Work Sans', 'sans-serif'],
-        'display': ['Wix Madefor Display', 'sans-serif'],
-      },
-    },
+    extend: {},
   },
   plugins: [],
-}
+};
 

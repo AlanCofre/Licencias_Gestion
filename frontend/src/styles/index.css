@@ -9,24 +9,59 @@
   box-sizing: border-box;
 }
 
+/* Paleta (light por defecto) */
 :root{
-  --blue-600: #0ea5e9;
-  --blue-700: #0b6fb5;
-  --blue-800: #0a4f86;
-  --accent: #06b6d4;
-  --muted: #e6f2fb;
+  --bg: #f8fafc;
+  --surface: #ffffff;
+  --muted: #6b7280;
+  --text: #0f1724;
+  --primary: #0ea5e9;
+  --accent: #0ea5e9;
+  --card-shadow: 0 6px 18px rgba(15,23,42,0.06);
+  --border: rgba(15,23,42,0.08);
 }
+
+/* Modo oscuro: al aplicar la clase `dark` en <html> o <body> */
+.dark {
+  /* Fondo gris en modo oscuro */
+  --bg: #1f2937;          /* fondo general: gray-800 */
+  --surface: #111827;     /* paneles / cards: gray-900 */
+  --muted: #9ca3af;       /* texto secundario */
+  --text: #e5e7eb;        /* texto principal */
+  --primary: #38bdf8;     /* acento */
+  --accent: #60a5fa;
+  --card-shadow: 0 6px 18px rgba(2,6,23,0.6);
+  --border: rgba(255,255,255,0.06);
+}
+
+/* Aplicar variables globalmente */
+html, body {
+  background-color: var(--bg);
+  color: var(--text);
+}
+
+/* Reglas utilitarias que se pueden usar en componentes para respetar paleta */
+.bg-app { background-color: var(--bg) !important; }
+.surface { background-color: var(--surface) !important; }
+.text-muted { color: var(--muted) !important; }
+.text-primary { color: var(--primary) !important; }
+.border-app { border-color: var(--border) !important; }
+.card-shadow { box-shadow: var(--card-shadow) !important; }
 
 body {
   font-family: 'Work Sans', system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  background: var(--muted);
+  background: var(--bg); /* corregido: usar --bg */
   line-height: 1.6;
 }
 
+/* botón ghost respetando variables */
 .btn-ghost {
-  @apply bg-white text-gray-700 px-6 py-3 rounded-lg shadow-md flex items-center gap-3 transition-all;
+  @apply px-6 py-3 rounded-lg shadow-md flex items-center gap-3 transition-all;
+  background-color: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
 }
-.btn-ghost:focus { outline: 3px solid rgba(14,165,233,0.25); }
+.btn-ghost:focus { outline: 3px solid rgba(56,189,248,0.18); }
 
 @keyframes slideUp {
   from {
@@ -43,21 +78,10 @@ body {
 }
 
 /* Tamaños de fuente para accesibilidad */
-.font-size-small {
-  font-size: 14px;
-}
-
-.font-size-normal {
-  font-size: 16px;
-}
-
-.font-size-large {
-  font-size: 18px;
-}
-
-.font-size-extra-large {
-  font-size: 20px;
-}
+.font-size-small { font-size: 14px; }
+.font-size-normal { font-size: 16px; }
+.font-size-large { font-size: 18px; }
+.font-size-extra-large { font-size: 20px; }
 
 /* Cursor grande estilo Windows - más grande y mejorado */
 .large-cursor * {
@@ -161,7 +185,7 @@ body {
 }
 
 /* Modo oscuro - redefinir variables */
-.dark-mode {
+.dark {
   /* Fondos oscuros */
   --bg-primary: #0f172a;
   --bg-secondary: #1e293b;
@@ -188,152 +212,153 @@ body {
   --green-600: #22c55e;
 }
 
-/* Aplicar variables a elementos base */
-.dark-mode {
-  background-color: var(--bg-primary);
-  color: var(--text-primary);
-}
+/* Forzar overrides sobre utilidades de Tailwind cuando .dark esté activo */
+.dark .bg-white { background-color: var(--bg-secondary) !important; color: var(--text-primary) !important; }
+.dark .bg-gray-50,
+.dark .bg-gray-100 { background-color: var(--bg-terciary) !important; }
+.dark .text-gray-700,
+.dark .text-gray-800,
+.dark .text-gray-900 { color: var(--text-primary) !important; }
+.dark .text-gray-600 { color: var(--text-secondary) !important; }
+.dark .text-gray-500 { color: var(--text-muted) !important; }
+.dark .border-gray-200,
+.dark .border-gray-300 { border-color: var(--border-color) !important; }
 
-/* Aplicar a elementos específicos */
-.dark-mode .bg-white {
-  /* background-color: var(--bg-secondary) !important; */
-  color: var(--text-primary) !important;
-}
-
-.dark-mode .bg-gray-50,
-.dark-mode .bg-gray-100 {
-  background-color: var(--bg-terciary) !important;
-}
-
-.dark-mode .text-gray-700,
-.dark-mode .text-gray-800,
-.dark-mode .text-gray-900 {
-  color: var(--text-primary) !important;
-}
-
-.dark-mode .text-gray-600 {
-  color: var(--text-secondary) !important;
-}
-
-.dark-mode .text-gray-500 {
-  color: var(--text-muted) !important;
-}
-
-.dark-mode .border-gray-200,
-.dark-mode .border-gray-300 {
-  border-color: var(--border-color) !important;
-}
-
-/* Sombras ajustadas para modo oscuro */
-.dark-mode .shadow-lg {
+.dark .shadow-lg {
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -2px rgba(0, 0, 0, 0.2) !important;
 }
-
-.dark-mode .shadow-xl {
+.dark .shadow-xl {
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.4), 0 10px 10px -5px rgba(0, 0, 0, 0.2) !important;
 }
+.dark .bg-gradient-to-r { background: linear-gradient(to right, #1e40af, #3b82f6) !important; }
 
-/* Gradientes ajustados */
-.dark-mode .bg-gradient-to-r {
-  background: linear-gradient(to right, #1e40af, #3b82f6) !important;
+/* Login / ComoUsar / componentes específicos */
+.dark h2.text-black { color: var(--text-primary) !important; }
+.dark label.text-black { color: var(--text-primary) !important; }
+.dark .bg-white.rounded-lg { background-color: var(--bg-secondary) !important; }
+.dark .bg-blue-50 { background-color: var(--bg-terciary) !important; }
+.dark .text-gray-700 { color: var(--text-primary) !important; }
+.dark .text-black { color: var(--text-primary) !important; }
+.dark .text-gray-900 { color: var(--text-primary) !important; }
+.dark .text-gray-600 { color: var(--text-secondary) !important; }
+.dark .border-gray-300 { border-color: var(--border-color) !important; }
+.dark .hover\:bg-gray-50:hover { background-color: var(--bg-terciary) !important; }
+
+/* Ejemplos para contenedores grandes usados en ComoUsar / Announcement */
+.dark .bg-white.rounded-3xl.shadow-2xl.overflow-hidden.grid,
+.dark .max-w-7xl .bg-white.rounded-3xl.shadow-2xl,
+.dark .container .bg-white.rounded-3xl {
+  background-color: var(--bg-secondary) !important;
 }
+.dark .bg-white.shadow-2xl { box-shadow: 0 25px 50px -12px rgba(0,0,0,0.6) !important; }
 
 /* Transiciones suaves */
 * {
   transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
 }
 
-/* ================================
-   🌙 MODO OSCURO PARA LOGIN
-   ================================ */
-
-/* Títulos principales del login */
-.dark-mode h2.text-black {
-  color: #f8fafc !important;
+/* ======================
+   Forzar fondo gris en las grandes secciones (hero / banner) en modo oscuro
+   Añade más selectores si el hero tiene una clase distinta (usa DevTools para comprobar)
+   ====================== */
+.dark .hero,
+.dark .banner-section,
+.dark .site-hero,
+.dark .page-banner,
+.dark .bg-hero,
+.dark .landing-hero,
+.dark .announcement,
+.dark .container-hero {
+  background-color: var(--bg) !important;    /* gris oscuro definido en :root .dark */
+  background-image: none !important;         /* quitar gradientes o imágenes de fondo */
+  color: var(--text) !important;
 }
 
-/* Labels del login */
-.dark-mode label.text-black {
-  color: #f8fafc !important;
+/* Si el hero usa un gradiente específico, reemplazarlo por un gradiente neutro oscuro */
+.dark .bg-gradient-to-r,
+.dark .hero-gradient {
+  background: linear-gradient(90deg, rgba(31,41,55,0.95), rgba(17,24,39,0.95)) !important;
 }
 
-/* Contenedor del login en modo oscuro */
-.dark-mode .bg-white.rounded-lg {
-  background-color: #1e293b !important;
+/* Si la tarjeta dentro del hero es blanca, usar surface (panel oscuro) */
+.dark .bg-white.rounded-3xl,
+.dark .bg-white.rounded-lg {
+  background-color: var(--surface) !important;
+  color: var(--text) !important;
 }
 
-/* Mensaje informativo del login */
-.dark-mode .bg-blue-50 {
-  background-color: #374151 !important;
+/* Reparar utilidades bg-white y bg-white/90 en modo oscuro (mantiene bordes y hover controlados) */
+.dark .bg-white {
+  background-color: var(--surface) !important;
+  color: var(--text) !important;
+}
+.dark .bg-white\/90 {
+  /* Tailwind usa la notación bg-white/90 en class attribute -> selector con backslash */
+  background-color: color-mix(in srgb, var(--surface) 90%, transparent) !important;
+  color: var(--text) !important;
 }
 
-.dark-mode .text-gray-700 {
-  color: #f3f4f6 !important;
+/* Hover white -> usar surface ligeramente aclarado */
+.dark .hover\:bg-white:hover {
+  background-color: color-mix(in srgb, var(--surface) 12%, white 0%) !important;
 }
 
-/* Texto inferior del login */
-.dark-mode .text-black {
-  color: #f8fafc !important;
+/* ===========================
+   Fix: evitar que hover/bg-white y utilidades se vuelvan blancas en .dark
+   =========================== */
+
+/* Forzar estado base bg-white en dark */
+.dark .bg-white {
+  background-color: var(--surface) !important;
+  color: var(--text) !important;
 }
 
-/* Opciones de radio en modo oscuro */
-.dark-mode .text-gray-900 {
-  color: #f8fafc !important;
+/* bg-white/90 (selector con slash) */
+.dark .bg-white\/90 {
+  background-color: color-mix(in srgb, var(--surface) 90%, transparent) !important;
+  color: var(--text) !important;
 }
 
-.dark-mode .text-gray-600 {
-  color: #cbd5e1 !important;
+/* Hover utilities: .hover:bg-white, .hover:bg-gray-50, .hover:bg-blue-50, etc. */
+.dark .hover\:bg-white:hover,
+.dark .hover\:bg-gray-50:hover,
+.dark .hover\:bg-blue-50:hover,
+.dark .hover\:bg-white\/90:hover,
+.dark .hover\:bg-gray-100:hover,
+.dark .hover\:bg-blue-100:hover {
+  background-color: color-mix(in srgb, var(--surface) 88%, transparent) !important;
+  color: var(--text) !important;
 }
 
-/* Contenedor de opciones de radio */
-.dark-mode .border-gray-300 {
-  border-color: #475569 !important;
+/* Casos directos on-hover sobre elementos con clase bg-white */
+.dark .bg-white:hover,
+.dark .bg-white:focus,
+.dark .bg-white:active {
+  background-color: color-mix(in srgb, var(--surface) 92%, transparent) !important;
+  color: var(--text) !important;
 }
 
-.dark-mode .hover\:bg-gray-50:hover {
-  background-color: #374151 !important;
+/* Asegurar textos grises legibles cuando utility text-gray-* se use */
+.dark .text-gray-600,
+.dark .text-gray-700,
+.dark .text-gray-800,
+.dark .text-gray-900 {
+  color: var(--text) !important;
 }
 
-/* ================================
-   🌙 SOLO PÁGINA "COMO SE USA" EN MODO OSCURO
-   ================================ */
-
-/* Contenedor principal específico con grid */
-.dark-mode .bg-white.rounded-3xl.shadow-2xl.overflow-hidden.grid {
-  background-color: #1e293b !important;
+/* Borde de controles */
+.dark .border-gray-200 {
+  border-color: var(--border) !important;
 }
 
-/* Backup - cualquier contenedor con estas clases exactas */
-.dark-mode .max-w-7xl .bg-white.rounded-3xl.shadow-2xl {
-  background-color: #1e293b !important;
+/* Botones con sombra que cambian al hover: mantener contraste */
+.dark .shadow-lg:hover,
+.dark .shadow-xl:hover {
+  box-shadow: 0 10px 20px rgba(0,0,0,0.45) !important;
 }
 
-/* Área de imagen con variable CSS */
-.dark-mode .bg-\[var\(--blue-50\)\] {
-  background-color: #374151 !important;
-}
-
-/* Textos específicos en ComoUsar */
-.dark-mode .bg-white.rounded-3xl h1,
-.dark-mode .bg-white.rounded-3xl h2 {
-  color: #f8fafc !important;
-}
-
-.dark-mode .bg-white.rounded-3xl p {
-  color: #cbd5e1 !important;
-}
-
-.dark-mode .bg-white.rounded-3xl li {
-  color: #cbd5e1 !important;
-}
-
-/* Override más agresivo para el contenedor específico */
-.dark-mode .container .bg-white.rounded-3xl {
-  background-color: #1e293b !important;
-}
-
-/* Sombra del contenedor en modo oscuro */
-.dark-mode .bg-white.shadow-2xl {
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6) !important;
+/* Si algún componente usa clases compuestas inline, forzar texto legible dentro */
+.dark .inline-flex.bg-white * {
+  color: var(--text) !important;
 }
 

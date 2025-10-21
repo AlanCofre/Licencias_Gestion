@@ -12,3 +12,6 @@ yarn-error.log
 /frontend/.env.*
 !frontend/.env.example
 !backend/.env.example
+frontend/node_modules/.vite/deps/_metadata.json
+
+frontend/node_modules/

@@ -297,5 +297,185 @@
       document.getElementById(`resultado_simulacion_${panel}`).textContent = JSON.stringify(json, null, 2);
     }
   </script>
+
+  <hr>
+  <h2>Subir archivo directamente a Supabase</h2>
+
+  <input type="file" id="archivoSupabase"><br><br>
+  <button onclick="subirArchivoSupabase()">Subir archivo</button>
+
+  <pre id="resultadoSupabase"></pre>
+
+  <script>
+    async function subirArchivoSupabase() {
+      const archivo = document.getElementById('archivoSupabase').files[0];
+      const resultado = document.getElementById('resultadoSupabase');
+      const token = localStorage.getItem('jwt');
+
+      if (!archivo) {
+        resultado.textContent = '⚠️ Selecciona un archivo primero.';
+        return;
+      }
+
+      if (!token) {
+        resultado.textContent = '⚠️ Inicia sesión para obtener el token JWT.';
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('archivo', archivo);
+
+      try {
+        const res = await fetch('http://localhost:3000/api/archivos/subir', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`
+          },
+          body: formData
+        });
+
+        const json = await res.json();
+        resultado.textContent = JSON.stringify(json, null, 2);
+      } catch (err) {
+        resultado.textContent = '❌ Error al subir archivo: ' + err.message;
+      }
+    }
+  </script>
+
+
+<!-- seccion para obtener archivos subidos -->
+  <hr>
+  <h2>Ver mis archivos subidos</h2>
+  <button onclick="verMisArchivos()">Cargar archivos</button>
+
+  <div id="archivosSubidos" style="margin-top: 20px;">
+    <!-- Aquí se mostrarán los archivos -->
+  </div>
+
+  <script>
+    async function verMisArchivos() {
+      const token = localStorage.getItem('jwt');
+      if (!token) {
+        alert('Token JWT no encontrado. Inicia sesión primero.');
+        return;
+      }
+
+      const res = await fetch('http://localhost:3000/api/archivos/mios', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const json = await res.json();
+      const contenedor = document.getElementById('archivosSubidos');
+      contenedor.innerHTML = '';
+
+      if (!json.ok || !json.archivos?.length) {
+        contenedor.innerHTML = '<p>No se encontraron archivos subidos.</p>';
+        return;
+      }
+
+      const lista = document.createElement('ul');
+      json.archivos.forEach(({ nombre, url }) => {
+        const item = document.createElement('li');
+        item.innerHTML = `<strong>${nombre}</strong> — <a href="${url}" target="_blank">Ver / Descargar</a>`;
+        lista.appendChild(item);
+      });
+
+      contenedor.appendChild(lista);
+    }
+  </script>
+
+<!-- ******************************************** imagen perfil ******************************************** -->
+<input type="file" id="inputPerfil" accept="image/*" />
+
+<div id="previewContainer">
+  <img id="imagenPerfil" />
+</div>
+
+<style>
+  #previewContainer {
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    overflow: hidden;
+    border: 2px solid #ccc;
+  }
+
+  #imagenPerfil {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: none;
+  }
+</style>
+
+<script>
+  const token = localStorage.getItem('jwt');
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    const input = document.getElementById('inputPerfil');
+    const img = document.getElementById('imagenPerfil');
+
+    // Cargar imagen de perfil existente al iniciar
+    try {
+      const res = await fetch('http://localhost:3000/api/archivos/perfil', {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+
+      const resultado = await res.json();
+      if (resultado?.ok && resultado?.url) {
+        img.src = resultado.url;
+        img.alt = 'Imagen de perfil';
+        img.style.display = 'block';
+        console.log('📥 Imagen de perfil cargada:', resultado.url);
+      }
+    } catch (e) {
+      console.error('⚠️ Error al cargar imagen de perfil:', e);
+    }
+
+    // Subida automática al seleccionar archivo
+    input.addEventListener('change', async (event) => {
+      const archivo = event.target.files[0];
+      if (!archivo) return;
+
+      const formData = new FormData();
+      formData.append('imagen', archivo);
+
+      try {
+        const res = await fetch('http://localhost:3000/api/archivos/subir-perfil', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`
+          },
+          body: formData
+        });
+
+        const contentType = res.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+          throw new Error('Respuesta no es JSON');
+        }
+
+        const resultado = await res.json();
+
+        if (resultado?.ok && resultado?.url) {
+          img.src = resultado.url;
+          img.alt = 'Imagen de perfil';
+          img.style.display = 'block';
+          console.log('✅ Imagen subida automáticamente:', resultado.url);
+        } else {
+          console.error('❌ Error en respuesta:', resultado?.detalle || 'Respuesta vacía');
+        }
+      } catch (e) {
+        console.error('❌ Error al subir imagen:', e);
+      }
+    });
+  });
+</script>
+
+
 </body>
 </html>

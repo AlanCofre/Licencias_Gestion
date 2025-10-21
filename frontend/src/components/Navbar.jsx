@@ -2,9 +2,12 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { useTranslation } from "react-i18next";
+import logo from "../assets/logo.svg"; // <---  EL LOGO PORFIN!!!!
 
 export default function Navbar() {
   const { user } = useAuth?.() ?? {};
+  const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState(null);
   const [expanded, setExpanded] = useState({});
@@ -13,10 +16,20 @@ export default function Navbar() {
   const isSecretary = role === "secretaria" || role === "secretary" || role === "funcionario";
   const displayName = user
     ? isSecretary
-      ? "Sec. Juana Perez"
-      : user.name || user.role
-    : "Invitado";
+      ? `${t("prefix.secretary")} ${user.name || t("user.defaultName")}`
+      : user.name || user.role || t("user.defaultName")
+    : t("user.guest");
 
+  // nuevo: iniciales para placeholder si no hay imagen
+  const initials = user?.name
+    ? user.name
+        .split(" ")
+        .map((n) => n[0] ?? "")
+        .slice(0, 2)
+        .join("")
+        .toUpperCase()
+    : "";
+    
     // Notificaciones combinadas
   const [studentNotifications, setStudentNotifications] = useState([]);
   const [secretaryNotifications, setSecretaryNotifications] = useState([]);
@@ -113,7 +126,11 @@ useEffect(() => {
 
   const CheckIcon = ({ className = "w-4 h-4" }) => (
     <svg className={className} viewBox="0 0 20 20" fill="currentColor">
-      <path fillRule="evenodd" d="M16.7 5.3a1 1 0 010 1.4l-7.1 7.1a1 1 0 01-1.4 0L3.3 8.9a1 1 0 011.4-1.4l3.1 3.1 6.4-6.4a1 1 0 011.5 0z" clipRule="evenodd" />
+      <path
+        fillRule="evenodd"
+        d="M16.7 5.3a1 1 0 010 1.4l-7.1 7.1a1 1 0 01-1.4 0L3.3 8.9a1 1 0 011.4-1.4l3.1 3.1 6.4-6.4a1 1 0 011.5 0z"
+        clipRule="evenodd"
+      />
     </svg>
   );
 
@@ -264,7 +281,7 @@ useEffect(() => {
                             onClick={() => markAsRead(n.id)}
                             className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 border border-blue-600 hover:border-blue-800 px-2 py-1 rounded transition"
                           >
-                            <CheckIcon /> Leer
+                            <CheckIcon /> {t("notifications.read")}
                           </button>
                         )}
                       </div>
@@ -278,7 +295,7 @@ useEffect(() => {
                           onClick={() => toggleDescription(n.id)}
                           className="text-xs text-gray-500 hover:text-gray-700 mt-1"
                         >
-                          Ver más
+                          {t("notifications.viewMore")}
                         </button>
                       )}
                     </li>
@@ -295,16 +312,15 @@ useEffect(() => {
     <header className="bg-[#048FD4] text-white shadow-md relative" role="banner">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-20">
-          {/* Logo */}
           <div className="flex items-center">
             <Link to="/" onClick={closeMenu} className="flex items-center p-1">
-              <span className="text-2xl font-bold tracking-wide font-display">
-                MedManager
-              </span>
-            </Link>
-          </div>
+              <img src={logo} alt="MedManager" className="h-10 w-10 mr-3" />
+                <span className="text-2xl font-bold tracking-wide font-display">
+                  MedManager
+               </span>
+              </Link>
+           </div>
 
-          {/* Nav */}
           <nav className="hidden md:flex flex-1 justify-center">
             <ul className="flex gap-8 text-sm font-medium items-center">
               <li>
@@ -312,24 +328,34 @@ useEffect(() => {
                   to={isSecretary ? "/secretaria" : "/alumno"}
                   className="px-3 py-2 hover:bg-white/10 rounded transition-colors"
                 >
-                  Inicio
+                  {t("nav.home")}
                 </Link>
               </li>
             </ul>
           </nav>
 
-          {/* Área derecha */}
           <div className="flex items-center gap-4">
             <UnifiedBell />
             {isSecretary
             }
             <div className="text-right hidden sm:block">
-              <div className="text-xs opacity-90">Usuario</div>
+              <div className="text-xs opacity-90">{t("user.label")}</div>
               <Link
                 to="/edit-profile"
-                className="font-semibold text-sm hover:underline hover:text-gray-200 transition-colors"
+                className="inline-flex items-center gap-3 max-w-[220px] font-semibold text-sm hover:underline hover:text-gray-200 transition-colors"
               >
-                {displayName}
+                {user?.avatar || user?.photoURL ? (
+                  <img
+                    src={user.avatar || user.photoURL}
+                    alt={displayName}
+                    className="w-9 h-9 rounded-full object-cover border-2 border-white/30"
+                  />
+                ) : (
+                  <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center text-sm font-semibold text-white">
+                    {initials || "U"}
+                  </div>
+                )}
+                <span className="truncate">{displayName}</span>
               </Link>
             </div>
 
@@ -340,7 +366,6 @@ useEffect(() => {
               <LogoutSvg />
             </Link>
 
-            {/* Menú móvil */}
             <button
               onClick={toggleMenu}
               className="md:hidden p-2 rounded-md hover:bg-white/10 transition-colors"

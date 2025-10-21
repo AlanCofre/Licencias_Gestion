@@ -3,13 +3,15 @@ import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import BannerSection from "../components/BannerSection";
 import { Upload } from "lucide-react";
+import { toast } from "react-hot-toast";
 
 export default function GenerarRevision() {
   const [formData, setFormData] = useState({
     folio: "",
-    fechaEmision: "", 
-    fechaInicioReposo: "", 
+    fechaEmision: "",
+    fechaInicioReposo: "",
     fechaFinalReposo: "",
+    razon: "",
   });
   const [file, setFile] = useState(null);
   const fileInputRef = useRef(null);
@@ -18,10 +20,7 @@ export default function GenerarRevision() {
   const handleChange = (e) => {
     const { name, value } = e.target;
 
-    // Validación: solo números en folio
-    if (name === "folio" && !/^\d*$/.test(value)) {
-      return;
-    }
+    if (name === "folio" && !/^\d*$/.test(value)) return;
 
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
@@ -31,9 +30,8 @@ export default function GenerarRevision() {
     const selectedFile = e.target.files[0];
     if (selectedFile && selectedFile.type === "application/pdf") {
       setFile(selectedFile);
-      // La fecha y el ID se generarán automáticamente en el backend
     } else {
-      alert("Por favor sube un archivo PDF válido.");
+      toast.error("Por favor sube un archivo PDF válido.");
     }
   };
 
@@ -42,9 +40,8 @@ export default function GenerarRevision() {
     const droppedFile = e.dataTransfer.files[0];
     if (droppedFile && droppedFile.type === "application/pdf") {
       setFile(droppedFile);
-      // La fecha y el ID se generarán automáticamente en el backend
     } else {
-      alert("Solo se permiten archivos PDF.");
+      toast.error("Solo se permiten archivos PDF.");
     }
   };
 
@@ -52,59 +49,54 @@ export default function GenerarRevision() {
     e.preventDefault();
   };
 
-  // Validar si todos los campos están completos 
+  // Validar formulario
   const isFormValid =
     formData.folio.trim() !== "" &&
-    formData.fechaEmision.trim() !== "" && 
+    formData.fechaEmision.trim() !== "" &&
     formData.fechaInicioReposo.trim() !== "" &&
     formData.fechaFinalReposo.trim() !== "" &&
     file !== null;
 
-  // Envío real al backend (multipart/form-data)
+  // Envío al backend
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!isFormValid) return;
 
     try {
       const fd = new FormData();
-      // campo que el BE espera: 'archivo'
       fd.append("archivo", file);
-      // campos que el BE guarda en BD
       fd.append("folio", formData.folio);
       fd.append("fecha_emision", formData.fechaEmision);
       fd.append("fecha_inicio", formData.fechaInicioReposo);
       fd.append("fecha_fin", formData.fechaFinalReposo);
-      // opcional: enviar razón (motivo) si el BE lo acepta; si no, queda null por defecto
       fd.append("motivo", formData.razon);
 
-      // obtener token desde localStorage (ajustar clave si usan otra)
       const token =
         localStorage.getItem("token") ||
         localStorage.getItem("jwt") ||
         localStorage.getItem("accessToken") ||
         "";
 
-      // usar VITE_API_URL si está definido en .env; fallback a localhost:3000
-      const apiBase = (import.meta.env.VITE_API_URL || "http://localhost:3000").replace(/\/$/, "");
+      const apiBase = (import.meta.env.VITE_API_URL || "http://localhost:3000").replace(
+        /\/$/,
+        ""
+      );
+
       const res = await fetch(`${apiBase}/api/licencias/crear`, {
-         method: "POST",
-         headers: {
-           ...(token ? { Authorization: `Bearer ${token}` } : {}),
-           // DO NOT set Content-Type; fetch lo maneja para FormData
-         },
-         body: fd,
-       });
+        method: "POST",
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: fd,
+      });
 
       const json = await res.json().catch(() => ({}));
 
       if (res.ok) {
-        alert("Licencia enviada correctamente.");
+        toast.success("Licencia enviada correctamente.");
         console.log("Respuesta BE:", json);
-        // limpiar formulario
         setFormData({
-          id: "",
           folio: "",
-          fecha: "",
           fechaEmision: "",
           fechaInicioReposo: "",
           fechaFinalReposo: "",
@@ -113,29 +105,25 @@ export default function GenerarRevision() {
         setFile(null);
       } else {
         const msg = json?.mensaje || json?.error || JSON.stringify(json);
-        alert("Error enviando licencia: " + msg);
+        toast.error("Error enviando licencia: " + msg);
         console.error("Error backend:", res.status, json);
       }
     } catch (err) {
       console.error("Catch error enviar licencia:", err);
-      alert("Error al enviar la licencia. Revisa la consola.");
+      toast.error("Error al enviar la licencia. Revisa la consola.");
     }
   };
 
-  // Obtener fecha de hoy en formato YYYY-MM-DD para validación de fechaFin
   const hoy = new Date().toISOString().split("T")[0];
 
   return (
-    <div className="min-h-screen flex flex-col bg-blue-100">
+    <div className="min-h-screen flex flex-col bg-gradient-to-b from-blue-50 to-blue-100 dark:bg-app dark:bg-none">
       <Navbar />
 
-      {/* Banner superior */}
       <BannerSection title="Generar revisión de licencia" />
 
-      {/* Formulario + Upload */}
       <main className="container mx-auto px-6 py-12 flex-grow">
         <div className="bg-white rounded-lg shadow-lg p-8 grid grid-cols-1 lg:grid-cols-2 gap-10">
-          {/* Formulario */}
           <form className="flex flex-col gap-6" onSubmit={handleSubmit}>
             <div>
               <label className="block text-gray-600 mb-1">Número de Folio</label>
@@ -163,7 +151,6 @@ export default function GenerarRevision() {
               </small>
             </div>
 
-            
             <div>
               <label className="block text-gray-600 mb-1">Fecha inicio reposo</label>
               <input
@@ -182,7 +169,7 @@ export default function GenerarRevision() {
                 name="fechaFinalReposo"
                 value={formData.fechaFinalReposo}
                 onChange={handleChange}
-                min={hoy} // no permite fechas pasadas
+                min={hoy}
                 className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
               />
             </div>
@@ -200,7 +187,6 @@ export default function GenerarRevision() {
             </button>
           </form>
 
-          {/* Upload */}
           <div
             className="border-2 border-dashed border-blue-400 rounded-lg flex flex-col items-center justify-center p-6 text-blue-500 cursor-pointer hover:bg-blue-50 transition"
             onDrop={handleDrop}
@@ -213,8 +199,7 @@ export default function GenerarRevision() {
             </p>
             {file && (
               <p className="mt-2 text-sm text-gray-600">
-                Archivo seleccionado:{" "}
-                <span className="font-semibold">{file.name}</span>
+                Archivo seleccionado: <span className="font-semibold">{file.name}</span>
               </p>
             )}
             <input

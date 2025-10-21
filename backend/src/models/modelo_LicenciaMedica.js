@@ -25,9 +25,10 @@ LicenciaMedica.init(
     folio: { type: DataTypes.STRING(50), allowNull: false },
 
     // Usa DATEONLY para no arrastrar hora/zona
-    fecha_emision: { type: DataTypes.DATEONLY, allowNull: false },
-    fecha_inicio: { type: DataTypes.DATEONLY, allowNull: false },
+    fecha_emision: { type: DataTypes.DATE, allowNull: false },
+    fecha_inicio: { type: DataTypes.DATE, allowNull: false },
     fecha_fin: { type: DataTypes.DATE, allowNull: false },
+    fecha_creacion: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
 
     estado: {
       type: DataTypes.ENUM('pendiente', 'aceptado', 'rechazado'),

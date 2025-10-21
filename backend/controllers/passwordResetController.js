@@ -2,6 +2,9 @@
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import db from '../config/db.js'; // mysql2/promise pool
+import { generateRecoveryCode } from "../src/utils/Codigoverificacion.js";
+import { enviarCodigoRecuperacion } from "../services/servicio_Correo.js";
+
 
 const TTL_MIN = Number(process.env.RESET_CODE_TTL_MIN || 10); // minutos
 const MAX_ATTEMPTS = Number(process.env.RESET_MAX_ATTEMPTS || 5);
@@ -35,31 +38,38 @@ export const requestPasswordReset = async (req, res) => {
   if (!email) return res.status(400).json({ message: 'Faltan datos.' });
 
   try {
-    // buscar usuario por correo_usuario (tabla: usuario)
-    const [rows] = await db.execute(
-      'SELECT id_usuario FROM usuario WHERE correo_usuario = ? LIMIT 1',
-      [email]
-    );
-
-    if (rows.length) {
-      const code = generateNumericCode(6);
-      const codeHash = await bcrypt.hash(code, 10);
-      const expiresAt = new Date(Date.now() + TTL_MIN * 60 * 1000);
-
-      // Guardar en memoria (sobrescribe cualquier código previo)
-      resetStore.set(email, { codeHash, expiresAt, attempts: 0, used: false });
-
-      if (process.env.NODE_ENV !== 'production') {
-        console.log('🔐 RESET CODE DEV →', code, 'para', email, 'expira a las', expiresAt.toISOString());
-      }
-      // Si más adelante activan mailer, enviar el código por correo aquí.
+    const [rows] = await db.query("SELECT * FROM usuario WHERE correo_usuario = ?", [email]);
+    if (rows.length === 0) {
+      return res.status(404).json({ error: "Usuario no encontrado" });
     }
 
-    // respuesta neutral siempre (no revelar existencia)
-    return res.status(200).json({ message: NEUTRAL_MSG });
-  } catch (e) {
-    console.error('[password-reset/request] ERROR:', e);
-    return res.status(500).json({ message: 'Error interno' });
+    const code = generateRecoveryCode(); // código visible para el usuario
+    const expiresAt = new Date(Date.now() + TTL_MIN * 60000);
+
+    // 🔐 Guardamos hash en memoria
+    const codeHash = await bcrypt.hash(code, 10);
+    resetStore.set(email, {
+      codeHash,
+      expiresAt,
+      attempts: 0,
+      used: false,
+    });
+
+    console.log(`🔐 Código generado para ${email}: ${code}`);
+
+    const enviado = await enviarCodigoRecuperacion(email, code);
+
+    // Enviamos respuesta
+    res.json({
+      message: enviado
+        ? "Correo enviado correctamente."
+        : "No se pudo enviar el correo, pero el código se generó.",
+      code, // opcional para debug/front
+      email,
+    });
+  } catch (error) {
+    console.error("❌ Error al enviar código:", error);
+    res.status(500).json({ error: "Error interno del servidor." });
   }
 };
 
@@ -135,3 +145,33 @@ export const confirmPasswordReset = async (req, res) => {
     return res.status(500).json({ message: 'Error interno' });
   }
 };
+
+export const sendPasswordResetCode = async (req, res) => {
+  const { email } = req.body;
+
+  try {
+    const [rows] = await db.query("SELECT * FROM usuario WHERE correo_usuario = ?", [email]);
+    if (rows.length === 0) {
+      return res.status(404).json({ error: "Usuario no encontrado" });
+    }
+
+    const code = generateRecoveryCode();
+    const expiresAt = new Date(Date.now() + Number(process.env.RESET_CODE_TTL_MIN) * 60000);
+
+    console.log(`🔐 Código generado para ${email}: ${code}`);
+
+    const enviado = await enviarCodigoRecuperacion(email, code);
+
+    if (!enviado) {
+      return res.status(500).json({
+        message: "No se pudo enviar el correo. Verifica la consola para ver el código.",
+        code,
+      });
+    }
+
+    res.json({ message: "Correo enviado correctamente.", email });
+  } catch (error) {
+    console.error("❌ Error al enviar código:", error);
+    res.status(500).json({ error: "Error interno del servidor." });
+  }
+}

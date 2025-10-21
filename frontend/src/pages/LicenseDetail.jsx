@@ -92,7 +92,7 @@ export default function LicenseDetail() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-blue-100">
+    <div className="min-h-screen flex flex-col bg-blue-100 dark:bg-app dark:bg-none">
       <Navbar />
       <main className="container mx-auto px-6 py-12 flex-grow">
         <div className="max-w-4xl mx-auto bg-white rounded-lg shadow p-6">

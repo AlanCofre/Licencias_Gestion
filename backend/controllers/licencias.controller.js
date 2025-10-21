@@ -1,12 +1,15 @@
 // backend/controllers/licencias.controller.js  (ESM unificado)
 import crypto from 'crypto';
 import LicenciaMedica from '../src/models/modelo_LicenciaMedica.js';
-import db from '../config/db.js'; // ← ajusta la ruta si corresponde
+import db from '../config/db.js';
 import { decidirLicenciaSvc } from '../services/servicio_Licencias.js';
 import fs from 'fs';
 import path from 'path';
 import http from 'http';
 import https from 'https';
+
+// ✉️ Servicio de correos (solo para "nueva licencia")
+import { notificarNuevaLicencia } from '../services/servicio_Correo.js';
 
 // === Utilidad: hash SHA-256 de un Buffer/String → hex 64
 function sha256FromBuffer(bufOrStr) {
@@ -47,118 +50,163 @@ function _puedeVerArchivo(user, idPropietario) {
   return false;
 }
 
-// ===============================================
-// GET: listar licencias del usuario autenticado
-// ===============================================
-export const listarLicencias = async (req, res) => {
+// =======================================================
+// ✅ NUEVO CONTROLADOR: GET /api/licencias/mis-licencias
+// =======================================================
+export async function listarMisLicencias(req, res) {
   try {
-    const usuarioId = req.user?.id_usuario ?? req.id ?? null;
-    if (!usuarioId) return res.status(401).json({ ok: false, error: 'No autenticado' });
+    const idUsuario = req.user?.id_usuario ?? req.user?.id ?? null;
+    if (!idUsuario) {
+      return res.status(401).json({ ok: false, error: 'Usuario no autenticado' });
+    }
 
-    // Paginación opcional (por si luego la usas en la tabla)
-    const page = Math.max(1, parseInt(req.query.page || '1', 10));
-    const pageSize = Math.min(100, Math.max(1, parseInt(req.query.pageSize || '50', 10)));
-    const offset = (page - 1) * pageSize;
+    // Usar parámetros de paginación para limitar resultados
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
+    const offset = (page - 1) * limit;
 
     const [rows] = await db.execute(
       `
       SELECT
-        id_licencia           AS id,
+        id_licencia AS id_licencia,
+        folio,
         DATE_FORMAT(fecha_emision, '%Y-%m-%d') AS fecha_emision,
+        DATE_FORMAT(fecha_inicio,  '%Y-%m-%d') AS fecha_inicio,
+        DATE_FORMAT(fecha_fin,     '%Y-%m-%d') AS fecha_fin,
+        estado,
+        motivo_rechazo,
+        DATE_FORMAT(fecha_creacion, '%Y-%m-%d %H:%i:%s') AS fecha_creacion,
+        id_usuario
+      FROM LicenciaMedica
+      WHERE id_usuario = ?
+      ORDER BY fecha_creacion DESC
+      LIMIT ? OFFSET ?
+      `,
+      [idUsuario, limit, offset]
+    );
+
+    // Obtener total para paginación
+    const [[{ total }]] = await db.execute(
+      'SELECT COUNT(*) as total FROM LicenciaMedica WHERE id_usuario = ?',
+      [idUsuario]
+    );
+
+    return res.status(200).json({ 
+      ok: true, 
+      data: rows,
+      pagination: {
+        page,
+        limit,
+        total: parseInt(total),
+        totalPages: Math.ceil(total / limit)
+      }
+    });
+  } catch (error) {
+    console.error('❌ [listarMisLicencias] error:', error);
+    return res.status(500).json({
+      ok: false,
+      error: 'Error interno al obtener licencias del estudiante',
+    });
+  }
+}
+
+// ==
+
+// =======================================================
+// GET: listar licencias del usuario autenticado
+// =======================================================
+export async function listarLicencias(req, res) {
+  try {
+    const idUsuario = req.user?.id_usuario ?? req.user?.id ?? req.user?.sub ?? null;
+    if (!idUsuario) {
+      return res.status(401).json({ ok: false, mensaje: 'No autenticado' });
+    }
+
+    const page = Number.parseInt(req.query.page, 10) || 1;
+    const limit = Number.parseInt(req.query.limit, 10) || 10;
+    const offset = Math.max(0, (page - 1) * limit);
+
+    const [rows] = await db.execute(
+      `
+      SELECT
+        id_licencia AS id,
+        DATE_FORMAT(fecha_creacion, '%Y-%m-%d %H:%i:%s') AS fecha_creacionFull,
+        DATE_FORMAT(fecha_creacion, '%Y-%m-%d') AS fecha_creacion,
+        DATE_FORMAT(fecha_inicio, '%Y-%m-%d') AS fecha_inicio,
+        DATE_FORMAT(fecha_fin, '%Y-%m-%d') AS fecha_fin,
         estado
       FROM LicenciaMedica
       WHERE id_usuario = ?
-      ORDER BY fecha_emision DESC, id_licencia DESC
+      ORDER BY fecha_creacion DESC
       LIMIT ? OFFSET ?
       `,
-      [usuarioId, pageSize, offset]
+      [idUsuario, limit, offset]
     );
 
-    // total para meta (no imprescindible si no quieres)
-    const [countRows] = await db.execute(
-      `SELECT COUNT(*) AS total FROM LicenciaMedica WHERE id_usuario = ?`,
-      [usuarioId]
-    );
-    const total = countRows?.[0]?.total ?? 0;
-
-    return res.json({
-      ok: true,
-      data: rows,               
-      meta: { total, page, pageSize }
-    });
-  } catch (error) {
-    console.error('[licencias:listarLicencias] error:', error);
-    return res.status(500).json({ ok: false, error: 'Error al listar licencias' });
+    return res.json({ ok: true, data: rows });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ ok: false, mensaje: 'Error al listar licencias' });
   }
-};
+}
 
-// =====================================================
+// =======================================================
 // POST: crear licencia (con validaciones reales)
-// =====================================================
-
+// =======================================================
 function validarCampoFecha(fechaStr, campo = 'fecha') {
   const normalizada = String(fechaStr ?? '').trim();
-
-  // Rechazar si está vacío o es el placeholder
   if (!normalizada || normalizada === 'dd-mm-aaaa') {
     return `${campo} es obligatorio.`;
   }
-
-  return null; // Sin errores
+  return null;
 }
-
-
 
 export const crearLicencia = async (req, res) => {
   try {
     const usuarioId = req.user?.id_usuario ?? req.id ?? null;
     const rol = (req.user?.rol ?? req.rol ?? '').toString().toLowerCase();
+
+    // ✉️ obtener también correo para el mail
     const [userRow] = await db.execute(
-      'SELECT nombre FROM Usuario WHERE id_usuario = ?',
+      'SELECT nombre, correo_usuario AS correo FROM Usuario WHERE id_usuario = ?',
       [usuarioId]
     );
     const nombreEstudiante = userRow[0]?.nombre || usuarioId;
+    const correoEstudiante = userRow[0]?.correo || null;
 
-    if (!usuarioId) {
-      return res.status(401).json({ msg: 'No autenticado' });
-    }
+    if (!usuarioId) return res.status(401).json({ msg: 'No autenticado' });
     if (rol && rol !== 'estudiante') {
       return res.status(403).json({ msg: 'Solo estudiantes pueden crear licencias' });
     }
 
     const errores = [];
-
     const errorInicio = validarCampoFecha(req.body.fecha_inicio, 'fecha_inicio');
     if (errorInicio) errores.push(errorInicio);
-
     const errorFin = validarCampoFecha(req.body.fecha_fin, 'fecha_fin');
     if (errorFin) errores.push(errorFin);
-
     if (errores.length > 0) {
       return res.status(400).json({ ok: false, error: errores.join(' ') });
     }
 
     const { fecha_inicio, fecha_fin, motivo } = req.body || {};
     const isISO = (d) => /^\d{4}-\d{2}-\d{2}$/.test(d);
-
     if (!isISO(fecha_inicio) || !isISO(fecha_fin)) {
-      return res.status(400).json({ msg: 'fecha_inicio/fecha_fin deben ser DD-MM-AAAA' });
+      return res.status(400).json({ msg: 'fecha_inicio/fecha_fin deben ser YYYY-MM-DD' });
     }
     if (new Date(fecha_inicio) > new Date(fecha_fin)) {
       return res.status(400).json({ msg: 'La fecha de inicio no puede ser posterior a la fecha fin' });
     }
 
-    // --------- VALIDAR FECHAS SUPERPUESTAS (bloqueante) ----------
+    // Superposición de fechas
     const [solape] = await db.execute(
       `SELECT id_licencia, fecha_inicio, fecha_fin, estado
-         FROM LicenciaMedica
-        WHERE id_usuario = ?
-          AND estado IN ('pendiente','aceptado')
-          AND (? <= fecha_fin AND ? >= fecha_inicio)
-        LIMIT 1`,
+       FROM LicenciaMedica
+       WHERE id_usuario = ?
+         AND estado IN ('pendiente','aceptado')
+         AND (? <= fecha_fin AND ? >= fecha_inicio)
+       LIMIT 1`,
       [usuarioId, fecha_inicio, fecha_fin]
     );
-
     if (solape.length) {
       const lic = solape[0];
       return res.status(409).json({
@@ -168,14 +216,12 @@ export const crearLicencia = async (req, res) => {
       });
     }
 
-    // --------- VALIDAR HASH DUPLICADO (si tenemos archivo o hash) ----------
+    // Duplicado por hash
     const archivo = req.file ?? null;
-    // Puedes mandar 'hash' en body o lo calculamos del archivo subido
     let hashEntrada = req.body?.hash ?? null;
     if (!hashEntrada && archivo?.buffer) {
       hashEntrada = sha256FromBuffer(archivo.buffer);
     }
-
     if (hashEntrada) {
       const [dup] = await db.execute(
         `SELECT al.id_archivo, lm.id_licencia
@@ -194,26 +240,21 @@ export const crearLicencia = async (req, res) => {
       }
     }
 
-    // --------- Insertar licencia ----------
+    // Insert
     const [u] = await db.execute('SELECT id_usuario FROM Usuario WHERE id_usuario = ?', [usuarioId]);
     if (!u.length) return res.status(404).json({ msg: 'Usuario no encontrado' });
 
-    // folio obligatorio: usar exactamente lo que envía el usuario
-    const folio = String(req.body?.folio ?? "").trim();
-    if (!folio) {
-      return res.status(400).json({ msg: "El folio es obligatorio" });
-    }
+    const folio = String(req.body?.folio ?? '').trim();
+    if (!folio) return res.status(400).json({ msg: 'El folio es obligatorio' });
 
-    // ahora usar `folio` al crear el registro en licenciamedica
-    const sqlInsert = `
-      INSERT INTO LicenciaMedica
-        (folio, fecha_emision, fecha_inicio, fecha_fin, estado, motivo_rechazo, fecha_creacion, id_usuario)
-      VALUES
-        (?,     CURDATE(),     ?,            ?,          'pendiente', NULL,            CURDATE(),     ?)
-    `;
-    const [result] = await db.execute(sqlInsert, [folio, fecha_inicio, fecha_fin, usuarioId]);
+    const [result] = await db.execute(
+      `INSERT INTO LicenciaMedica
+       (folio, fecha_emision, fecha_inicio, fecha_fin, estado, motivo_rechazo, fecha_creacion, id_usuario)
+       VALUES (?, CURDATE(), ?, ?, 'pendiente', NULL, CURDATE(), ?)`,
+      [folio, fecha_inicio, fecha_fin, usuarioId]
+    );
 
-    // --------- Notificación (best-effort) (la use como referencia para la secretaria) ----------
+    // Notificaciones (best-effort en BD)
     try {
       const asunto = 'creacion de licencia';
       const contenido = `Se ha creado la licencia ${folio} con fecha de inicio ${fecha_inicio} y fin ${fecha_fin}.`;
@@ -222,59 +263,63 @@ export const crearLicencia = async (req, res) => {
          VALUES (?, ?, 0, NOW(), ?)`,
         [asunto, contenido, usuarioId]
       );
-      console.log(`🔔 [NOTIFICACIÓN] Usuario ${usuarioId} recibió: "${asunto}" → ${contenido}`);
-    } catch (notifError) {
-      console.warn('⚠️ No se pudo registrar la notificación:', notifError.message);
-    }
-    // --------- Notificación a todos los funcionarios/secretarios ----------
+    } catch {}
 
-    try { 
-      const [funcionarios] = await db.execute(
-        `SELECT id_usuario FROM Usuario WHERE id_rol IN (3)` // 1: funcionario, 3: secretaria (ajusta según tus roles)
-      );
-      for (const funcionario of funcionarios) {
-        await db.execute(
-          `INSERT INTO notificacion (asunto, contenido, leido, fecha_envio, id_usuario)
-          VALUES (?, ?, 0, NOW(), ?)`,
-          [
-            'Nueva solicitud de licencia',
-            `el estudiante ${nombreEstudiante} envio una licencia ${folio} con fecha de inicio ${fecha_inicio} y fin ${fecha_fin}.`,
-            funcionario.id_usuario
-          ]
-        );
-      }
-      console.log(`🔔 [NOTIFICACIÓN] Notificado a ${funcionarios.length} funcionarios/secretarias`);
-    } catch (notifError) {
-      console.warn('⚠️ No se pudo registrar la notificación para funcionarios:', notifError.message);
-    }
-
-
-    // --------- Registrar archivo (opcional) ----------
+    // Archivo (opcional)
     try {
       const idLicencia = result.insertId;
-
-      // En tu tabla archivolicencia: ruta_url NOT NULL
-      // Si subes archivo pero aún no tienes URL real, guardamos un placeholder.
       const ruta_url = req.body?.ruta_url ?? (archivo ? 'local://sin-url' : null);
       const tipo_mime = req.body?.tipo_mime ?? (archivo?.mimetype ?? null);
       const tamano = Number(req.body?.tamano ?? (archivo?.size ?? 0));
-
-      // Si tenemos al menos hash/URL/mime/tamaño y licencia, insertamos
       if ((hashEntrada || ruta_url || tipo_mime || tamano) && ruta_url) {
         await db.execute(
           `INSERT INTO ArchivoLicencia (ruta_url, tipo_mime, hash, tamano, fecha_subida, id_licencia)
            VALUES (?, ?, ?, ?, NOW(), ?)`,
           [ruta_url, tipo_mime ?? 'application/octet-stream', hashEntrada ?? null, tamano, idLicencia]
         );
-        console.log(`📎 [ARCHIVO] Registrado para licencia ${idLicencia}${archivo?.originalname ? `: ${archivo.originalname}` : ''}`);
-      } else if (archivo || hashEntrada) {
-        console.warn('⚠️ Archivo no registrado: faltan campos (ej. ruta_url)');
       }
     } catch (archivoError) {
       console.error('❌ Error al registrar archivo:', archivoError.message);
     }
 
+    // ✉️ Enviar correo a TODOS los funcionarios (id_rol=3, activos) — SIN usar SECRETARIA_EMAILS
+    try {
+      const idLicencia = result.insertId;
+
+      // 1) Leer correos de funcionarios activos
+      const [destRows] = await db.execute(
+        `SELECT correo_usuario AS correo
+           FROM Usuario
+          WHERE id_rol = 3 AND activo = 1 AND correo_usuario IS NOT NULL`
+      );
+
+      const destinatarios = Array.isArray(destRows)
+        ? [...new Set(destRows.map(r => (r.correo || '').trim()).filter(Boolean))]
+        : [];
+
+      console.log('✉️ Funcionarios destino:', destinatarios);
+
+      if (!destinatarios.length) {
+        console.warn('✉️ [crearLicencia] No hay funcionarios (id_rol=3) activos con correo; correo omitido.');
+      } else {
+        const enlaceDetalle = `${process.env.APP_BASE_URL || 'http://localhost:5173'}/licencias/${idLicencia}`;
+
+        await notificarNuevaLicencia({
+          folio,
+          estudiante: { nombre: nombreEstudiante, correo: correoEstudiante },
+          fechaCreacionISO: new Date().toISOString(),
+          enlaceDetalle,
+          to: destinatarios, // ← lista dinámica, evita fallback
+        }).then(r => {
+          if (!r?.ok) console.error('✉️ Email nueva licencia falló:', r?.error);
+        });
+      }
+    } catch (e) {
+      console.warn('✉️ [crearLicencia] envío correo omitido:', e?.message || e);
+    }
+
     return res.status(201).json({
+      ok: true,
       msg: 'Licencia creada con éxito',
       licencia: {
         id_licencia: result.insertId,
@@ -286,7 +331,7 @@ export const crearLicencia = async (req, res) => {
         motivo_rechazo: null,
         fecha_creacion: new Date().toISOString().slice(0, 10),
         id_usuario: usuarioId,
-        motivo // lo devolvemos en la respuesta si lo enviaste
+        motivo
       }
     });
   } catch (error) {
@@ -295,37 +340,42 @@ export const crearLicencia = async (req, res) => {
   }
 };
 
+// =====================================================
+// GET: Licencias en revisión (funcionario/secretaría)
+// =====================================================
 export const getLicenciasEnRevision = async (req, res) => {
   try {
     const usuarioId = req.user?.id_usuario ?? req.id ?? null;
     const rol = (req.user?.rol ?? req.rol ?? '').toString().toLowerCase();
+    if (!usuarioId) return res.status(401).json({ error: 'No autenticado' });
 
-    if (!usuarioId) {
-      return res.status(401).json({ error: 'No autenticado' });
-    }
+    const { nombre, folio, desde, hasta, page = 1, limit = 10 } = req.query;
+    
+    // Validar y normalizar parámetros
+    const pageNum = Math.max(1, parseInt(page));
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
+    const offset = (pageNum - 1) * limitNum;
 
-    // Filtros
-    const { nombre, folio, desde, hasta } = req.query;
-    let condiciones = [`estado = 'pendiente'`];
+    let condiciones = [`lm.estado = 'pendiente'`];
     let params = [];
 
-    if (rol === 'funcionario' || rol === 'secretario' || rol === 'profesor') {
-      // Filtros avanzados solo para funcionarios/secretarios/profesores
-      if (nombre) {
-        condiciones.push(`u.nombre LIKE ?`);
-        params.push(`%${nombre}%`);
+    // Solo funcionarios pueden usar filtros amplios
+    if (['funcionario', 'secretario'].includes(rol)) {
+      if (nombre) { 
+        condiciones.push(`u.nombre LIKE ?`); 
+        params.push(`%${nombre}%`); 
       }
-      if (folio) {
-        condiciones.push(`lm.folio LIKE ?`);
-        params.push(`%${folio}%`);
+      if (folio) { 
+        condiciones.push(`lm.folio LIKE ?`); 
+        params.push(`%${folio}%`); 
       }
-      if (desde) {
-        condiciones.push(`lm.fecha_emision >= ?`);
-        params.push(desde);
+      if (desde) { 
+        condiciones.push(`lm.fecha_emision >= ?`); 
+        params.push(desde); 
       }
-      if (hasta) {
-        condiciones.push(`lm.fecha_emision <= ?`);
-        params.push(hasta);
+      if (hasta) { 
+        condiciones.push(`lm.fecha_emision <= ?`); 
+        params.push(hasta); 
       }
     } else {
       condiciones.push(`lm.id_usuario = ?`);
@@ -333,30 +383,57 @@ export const getLicenciasEnRevision = async (req, res) => {
     }
 
     const where = condiciones.length ? `WHERE ${condiciones.join(' AND ')}` : '';
-    const limit = parseInt(req.query.limit) || 10;
-    const offset = ((parseInt(req.query.page) || 1) - 1) * limit;
 
+    // Consulta principal con LIMIT optimizado
     const [rows] = await db.execute(`
-      SELECT lm.id_licencia, lm.folio, lm.fecha_emision, lm.fecha_inicio, lm.fecha_fin, lm.estado, lm.motivo_rechazo, lm.fecha_creacion, lm.id_usuario, u.nombre
+      SELECT 
+        lm.id_licencia, 
+        lm.folio, 
+        lm.fecha_emision, 
+        lm.fecha_inicio, 
+        lm.fecha_fin,
+        lm.estado, 
+        lm.motivo_rechazo, 
+        lm.fecha_creacion, 
+        lm.id_usuario, 
+        u.nombre
       FROM LicenciaMedica lm
-      JOIN Usuario u ON lm.id_usuario = u.id_usuario
+      FORCE INDEX (idx_licencia_estado, idx_licencia_completo)
+      JOIN Usuario u FORCE INDEX (idx_usuario_nombre) ON lm.id_usuario = u.id_usuario
       ${where}
-      ORDER BY lm.fecha_emision DESC, lm.id_licencia DESC
+      ORDER BY lm.fecha_creacion DESC, lm.id_licencia DESC
       LIMIT ? OFFSET ?
-    `, [...params, limit, offset]);
+    `, [...params, limitNum, offset]);
 
-    return res.json({
-      msg: 'Licencias en revisión',
-      usuarioId,
-      rol,
-      data: rows,
+    // Contar total (separado para mejor performance)
+    const [countRows] = await db.execute(`
+      SELECT COUNT(*) as total
+      FROM LicenciaMedica lm
+      ${where.includes('JOIN') ? where : `JOIN Usuario u ON lm.id_usuario = u.id_usuario ${where}`}
+    `, params);
+
+    const total = countRows[0]?.total || 0;
+
+    return res.status(200).json({ 
+      ok: true, 
+      data: rows, 
+      meta: { 
+        page: pageNum, 
+        limit: limitNum,
+        total: parseInt(total),
+        totalPages: Math.ceil(total / limitNum)
+      } 
     });
   } catch (error) {
     console.error('[licencias:getLicenciasEnRevision] error:', error);
-    return res.status(500).json({ error: 'Error al obtener licencias en revisión' });
+    return res.status(500).json({ ok: false, error: 'Error al obtener licencias en revisión' });
   }
 };
 
+
+// =======================================================
+// ✅ Licencias Resueltas (FUNCIONARIO)
+// =======================================================
 export const licenciasResueltas = async (req, res) => {
   try {
     const rol = (req.user?.rol ?? req.rol ?? '').toString().toLowerCase();
@@ -365,108 +442,185 @@ export const licenciasResueltas = async (req, res) => {
     }
 
     const { estado, desde, hasta, nombre, folio, page = 1, limit = 20 } = req.query;
+    
+    // Validar parámetros
+    const pageNum = Math.max(1, parseInt(page));
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
+    const offset = (pageNum - 1) * limitNum;
 
     let condiciones = [`lm.estado IN ('aceptado', 'rechazado')`];
     let valores = [];
 
-    if (estado && ['aceptado', 'rechazado'].includes(estado)) {
-      condiciones.push(`lm.estado = ?`);
-      valores.push(estado);
+    if (estado && ['aceptado', 'rechazado'].includes(estado)) { 
+      condiciones.push(`lm.estado = ?`); 
+      valores.push(estado); 
     }
-    if (nombre) {
-      condiciones.push(`u.nombre LIKE ?`);
-      valores.push(`%${nombre}%`);
+    if (nombre) { 
+      condiciones.push(`u.nombre LIKE ?`); 
+      valores.push(`%${nombre}%`); 
     }
-    if (folio) {
-      condiciones.push(`lm.folio LIKE ?`);
-      valores.push(`%${folio}%`);
+    if (folio) { 
+      condiciones.push(`lm.folio LIKE ?`); 
+      valores.push(`%${folio}%`); 
     }
-    if (desde) {
-      condiciones.push(`lm.fecha_emision >= ?`);
-      valores.push(desde);
+    if (desde) { 
+      condiciones.push(`lm.fecha_emision >= ?`); 
+      valores.push(desde); 
     }
-    if (hasta) {
-      condiciones.push(`lm.fecha_emision <= ?`);
-      valores.push(hasta);
+    if (hasta) { 
+      condiciones.push(`lm.fecha_emision <= ?`); 
+      valores.push(hasta); 
     }
 
     const where = condiciones.length ? `WHERE ${condiciones.join(' AND ')}` : '';
-    const lim = Math.max(1, Math.min(100, parseInt(limit)));
-    const off = (Math.max(1, parseInt(page)) - 1) * lim;
 
-    const [licencias] = await db.execute(`
+    const [rows] = await db.execute(`
       SELECT 
-        lm.id_licencia,
-        lm.folio,
-        lm.fecha_emision,
-        lm.fecha_inicio,
+        lm.id_licencia, 
+        lm.folio, 
+        lm.fecha_emision, 
+        lm.fecha_inicio, 
         lm.fecha_fin,
-        lm.estado,
-        lm.motivo_rechazo,
-        lm.fecha_creacion,
-        lm.id_usuario,
+        lm.estado, 
+        lm.motivo_rechazo, 
+        lm.fecha_creacion, 
+        lm.id_usuario, 
         u.nombre
       FROM licenciamedica lm
-      JOIN usuario u ON lm.id_usuario = u.id_usuario
+      FORCE INDEX (idx_licencia_completo)
+      JOIN usuario u FORCE INDEX (idx_usuario_nombre) ON lm.id_usuario = u.id_usuario
       ${where}
       ORDER BY lm.fecha_creacion DESC
       LIMIT ? OFFSET ?
-    `, [...valores, lim, off]);
+    `, [...valores, limitNum, offset]);
 
-    return res.status(200).json({ licencias });
+    // Contar total
+    const [countRows] = await db.execute(`
+      SELECT COUNT(*) as total
+      FROM licenciamedica lm
+      JOIN usuario u ON lm.id_usuario = u.id_usuario
+      ${where}
+    `, valores);
+
+    const total = countRows[0]?.total || 0;
+
+    return res.status(200).json({ 
+      ok: true, 
+      data: rows, 
+      meta: { 
+        page: pageNum, 
+        limit: limitNum,
+        total: parseInt(total),
+        totalPages: Math.ceil(total / limitNum)
+      } 
+    });
   } catch (error) {
     console.error('❌ Error al obtener licencias resueltas:', error);
-    return res.status(500).json({ error: 'Error interno del servidor' });
+    return res.status(500).json({ ok: false, error: 'Error interno del servidor' });
   }
 };
 
+// =====================================================
+// ✅ FIX: Detalle de licencia con shape que espera el FE
+// GET /api/licencias/:id
+// =====================================================
 export const detalleLicencia = async (req, res) => {
   try {
     const usuarioId = req.user?.id_usuario ?? req.id ?? null;
     const rol = (req.user?.rol ?? req.rol ?? '').toString().toLowerCase();
-    const idLicencia = Number(req.params.id);
+    const id = Number(req.params.id);
 
-    if (!usuarioId) {
-      return res.status(401).json({ error: 'No autenticado' });
-    }
-    if (!idLicencia) {
-      return res.status(400).json({ error: 'ID de licencia inválido' });
+    if (!usuarioId) return res.status(401).json({ error: 'No autenticado' });
+    if (!id) return res.status(400).json({ error: 'ID de licencia inválido' });
+
+    const [rows] = await db.execute(
+      `
+      SELECT
+        l.id_licencia,
+        l.folio,
+        l.fecha_emision,
+        l.fecha_inicio,
+        l.fecha_fin,
+        l.estado,
+        l.motivo_rechazo,
+        l.fecha_creacion,
+        l.id_usuario,
+
+        u.id_usuario      AS usuario_id,
+        u.nombre          AS usuario_nombre,
+        u.correo_usuario  AS usuario_email
+      FROM licenciamedica l
+      LEFT JOIN usuario u ON u.id_usuario = l.id_usuario
+      WHERE l.id_licencia = ?
+      LIMIT 1
+      `,
+      [id]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Licencia no encontrada' });
     }
 
-    let sql, params;
-    if (rol === 'funcionario') {
-      sql = `
+    const r = rows[0];
+
+    if (rol !== 'funcionario' && Number(r.id_usuario) !== Number(usuarioId)) {
+      return res.status(403).json({ error: 'No autorizado' });
+    }
+
+    const licencia = {
+      id_licencia: r.id_licencia,
+      folio: r.folio,
+      fecha_emision: r.fecha_emision,
+      fecha_inicio: r.fecha_inicio,
+      fecha_fin: r.fecha_fin,
+      estado: r.estado,
+      motivo_rechazo: r.motivo_rechazo,
+      fecha_creacion: r.fecha_creacion,
+      id_usuario: r.id_usuario,
+      usuario: r.usuario_id
+        ? {
+            id_usuario: r.usuario_id,
+            nombre: r.usuario_nombre,
+            email: r.usuario_email,
+          }
+        : null,
+      archivo: null,
+    };
+
+    try {
+      const [archs] = await db.execute(
+        `
         SELECT
-          lm.id_licencia, lm.folio, lm.fecha_emision, lm.fecha_inicio, lm.fecha_fin, lm.estado,
-          lm.motivo_rechazo, lm.fecha_creacion,
-          u.id_usuario, u.nombre, u.correo_usuario, u.id_rol,
-          al.id_archivo, al.ruta_url, al.tipo_mime, al.hash, al.tamano, al.fecha_subida
-        FROM LicenciaMedica lm
-        JOIN Usuario u ON lm.id_usuario = u.id_usuario
-        LEFT JOIN ArchivoLicencia al ON al.id_licencia = lm.id_licencia
-        WHERE lm.id_licencia = ?
-      `;
-      params = [idLicencia];
-    } else {
-      sql = `
-        SELECT
-          lm.id_licencia, lm.folio, lm.fecha_emision, lm.fecha_inicio, lm.fecha_fin, lm.estado,
-          lm.motivo_rechazo, lm.fecha_creacion,
-          u.id_usuario, u.nombre, u.correo_usuario, u.id_rol,
-          al.id_archivo, al.ruta_url, al.tipo_mime, al.hash, al.tamano, al.fecha_subida
-        FROM LicenciaMedica lm
-        JOIN Usuario u ON lm.id_usuario = u.id_usuario
-        LEFT JOIN ArchivoLicencia al ON al.id_licencia = lm.id_licencia
-        WHERE lm.id_licencia = ? AND lm.id_usuario = ?
-      `;
-      params = [idLicencia, usuarioId];
+          id_archivo,
+          ruta_url,
+          tipo_mime,
+          hash,
+          tamano,
+          fecha_subida
+        FROM archivolicencia
+        WHERE id_licencia = ?
+        ORDER BY id_archivo DESC
+        LIMIT 1
+        `,
+        [id]
+      );
+      if (Array.isArray(archs) && archs.length > 0) {
+        const a = archs[0];
+        licencia.archivo = {
+          id_archivo: a.id_archivo,
+          nombre_archivo: 'licencia.pdf',
+          ruta_url: a.ruta_url,
+          mimetype: a.tipo_mime,
+          hash: a.hash,
+          tamano: a.tamano,
+          fecha_subida: a.fecha_subida,
+        };
+      }
+    } catch (e) {
+      console.warn('Detalle: archivo omitido →', e?.message);
     }
 
-    const [rows] = await db.execute(sql, params);
-    if (!rows.length) {
-      return res.status(404).json({ error: 'Licencia no encontrada o sin permiso' });
-    }
-    return res.json({ detalle: rows });
+    return res.json({ ok: true, licencia });
   } catch (error) {
     console.error('[licencias:detalleLicencia] error:', error);
     return res.status(500).json({ error: 'Error al obtener detalle de licencia' });
@@ -474,7 +628,7 @@ export const detalleLicencia = async (req, res) => {
 };
 
 // =====================================================
-// POST (legacy): versión original con validaciones básicas
+// POST (legacy)
 // =====================================================
 export const crearLicenciaLegacy = async (req, res) => {
   try {
@@ -497,7 +651,6 @@ export const crearLicenciaLegacy = async (req, res) => {
       return res.status(400).json({ ok: false, mensaje: 'fecha_inicio no puede ser posterior a fecha_fin' });
     }
 
-    // verificar usuario
     const [u] = await db.execute('SELECT id_usuario FROM Usuario WHERE id_usuario = ?', [id_usuario]);
     if (!u.length) return res.status(404).json({ ok: false, mensaje: 'Usuario no encontrado' });
 
@@ -526,27 +679,20 @@ export const crearLicenciaLegacy = async (req, res) => {
   }
 };
 
-// === Controller: decidirLicencia (sin check de rol: lo hace el router con tieneRol('secretaria'))
+// === Controller: decidirLicencia (sin correos)
 export async function decidirLicencia(req, res) {
   try {
     const idLicencia   = Number(req.params.id);
-    const idfuncionario = req.user?.id_usuario ?? null;
     const actorId = req.user?.id_usuario ?? null;
 
-    if (!idfuncionario) {
-      return res.status(401).json({ ok: false, error: 'No autenticado' });
-    }
-    if (!idLicencia) {
-      return res.status(400).json({ ok: false, error: 'ID de licencia inválido' });
-    }
+    if (!actorId) return res.status(401).json({ ok: false, error: 'No autenticado' });
+    if (!idLicencia) return res.status(400).json({ ok: false, error: 'ID de licencia inválido' });
 
-    // Normalización de entrada
     const decisionRaw = String(req.body.decision ?? req.body.estado ?? '').toLowerCase();
     if (!['aceptado', 'rechazado'].includes(decisionRaw)) {
       return res.status(422).json({ ok: false, error: 'Decision inválida' });
     }
 
-    // Si es rechazo, motivo obligatorio (≥10)
     const motivo_rechazo = req.body.motivo_rechazo ?? null;
     if (decisionRaw === 'rechazado') {
       const motivoOk = typeof motivo_rechazo === 'string' && motivo_rechazo.trim().length >= 10;
@@ -555,7 +701,6 @@ export async function decidirLicencia(req, res) {
       }
     }
     if (decisionRaw === 'aceptado') {
-      // Verifica si la licencia tiene archivo/hash
       const [archivos] = await db.execute(
         `SELECT hash FROM ArchivoLicencia WHERE id_licencia = ? LIMIT 1`,
         [idLicencia]
@@ -565,20 +710,17 @@ export async function decidirLicencia(req, res) {
       }
     }
     
-    // Fechas (_fi/_ff) si “aceptado” ya deberían venir validadas por tu middleware validateDecision (si lo usas)
     const payload = {
       idLicencia,
-      decision: decisionRaw,            // 'aceptado' | 'rechazado'
-      estado: decisionRaw,              // compat
+      decision: decisionRaw,
+      estado: decisionRaw,
       motivo_rechazo: motivo_rechazo ?? null,
       observacion: req.body.observacion ?? null,
       _fi: req.body._fi,
       _ff: req.body._ff,
-
-      // 🔧 CLAVE: mandamos el id del revisor en los dos nombres posibles
       idFuncionario: actorId,
       idfuncionario: actorId,
-      id_usuario: actorId           // ← muchos services/grabadores de historial esperan este nombre
+      id_usuario: actorId
     };
 
     const out = await decidirLicenciaSvc(payload);
@@ -623,12 +765,10 @@ export const descargarArchivoLicencia = async (req, res) => {
     const idLicencia = Number(req.params.id || 0);
     const usuario = req.user || null;
 
-    // DoD: si no hay token válido → 403 (si tu middleware ya hace 403, esto apenas se usará)
     if (!usuario) return res.status(403).json({ ok: false, error: 'Token requerido o inválido' });
     if (!Number.isInteger(idLicencia) || idLicencia <= 0)
       return res.status(400).json({ ok: false, error: 'ID de licencia inválido' });
 
-    // Nota: uso nombres de tabla en minúscula para evitar issues en sistemas sensibles a mayúsculas
     const [rows] = await db.execute(`
       SELECT a.id_archivo, a.ruta_url, a.tipo_mime, a.tamano, a.fecha_subida,
              l.id_usuario
@@ -657,14 +797,12 @@ export const descargarArchivoLicencia = async (req, res) => {
     const filename = _filenameFromRuta(archivo.ruta_url);
     const contentType = archivo.tipo_mime || 'application/octet-stream';
     res.setHeader('Content-Type', contentType);
-    // Si quieres ver PDF embebido, cambia "attachment" por "inline" cuando sea application/pdf
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.setHeader('X-Content-Type-Options', 'nosniff');
 
     const baseLocal = process.env.STORAGE_LOCAL_BASE || 'uploads';
     const ruta = String(archivo.ruta_url || '');
 
-    // Soporte http(s):// como proxy
     if (ruta.startsWith('http://') || ruta.startsWith('https://')) {
       const client = ruta.startsWith('https://') ? https : http;
       client.get(ruta, (up) => {
@@ -677,7 +815,6 @@ export const descargarArchivoLicencia = async (req, res) => {
       return;
     }
 
-    // Soporte local:// y rutas relativas
     let absPath;
     if (ruta.startsWith('local://')) {
       const key = ruta.slice('local://'.length);
@@ -700,6 +837,9 @@ export const descargarArchivoLicencia = async (req, res) => {
   }
 };
 
+// =====================================================
+// ⬅️ Restaurado: cambiarEstado (named export)
+// =====================================================
 export async function cambiarEstado(req, res, next) {
   try {
     const { id } = req.params;
@@ -715,20 +855,19 @@ export async function cambiarEstado(req, res, next) {
     const lic = await LicenciaMedica.findByPk(id);
     if (!lic) return res.status(404).json({ error: 'LICENCIA_NO_ENCONTRADA' });
 
-    // set de cambios
     lic.estado = nuevo_estado;
     if (nuevo_estado === 'rechazado') {
       lic.motivo_rechazo = motivo_rechazo ?? lic.motivo_rechazo;
     }
 
-    await lic.save({ userId: req.user.id }); // userId usable en afterUpdate opcional
+    await lic.save({ userId: req.user.id });
     return res.json({ ok: true, data: { id: lic.id_licencia, estado: lic.estado } });
   } catch (err) { next(err); }
 }
 
-
 export default {
   listarLicencias,
+  listarMisLicencias,
   crearLicencia,
   crearLicenciaLegacy,
   getLicenciasEnRevision,
@@ -736,4 +875,5 @@ export default {
   decidirLicencia,
   descargarArchivoLicencia,
   licenciasResueltas,
-}
+  cambiarEstado, // ← también en el default por si acaso
+};
