@@ -387,6 +387,94 @@
     }
   </script>
 
+<!-- ******************************************** imagen perfil ******************************************** -->
+<input type="file" id="inputPerfil" accept="image/*" />
+
+<div id="previewContainer">
+  <img id="imagenPerfil" />
+</div>
+
+<style>
+  #previewContainer {
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    overflow: hidden;
+    border: 2px solid #ccc;
+  }
+
+  #imagenPerfil {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: none;
+  }
+</style>
+
+<script>
+  const token = localStorage.getItem('jwt');
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    const input = document.getElementById('inputPerfil');
+    const img = document.getElementById('imagenPerfil');
+
+    // Cargar imagen de perfil existente al iniciar
+    try {
+      const res = await fetch('http://localhost:3000/api/archivos/perfil', {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+
+      const resultado = await res.json();
+      if (resultado?.ok && resultado?.url) {
+        img.src = resultado.url;
+        img.alt = 'Imagen de perfil';
+        img.style.display = 'block';
+        console.log('📥 Imagen de perfil cargada:', resultado.url);
+      }
+    } catch (e) {
+      console.error('⚠️ Error al cargar imagen de perfil:', e);
+    }
+
+    // Subida automática al seleccionar archivo
+    input.addEventListener('change', async (event) => {
+      const archivo = event.target.files[0];
+      if (!archivo) return;
+
+      const formData = new FormData();
+      formData.append('imagen', archivo);
+
+      try {
+        const res = await fetch('http://localhost:3000/api/archivos/subir-perfil', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`
+          },
+          body: formData
+        });
+
+        const contentType = res.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+          throw new Error('Respuesta no es JSON');
+        }
+
+        const resultado = await res.json();
+
+        if (resultado?.ok && resultado?.url) {
+          img.src = resultado.url;
+          img.alt = 'Imagen de perfil';
+          img.style.display = 'block';
+          console.log('✅ Imagen subida automáticamente:', resultado.url);
+        } else {
+          console.error('❌ Error en respuesta:', resultado?.detalle || 'Respuesta vacía');
+        }
+      } catch (e) {
+        console.error('❌ Error al subir imagen:', e);
+      }
+    });
+  });
+</script>
 
 
 </body>
