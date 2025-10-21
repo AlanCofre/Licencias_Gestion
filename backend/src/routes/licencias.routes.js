@@ -11,6 +11,7 @@ import {
   detalleLicencia,
   descargarArchivoLicencia,
   licenciasResueltas,
+  listarMisLicencias,
 } from '../../controllers/licencias.controller.js';
 
 import { validarJWT, esEstudiante, tieneRol } from '../../middlewares/auth.js';
@@ -28,6 +29,7 @@ import { decidirLicenciaSvc } from '../../services/servicio_Licencias.js';
 
 import LicenciaMedica from '../models/modelo_LicenciaMedica.js';
 import Usuario from '../models/modelo_Usuario.js';
+import { cacheMiddleware } from '../../middlewares/cacheMiddleware.js';
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -46,10 +48,105 @@ async function cargarLicencia(req, res, next) {
 
 /* ===== Listados / creación ===== */
 router.get('/', validarJWT, listarLicencias);
-router.get('/en-revision', validarJWT, getLicenciasEnRevision);
+router.get('/en-revision', validarJWT, async (req, res) => {
+  try {
+    const usuarioId = req.user?.id_usuario ?? req.id ?? null;
+    const rol = (req.user?.rol ?? req.rol ?? '').toString().toLowerCase();
+    
+    if (!usuarioId) {
+      return res.status(401).json({ ok: false, error: 'No autenticado' });
+    }
+
+    // Solo funcionarios pueden ver todas las licencias pendientes
+    if (!['funcionario', 'secretario', 'profesor'].includes(rol)) {
+      return res.status(403).json({ 
+        ok: false, 
+        error: 'No tiene permisos para ver licencias en revisión' 
+      });
+    }
+
+    const { nombre, folio, desde, hasta, page = 1, limit = 10 } = req.query;
+    
+    const pageNum = Math.max(1, parseInt(page));
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
+    const offset = (pageNum - 1) * limitNum;
+
+    let condiciones = [`l.estado = 'pendiente'`];
+    let params = [];
+
+    if (nombre) { 
+      condiciones.push(`u.nombre LIKE ?`); 
+      params.push(`%${nombre}%`); 
+    }
+    if (folio) { 
+      condiciones.push(`l.folio LIKE ?`); 
+      params.push(`%${folio}%`); 
+    }
+    if (desde) { 
+      condiciones.push(`l.fecha_emision >= ?`); 
+      params.push(desde); 
+    }
+    if (hasta) { 
+      condiciones.push(`l.fecha_emision <= ?`); 
+      params.push(hasta); 
+    }
+
+    const where = condiciones.length ? `WHERE ${condiciones.join(' AND ')}` : '';
+
+    const [rows] = await db.execute(
+      `SELECT 
+        l.id_licencia,
+        l.folio,
+        l.fecha_emision,
+        l.fecha_inicio,
+        l.fecha_fin,
+        l.estado,
+        l.motivo_rechazo,
+        l.fecha_creacion,
+        l.id_usuario,
+        u.nombre as estudiante_nombre
+      FROM LicenciaMedica l
+      JOIN Usuario u ON l.id_usuario = u.id_usuario
+      ${where}
+      ORDER BY l.fecha_creacion DESC
+      LIMIT ? OFFSET ?`,
+      [...params, limitNum, offset]
+    );
+
+    // Contar total
+    const [countRows] = await db.execute(
+      `SELECT COUNT(*) as total
+       FROM LicenciaMedica l
+       JOIN Usuario u ON l.id_usuario = u.id_usuario
+       ${where}`,
+      params
+    );
+
+    const total = countRows[0]?.total || 0;
+
+    return res.status(200).json({
+      ok: true,
+      data: rows,
+      meta: {
+        page: pageNum,
+        limit: limitNum,
+        total: parseInt(total),
+        totalPages: Math.ceil(total / limitNum)
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Error en GET /en-revision:', error);
+    return res.status(500).json({ 
+      ok: false, 
+      error: 'Error interno al obtener licencias en revisión' 
+    });
+  }
+});
+
 
 /* === Licencias del estudiante autenticado === */
-router.get('/mis-licencias', validarJWT, esEstudiante, async (req, res) => {
+router.get('/mis-licencias', validarJWT, esEstudiante,cacheMiddleware(),listarMisLicencias, async (req, res) => {
   try {
     // Acepta todas las variantes posibles que puede dejar tu middleware:
     const idUsuario =
@@ -115,8 +212,8 @@ router.get('/detalle/:id', validarJWT, async (req, res) => {
         l.id_usuario,
 
         u.id_usuario      AS usuario_id,
-        u.nombre          AS usuario_nombre,
-        u.correo_usuario  AS usuario_email,
+        u.nombre          AS nombre,           -- ← Cambiado: directamente "nombre"
+        u.correo_usuario  AS correo_usuario,   -- ← Cambiado: directamente "correo_usuario"
         NULL              AS usuario_facultad
       FROM licenciamedica l
       LEFT JOIN usuario u ON u.id_usuario = l.id_usuario
@@ -141,14 +238,15 @@ router.get('/detalle/:id', validarJWT, async (req, res) => {
       motivo_rechazo: r.motivo_rechazo,
       fecha_creacion: r.fecha_creacion,
       id_usuario: r.id_usuario,
-      usuario: r.usuario_id
-        ? {
-            id_usuario: r.usuario_id,
-            nombre: r.usuario_nombre,
-            facultad: r.usuario_facultad,
-            email: r.usuario_email,
-          }
-        : null,
+      // ↓↓↓ ENVIAR DIRECTAMENTE EN EL OBJETO PRINCIPAL ↓↓↓
+      nombre: r.nombre,                    // ← Campo directo
+      correo_usuario: r.correo_usuario,    // ← Campo directo
+      usuario: r.usuario_id ? {
+        id_usuario: r.usuario_id,
+        nombre: r.nombre,
+        facultad: r.usuario_facultad,
+        email: r.correo_usuario,
+      } : null,
       archivo: null,
     };
 
@@ -284,23 +382,53 @@ router.put(
  * Licencias resueltas (aceptadas/rechazadas) con datos del usuario (LEFT JOIN).
  */
 router.get('/resueltas', validarJWT, async (req, res) => {
-  const { estado, desde, hasta } = req.query;
-  let condiciones = [`l.estado IN ('aceptado', 'rechazado')`];
-  const valores = [];
-
-  if (estado && ['aceptado', 'rechazado'].includes(estado)) {
-    condiciones = [`l.estado = ?`];
-    valores.push(estado);
-  }
-  if (desde) { condiciones.push(`l.fecha_emision >= ?`); valores.push(desde); }
-  if (hasta) { condiciones.push(`l.fecha_emision <= ?`); valores.push(hasta); }
-
-  const where = condiciones.length ? `WHERE ${condiciones.join(' AND ')}` : '';
-
   try {
+    const rol = (req.user?.rol ?? req.rol ?? '').toString().toLowerCase();
+    
+    // Solo funcionarios pueden ver el historial completo
+    if (rol !== 'funcionario') {
+      return res.status(403).json({ 
+        ok: false, 
+        error: 'Solo los funcionarios pueden ver el historial de licencias resueltas.' 
+      });
+    }
+
+    const { estado, desde, hasta, nombre, folio, page = 1, limit = 20 } = req.query;
+    
+    // Validar parámetros
+    const pageNum = Math.max(1, parseInt(page));
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
+    const offset = (pageNum - 1) * limitNum;
+
+    let condiciones = [`l.estado IN ('aceptado', 'rechazado')`];
+    let valores = [];
+
+    if (estado && ['aceptado', 'rechazado'].includes(estado)) { 
+      condiciones.push(`l.estado = ?`); 
+      valores.push(estado); 
+    }
+    if (nombre) { 
+      condiciones.push(`u.nombre LIKE ?`); 
+      valores.push(`%${nombre}%`); 
+    }
+    if (folio) { 
+      condiciones.push(`l.folio LIKE ?`); 
+      valores.push(`%${folio}%`); 
+    }
+    if (desde) { 
+      condiciones.push(`l.fecha_emision >= ?`); 
+      valores.push(desde); 
+    }
+    if (hasta) { 
+      condiciones.push(`l.fecha_emision <= ?`); 
+      valores.push(hasta); 
+    }
+
+    const where = condiciones.length ? `WHERE ${condiciones.join(' AND ')}` : '';
+
+    // Consulta principal
     const [rows] = await db.execute(
-      `
-      SELECT
+      `SELECT
         l.id_licencia,
         l.folio,
         l.fecha_emision,
@@ -310,55 +438,47 @@ router.get('/resueltas', validarJWT, async (req, res) => {
         l.motivo_rechazo,
         l.fecha_creacion,
         l.id_usuario,
-
-        u.id_usuario      AS usuario_id,
-        u.nombre          AS usuario_nombre,
-        u.correo_usuario  AS usuario_email,
-        NULL              AS usuario_facultad
+        u.nombre as estudiante_nombre,
+        u.correo_usuario as estudiante_email
       FROM licenciamedica l
-      LEFT JOIN usuario u ON u.id_usuario = l.id_usuario
+      JOIN usuario u ON l.id_usuario = u.id_usuario
       ${where}
       ORDER BY l.fecha_creacion DESC
-      `,
+      LIMIT ? OFFSET ?`,
+      [...valores, limitNum, offset]
+    );
+
+    // Contar total
+    const [countRows] = await db.execute(
+      `SELECT COUNT(*) as total
+       FROM licenciamedica l
+       JOIN usuario u ON l.id_usuario = u.id_usuario
+       ${where}`,
       valores
     );
 
-    const licencias = rows.map(r => ({
-      id_licencia: r.id_licencia,
-      folio: r.folio,
-      fecha_emision: r.fecha_emision,
-      fecha_inicio: r.fecha_inicio,
-      fecha_fin: r.fecha_fin,
-      estado: r.estado,
-      motivo_rechazo: r.motivo_rechazo,
-      fecha_creacion: r.fecha_creacion,
-      id_usuario: r.id_usuario,
-      usuario: r.usuario_id
-        ? {
-            id_usuario: r.usuario_id,
-            nombre: r.usuario_nombre,
-            facultad: r.usuario_facultad, // null
-            email: r.usuario_email
-          }
-        : null
-    }));
+    const total = countRows[0]?.total || 0;
 
-    return res.status(200).json({ licencias });
+    return res.status(200).json({
+      ok: true,
+      data: rows,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total: parseInt(total),
+        totalPages: Math.ceil(total / limitNum)
+      }
+    });
+
   } catch (error) {
-    console.error('❌ Error al obtener licencias resueltas:', error);
-    return res.status(500).json({ error: 'Error interno del servidor' });
+    console.error('❌ Error en GET /resueltas:', error);
+    return res.status(500).json({ 
+      ok: false, 
+      error: 'Error interno del servidor al obtener licencias resueltas' 
+    });
   }
 });
 
-router.post(
-  '/',
-  validarJWT,
-  esEstudiante,
-  upload.single('archivo'),
-  validarArchivoAdjunto,
-  validateLicenciaBody,
-  crearLicencia
-);
 
 /* ===== Rutas con :id ===== */
 router.get('/:id', validarJWT, detalleLicencia);

@@ -52,6 +52,8 @@ function normalizeDetalle(apiPayload) {
 
   // Estudiante (puede venir anidado en distintas claves)
   const est =
+    lic?.correo_usuario ??
+    lic?.nombre ??
     lic?.estudiante ??
     lic?.usuarioSolicitante ??
     lic?.datos_estudiante ??
@@ -61,17 +63,29 @@ function normalizeDetalle(apiPayload) {
     root?.perfil ??
     {};
 
-  const joined = [est?.nombres, est?.apellidos, est?.apellido_paterno, est?.apellido_materno]
-    .filter(Boolean)
-    .join(" ");
-  const nombre = (est?.nombre ?? notEmpty(joined)) ?? "—";
+  // PRIORIZAR: nombre y correo_usuario directamente del objeto licencia
+  const nombre = 
+    lic?.nombre ?? // Primero buscar nombre directamente en la licencia
+    est?.nombre ?? // Luego en el objeto estudiante
+    notEmpty([est?.nombres, est?.apellidos, est?.apellido_paterno, est?.apellido_materno]
+      .filter(Boolean)
+      .join(" ")) ?? 
+    "—";
+  
+  const email = 
+    lic?.correo_usuario ?? // Primero buscar correo_usuario directamente en la licencia
+    est?.correoInstitucional ?? 
+    est?.email ?? 
+    est?.correo ?? 
+    est?.correo_institucional ?? 
+    "—";
+
   const rut =
     est?.rut ??
     (est?.rut_sin_dv && est?.dv ? `${est.rut_sin_dv}-${est.dv}` : undefined) ??
     est?.dni ??
     est?.run ??
     "—";
-  const email = est?.correoInstitucional ?? est?.email ?? est?.correo ?? est?.correo_institucional ?? "—";
 
   // Si el BE sólo envió ids, guárdalos para fallback
   const estudianteId =
@@ -127,10 +141,10 @@ function normalizeDetalle(apiPayload) {
 async function tryFetchEstudiante(headers, estudianteId) {
   // Lista de endpoints candidatos en orden
   const candidates = [
-    { url: "http://localhost:3000/api/usuarios/me", byId: false },
-    { url: "http://localhost:3000/api/perfil/me", byId: false },
-    estudianteId ? { url: `http://localhost:3000/api/usuarios/${estudianteId}`, byId: true } : null,
-    estudianteId ? { url: `http://localhost:3000/api/perfiles/${estudianteId}`, byId: true } : null,
+    { url: `${API_BASE}/api/usuarios/me`, byId: false },
+    { url: `${API_BASE}/api/perfil/me`, byId: false },
+    estudianteId ? { url: `${API_BASE}/api/usuarios/${estudianteId}`, byId: true } : null,
+    estudianteId ? { url: `${API_BASE}/api/perfiles/${estudianteId}`, byId: true } : null,
   ].filter(Boolean);
 
   for (const c of candidates) {
@@ -152,7 +166,7 @@ async function tryFetchEstudiante(headers, estudianteId) {
         est?.dni ??
         est?.run ??
         undefined;
-      const email = est?.correoInstitucional ?? est?.email ?? est?.correo ?? est?.correo_institucional ?? undefined;
+      const email = est?.correoInstitucional ?? est?.correo_usuario?? est?.email ?? est?.correo ?? est?.correo_institucional ?? undefined;
 
       if (nombre || rut || email) {
         return {
@@ -273,7 +287,7 @@ export default function DetalleLicencia() {
 
         // Si no existe ese endpoint, intento 2: /api/licencias/:id
         if (!res.ok) {
-          res = await fetch(`http://localhost:3000/api/licencias/${id}`, { headers });
+          res = await fetch(`${API_BASE}/api/licencias/${id}`, { headers });
         }
         json = await res.json().catch(() => ({}));
 

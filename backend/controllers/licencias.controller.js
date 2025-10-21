@@ -60,6 +60,11 @@ export async function listarMisLicencias(req, res) {
       return res.status(401).json({ ok: false, error: 'Usuario no autenticado' });
     }
 
+    // Usar parámetros de paginación para limitar resultados
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
+    const offset = (page - 1) * limit;
+
     const [rows] = await db.execute(
       `
       SELECT
@@ -75,11 +80,27 @@ export async function listarMisLicencias(req, res) {
       FROM LicenciaMedica
       WHERE id_usuario = ?
       ORDER BY fecha_creacion DESC
+      LIMIT ? OFFSET ?
       `,
+      [idUsuario, limit, offset]
+    );
+
+    // Obtener total para paginación
+    const [[{ total }]] = await db.execute(
+      'SELECT COUNT(*) as total FROM LicenciaMedica WHERE id_usuario = ?',
       [idUsuario]
     );
 
-    return res.status(200).json({ ok: true, data: rows });
+    return res.status(200).json({ 
+      ok: true, 
+      data: rows,
+      pagination: {
+        page,
+        limit,
+        total: parseInt(total),
+        totalPages: Math.ceil(total / limit)
+      }
+    });
   } catch (error) {
     console.error('❌ [listarMisLicencias] error:', error);
     return res.status(500).json({
@@ -88,6 +109,8 @@ export async function listarMisLicencias(req, res) {
     });
   }
 }
+
+// ==
 
 // =======================================================
 // GET: listar licencias del usuario autenticado
@@ -326,40 +349,87 @@ export const getLicenciasEnRevision = async (req, res) => {
     const rol = (req.user?.rol ?? req.rol ?? '').toString().toLowerCase();
     if (!usuarioId) return res.status(401).json({ error: 'No autenticado' });
 
-    const { nombre, folio, desde, hasta } = req.query;
-    let condiciones = [`estado = 'pendiente'`];
+    const { nombre, folio, desde, hasta, page = 1, limit = 10 } = req.query;
+    
+    // Validar y normalizar parámetros
+    const pageNum = Math.max(1, parseInt(page));
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
+    const offset = (pageNum - 1) * limitNum;
+
+    let condiciones = [`lm.estado = 'pendiente'`];
     let params = [];
 
-    if (['funcionario', 'secretario', 'profesor'].includes(rol)) {
-      if (nombre) { condiciones.push(`u.nombre LIKE ?`); params.push(`%${nombre}%`); }
-      if (folio) { condiciones.push(`lm.folio LIKE ?`); params.push(`%${folio}%`); }
-      if (desde) { condiciones.push(`lm.fecha_emision >= ?`); params.push(desde); }
-      if (hasta) { condiciones.push(`lm.fecha_emision <= ?`); params.push(hasta); }
+    // Solo funcionarios pueden usar filtros amplios
+    if (['funcionario', 'secretario'].includes(rol)) {
+      if (nombre) { 
+        condiciones.push(`u.nombre LIKE ?`); 
+        params.push(`%${nombre}%`); 
+      }
+      if (folio) { 
+        condiciones.push(`lm.folio LIKE ?`); 
+        params.push(`%${folio}%`); 
+      }
+      if (desde) { 
+        condiciones.push(`lm.fecha_emision >= ?`); 
+        params.push(desde); 
+      }
+      if (hasta) { 
+        condiciones.push(`lm.fecha_emision <= ?`); 
+        params.push(hasta); 
+      }
     } else {
       condiciones.push(`lm.id_usuario = ?`);
       params.push(usuarioId);
     }
 
     const where = condiciones.length ? `WHERE ${condiciones.join(' AND ')}` : '';
-    const limit = parseInt(req.query.limit) || 10;
-    const offset = ((parseInt(req.query.page) || 1) - 1) * limit;
 
+    // Consulta principal con LIMIT optimizado
     const [rows] = await db.execute(`
-      SELECT lm.id_licencia, lm.folio, lm.fecha_emision, lm.fecha_inicio, lm.fecha_fin,
-             lm.estado, lm.motivo_rechazo, lm.fecha_creacion, lm.id_usuario, u.nombre
+      SELECT 
+        lm.id_licencia, 
+        lm.folio, 
+        lm.fecha_emision, 
+        lm.fecha_inicio, 
+        lm.fecha_fin,
+        lm.estado, 
+        lm.motivo_rechazo, 
+        lm.fecha_creacion, 
+        lm.id_usuario, 
+        u.nombre
       FROM LicenciaMedica lm
-      JOIN Usuario u ON lm.id_usuario = u.id_usuario
+      FORCE INDEX (idx_licencia_estado, idx_licencia_completo)
+      JOIN Usuario u FORCE INDEX (idx_usuario_nombre) ON lm.id_usuario = u.id_usuario
       ${where}
-      ORDER BY lm.fecha_emision DESC, lm.id_licencia DESC
+      ORDER BY lm.fecha_creacion DESC, lm.id_licencia DESC
       LIMIT ? OFFSET ?
-    `, [...params, limit, offset]);
+    `, [...params, limitNum, offset]);
 
-    return res.status(200).json({ ok: true, data: rows, meta: { page: Number(req.query.page) || 1, limit } });
+    // Contar total (separado para mejor performance)
+    const [countRows] = await db.execute(`
+      SELECT COUNT(*) as total
+      FROM LicenciaMedica lm
+      ${where.includes('JOIN') ? where : `JOIN Usuario u ON lm.id_usuario = u.id_usuario ${where}`}
+    `, params);
+
+    const total = countRows[0]?.total || 0;
+
+    return res.status(200).json({ 
+      ok: true, 
+      data: rows, 
+      meta: { 
+        page: pageNum, 
+        limit: limitNum,
+        total: parseInt(total),
+        totalPages: Math.ceil(total / limitNum)
+      } 
+    });
   } catch (error) {
     console.error('[licencias:getLicenciasEnRevision] error:', error);
     return res.status(500).json({ ok: false, error: 'Error al obtener licencias en revisión' });
   }
 };
+
 
 // =======================================================
 // ✅ Licencias Resueltas (FUNCIONARIO)
@@ -367,34 +437,83 @@ export const getLicenciasEnRevision = async (req, res) => {
 export const licenciasResueltas = async (req, res) => {
   try {
     const rol = (req.user?.rol ?? req.rol ?? '').toString().toLowerCase();
-    if (rol !== 'funcionario')
+    if (rol !== 'funcionario') {
       return res.status(403).json({ ok: false, error: 'Solo los funcionarios pueden ver esta lista.' });
+    }
 
     const { estado, desde, hasta, nombre, folio, page = 1, limit = 20 } = req.query;
+    
+    // Validar parámetros
+    const pageNum = Math.max(1, parseInt(page));
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
+    const offset = (pageNum - 1) * limitNum;
+
     let condiciones = [`lm.estado IN ('aceptado', 'rechazado')`];
     let valores = [];
 
-    if (estado && ['aceptado', 'rechazado'].includes(estado)) { condiciones.push(`lm.estado = ?`); valores.push(estado); }
-    if (nombre) { condiciones.push(`u.nombre LIKE ?`); valores.push(`%${nombre}%`); }
-    if (folio) { condiciones.push(`lm.folio LIKE ?`); valores.push(`%${folio}%`); }
-    if (desde) { condiciones.push(`lm.fecha_emision >= ?`); valores.push(desde); }
-    if (hasta) { condiciones.push(`lm.fecha_emision <= ?`); valores.push(hasta); }
+    if (estado && ['aceptado', 'rechazado'].includes(estado)) { 
+      condiciones.push(`lm.estado = ?`); 
+      valores.push(estado); 
+    }
+    if (nombre) { 
+      condiciones.push(`u.nombre LIKE ?`); 
+      valores.push(`%${nombre}%`); 
+    }
+    if (folio) { 
+      condiciones.push(`lm.folio LIKE ?`); 
+      valores.push(`%${folio}%`); 
+    }
+    if (desde) { 
+      condiciones.push(`lm.fecha_emision >= ?`); 
+      valores.push(desde); 
+    }
+    if (hasta) { 
+      condiciones.push(`lm.fecha_emision <= ?`); 
+      valores.push(hasta); 
+    }
 
     const where = condiciones.length ? `WHERE ${condiciones.join(' AND ')}` : '';
-    const lim = Math.max(1, Math.min(100, parseInt(limit)));
-    const off = (Math.max(1, parseInt(page)) - 1) * lim;
 
     const [rows] = await db.execute(`
-      SELECT lm.id_licencia, lm.folio, lm.fecha_emision, lm.fecha_inicio, lm.fecha_fin,
-             lm.estado, lm.motivo_rechazo, lm.fecha_creacion, lm.id_usuario, u.nombre
+      SELECT 
+        lm.id_licencia, 
+        lm.folio, 
+        lm.fecha_emision, 
+        lm.fecha_inicio, 
+        lm.fecha_fin,
+        lm.estado, 
+        lm.motivo_rechazo, 
+        lm.fecha_creacion, 
+        lm.id_usuario, 
+        u.nombre
       FROM licenciamedica lm
-      JOIN usuario u ON lm.id_usuario = u.id_usuario
+      FORCE INDEX (idx_licencia_completo)
+      JOIN usuario u FORCE INDEX (idx_usuario_nombre) ON lm.id_usuario = u.id_usuario
       ${where}
       ORDER BY lm.fecha_creacion DESC
       LIMIT ? OFFSET ?
-    `, [...valores, lim, off]);
+    `, [...valores, limitNum, offset]);
 
-    return res.status(200).json({ ok: true, data: rows, meta: { page: Number(page), limit: lim } });
+    // Contar total
+    const [countRows] = await db.execute(`
+      SELECT COUNT(*) as total
+      FROM licenciamedica lm
+      JOIN usuario u ON lm.id_usuario = u.id_usuario
+      ${where}
+    `, valores);
+
+    const total = countRows[0]?.total || 0;
+
+    return res.status(200).json({ 
+      ok: true, 
+      data: rows, 
+      meta: { 
+        page: pageNum, 
+        limit: limitNum,
+        total: parseInt(total),
+        totalPages: Math.ceil(total / limitNum)
+      } 
+    });
   } catch (error) {
     console.error('❌ Error al obtener licencias resueltas:', error);
     return res.status(500).json({ ok: false, error: 'Error interno del servidor' });
