@@ -2,16 +2,15 @@ import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
+import { toast } from "react-hot-toast";
 
 function formatFechaHora(fechaStr) {
   if (!fechaStr) return "";
   const d = new Date(fechaStr);
   if (isNaN(d)) return String(fechaStr);
-  // YYYY-MM-DD HH:MM
   return d.toISOString().slice(0, 16).replace("T", " ");
 }
 
-/** Vista de archivo adjunto */
 function AttachmentView({ archivo, idLicencia }) {
   if (!archivo || !archivo.ruta_url) {
     return <div className="text-sm text-gray-500">Sin archivo adjunto</div>;
@@ -22,16 +21,11 @@ function AttachmentView({ archivo, idLicencia }) {
   const isPDF =
     archivo.mimetype === "application/pdf" || /\.pdf$/i.test(archivo.ruta_url);
 
-  // Nota: el backend espera Authorization header; como <a> no manda headers,
-  // se deja el token como querystring para pruebas rápidas.
-  // Si prefieres headers estrictos, habría que implementar un fetch+blob.
   const fileUrl = archivo.ruta_url?.startsWith("http")
     ? archivo.ruta_url
     : `${API}/api/licencias/${idLicencia}/archivo?token=${token}`;
 
-  const nombre =
-    archivo.nombre_archivo ||
-    (archivo.ruta_url.split("/").pop() || "licencia.pdf");
+  const nombre = archivo.nombre_archivo || archivo.ruta_url.split("/").pop() || "licencia.pdf";
 
   return (
     <div className="space-y-3">
@@ -97,29 +91,27 @@ export default function EvaluarLicencia() {
         const API = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
         const token = localStorage.getItem("token") || "";
 
-        // Usa el endpoint de detalle estándar
         const res = await fetch(`${API}/api/licencias/${id}`, {
           headers: {
             Authorization: `Bearer ${token}`,
             Accept: "application/json",
           },
         });
+
         const json = await res.json();
 
         if (!res.ok) {
           throw new Error(json?.error || "Error al obtener detalle");
         }
 
-        // Soportar distintos formatos: {licencia} ó {detalle:[...]}
         const L =
           json.licencia ||
           (Array.isArray(json.detalle) && json.detalle.length
             ? json.detalle[0]
             : null);
 
-        if (!L) {
-          throw new Error("Detalle no disponible");
-        }
+        if (!L) throw new Error("Detalle no disponible");
+
         setLicencia(L);
       } catch (e) {
         setMensaje(e.message || "No se pudo cargar la licencia.");
@@ -131,103 +123,98 @@ export default function EvaluarLicencia() {
   }, [id]);
 
   const decidirLicencia = async (decision) => {
-  if (!licencia) return;
+    if (!licencia) return;
 
-  const API   = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
-  const token = localStorage.getItem("token") || "";
+    const API = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
+    const token = localStorage.getItem("token") || "";
 
-  // cuerpos por ruta
-  const bodyDecidir =
-    decision === "rechazado"
-      ? { decision, motivo_rechazo: motivoRechazo }
-      : { decision };
+    const bodyDecidir =
+      decision === "rechazado"
+        ? { decision, motivo_rechazo: motivoRechazo }
+        : { decision };
 
-  const bodyNotificar =
-    decision === "rechazado"
-      ? { estado: "rechazado", motivo_rechazo: motivoRechazo }
-      : {
-          estado: "aceptado",
-          // varios backends piden estas fechas al aceptar
-          fecha_inicio: licencia.fecha_inicio?.slice(0, 10),
-          fecha_fin: licencia.fecha_fin?.slice(0, 10),
-        };
+    const bodyNotificar =
+      decision === "rechazado"
+        ? { estado: "rechazado", motivo_rechazo: motivoRechazo }
+        : {
+            estado: "aceptado",
+            fecha_inicio: licencia.fecha_inicio?.slice(0, 10),
+            fecha_fin: licencia.fecha_fin?.slice(0, 10),
+          };
 
-  const bodyEstado =
-    decision === "rechazado"
-      ? { nuevo_estado: "rechazado", motivo_rechazo: motivoRechazo }
-      : { nuevo_estado: "aceptado" };
+    const bodyEstado =
+      decision === "rechazado"
+        ? { nuevo_estado: "rechazado", motivo_rechazo: motivoRechazo }
+        : { nuevo_estado: "aceptado" };
 
-  const bodyRechazar = { motivo_rechazo: motivoRechazo };
+    const bodyRechazar = { motivo_rechazo: motivoRechazo };
 
-  const doFetch = async (url, method, body) => {
-    const res = await fetch(url, {
-      method,
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body ?? {}),
-    });
-    const json = await res.json().catch(() => ({}));
-    return { res, json };
-  };
+    const doFetch = async (url, method, body) => {
+      const res = await fetch(url, {
+        method,
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body ?? {}),
+      });
+      const json = await res.json().catch(() => ({}));
+      return { res, json };
+    };
 
-  try {
-    setMensaje("");
-    setLoadingAccion(true);
+    try {
+      setMensaje("");
+      setLoadingAccion(true);
 
-    // 1) intentar /decidir
-    let { res, json } = await doFetch(
-      `${API}/api/licencias/${id}/decidir`,
-      "POST",
-      bodyDecidir
-    );
-
-    // 2) si 404, intentar /notificar
-    if (res.status === 404) {
-      ({ res, json } = await doFetch(
-        `${API}/api/licencias/${id}/notificar`,
-        "PUT",
-        bodyNotificar
-      ));
-    }
-
-    // 3) si sigue 404, intentar /estado
-    if (res.status === 404) {
-      ({ res, json } = await doFetch(
-        `${API}/api/licencias/${id}/estado`,
-        "PUT",
-        bodyEstado
-      ));
-    }
-
-    // 4) si es rechazo y aún 404, usar /rechazar (ruta legacy)
-    if (res.status === 404 && decision === "rechazado") {
-      ({ res, json } = await doFetch(
-        `${API}/api/licencias/${id}/rechazar`,
+      let { res, json } = await doFetch(
+        `${API}/api/licencias/${id}/decidir`,
         "POST",
-        bodyRechazar
-      ));
-    }
+        bodyDecidir
+      );
 
-    if (!res.ok) {
-      throw new Error(json?.error || json?.msg || `Error ${res.status}`);
-    }
+      if (res.status === 404) {
+        ({ res, json } = await doFetch(
+          `${API}/api/licencias/${id}/notificar`,
+          "PUT",
+          bodyNotificar
+        ));
+      }
 
-    setMensaje(
-      `Licencia ${decision === "aceptado" ? "aceptada" : "rechazada"} correctamente`
-    );
-    navigate("/licencias-por-revisar");
-  } catch (e) {
-    setMensaje(e.message);
-  } finally {
-    setLoadingAccion(false);
-  }
-};
+      if (res.status === 404) {
+        ({ res, json } = await doFetch(
+          `${API}/api/licencias/${id}/estado`,
+          "PUT",
+          bodyEstado
+        ));
+      }
+
+      if (res.status === 404 && decision === "rechazado") {
+        ({ res, json } = await doFetch(
+          `${API}/api/licencias/${id}/rechazar`,
+          "POST",
+          bodyRechazar
+        ));
+      }
+
+      if (!res.ok) {
+        throw new Error(json?.error || json?.msg || `Error ${res.status}`);
+      }
+
+      toast.success(
+        `Licencia ${decision === "aceptado" ? "aceptada" : "rechazada"} correctamente`
+      );
+      navigate("/licencias-por-revisar");
+    } catch (e) {
+      setMensaje(e.message);
+      toast.error(e.message);
+    } finally {
+      setLoadingAccion(false);
+    }
+  };
 
   if (loading) {
     return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-b from-blue-50 to-blue-100 dark:bg-app dark:bg-none">
+      <div className="min-h-screen flex flex-col bg-gradient-to-b from-blue-50 to-blue-100 dark:bg-app dark:bg-none">
         <Navbar />
         <main className="flex-1 flex items-center justify-center w-full">
           <div className="text-center">
@@ -248,7 +235,6 @@ export default function EvaluarLicencia() {
       <main className="flex-1 w-full">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-10 max-w-none">
           <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-lg p-6 sm:p-8">
-            {/* Header con navegación clara */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-4">
               <div>
                 <h1 className="text-2xl font-bold">Evaluación de Licencia</h1>
@@ -275,27 +261,19 @@ export default function EvaluarLicencia() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                   <div className="flex flex-col">
                     <span className="font-medium text-gray-600">Nombre:</span>
-                    <span className="text-gray-900">
-                      {lic.usuario?.nombre || ""}
-                    </span>
+                    <span className="text-gray-900">{lic.usuario?.nombre || ""}</span>
                   </div>
                   <div className="flex flex-col">
                     <span className="font-medium text-gray-600">id_usuario:</span>
-                    <span className="text-gray-900">
-                      {lic.id_usuario ?? lic.usuario?.id_usuario ?? ""}
-                    </span>
+                    <span className="text-gray-900">{lic.id_usuario ?? lic.usuario?.id_usuario ?? ""}</span>
                   </div>
                   <div className="flex flex-col">
                     <span className="font-medium text-gray-600">Correo:</span>
-                    <span className="text-gray-900">
-                      {lic.usuario?.email || ""}
-                    </span>
+                    <span className="text-gray-900">{lic.usuario?.email || ""}</span>
                   </div>
                   <div className="flex flex-col">
                     <span className="font-medium text-gray-600">Rol:</span>
-                    <span className="text-gray-900">
-                      {ROL_MAP[2] /* estudiante */}
-                    </span>
+                    <span className="text-gray-900">{ROL_MAP[2]}</span>
                   </div>
                 </div>
               </div>
@@ -313,26 +291,16 @@ export default function EvaluarLicencia() {
                     <span className="text-gray-900">{lic.folio || ""}</span>
                   </div>
                   <div className="flex flex-col">
-                    <span className="font-medium text-gray-600">
-                      Fecha de emisión:
-                    </span>
-                    <span className="text-gray-900">
-                      {formatFechaHora(lic.fecha_emision)}
-                    </span>
+                    <span className="font-medium text-gray-600">Fecha de emisión:</span>
+                    <span className="text-gray-900">{formatFechaHora(lic.fecha_emision)}</span>
                   </div>
                   <div className="flex flex-col">
-                    <span className="font-medium text-gray-600">
-                      Fecha inicio:
-                    </span>
-                    <span className="text-gray-900">
-                      {formatFechaHora(lic.fecha_inicio)}
-                    </span>
+                    <span className="font-medium text-gray-600">Fecha inicio:</span>
+                    <span className="text-gray-900">{formatFechaHora(lic.fecha_inicio)}</span>
                   </div>
                   <div className="flex flex-col">
                     <span className="font-medium text-gray-600">Fecha fin:</span>
-                    <span className="text-gray-900">
-                      {formatFechaHora(lic.fecha_fin)}
-                    </span>
+                    <span className="text-gray-900">{formatFechaHora(lic.fecha_fin)}</span>
                   </div>
                   <div className="flex flex-col">
                     <span className="font-medium text-gray-600">Estado:</span>
@@ -340,12 +308,8 @@ export default function EvaluarLicencia() {
                   </div>
                   {lic.motivo_rechazo && (
                     <div className="flex flex-col">
-                      <span className="font-medium text-gray-600">
-                        Motivo de rechazo:
-                      </span>
-                      <span className="text-gray-900">
-                        {lic.motivo_rechazo}
-                      </span>
+                      <span className="font-medium text-gray-600">Motivo de rechazo:</span>
+                      <span className="text-gray-900">{lic.motivo_rechazo}</span>
                     </div>
                   )}
                 </div>
@@ -354,9 +318,7 @@ export default function EvaluarLicencia() {
 
             {/* Archivo adjunto */}
             <section className="mb-8">
-              <h2 className="text-lg font-semibold mb-3 text-gray-800">
-                Archivo Adjunto
-              </h2>
+              <h2 className="text-lg font-semibold mb-3 text-gray-800">Archivo Adjunto</h2>
               <div className="border rounded-lg p-4">
                 <AttachmentView archivo={lic.archivo} idLicencia={lic.id_licencia ?? id} />
               </div>
@@ -366,9 +328,7 @@ export default function EvaluarLicencia() {
             <div className="flex flex-col sm:flex-row gap-4 pt-4 border-t">
               <button
                 onClick={() => decidirLicencia("aceptado")}
-                className={`flex-1 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium cursor-pointer`}
-                style={{ cursor: "pointer" }}
-                type="button"
+                className="flex-1 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
                 disabled={loadingAccion}
               >
                 {loadingAccion ? "Procesando..." : "✓ Aceptar Licencia"}
@@ -383,10 +343,8 @@ export default function EvaluarLicencia() {
                   onChange={(e) => setMotivoRechazo(e.target.value)}
                 />
                 <button
-                  className={`px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium cursor-pointer`}
-                  style={{ cursor: "pointer" }}
                   onClick={() => decidirLicencia("rechazado")}
-                  type="button"
+                  className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium"
                   disabled={motivoRechazo.length < 10 || loadingAccion}
                 >
                   {loadingAccion ? "Procesando..." : "✗ Rechazar Licencia"}
@@ -394,11 +352,9 @@ export default function EvaluarLicencia() {
               </div>
             </div>
 
-            {/* Información de ayuda */}
             <div className="mt-6 p-4 bg-blue-50 rounded-lg">
               <p className="text-sm text-blue-700">
-                <strong>Nota:</strong> Al aceptar o rechazar, podrás agregar
-                comentarios que serán enviados al estudiante.
+                <strong>Nota:</strong> Al aceptar o rechazar, podrás agregar comentarios que serán enviados al estudiante.
               </p>
             </div>
           </div>
