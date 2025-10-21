@@ -25,4 +25,9 @@ router.post('/logout', logout);
 router.post('/password-reset/request', requestPasswordReset);
 router.post('/password-reset/confirm', confirmPasswordReset);
 
+// === Obtener notificaciones ===
+router.get('/notificaciones/password', requireAuth, NotificacionesPassword);
+router.get('/notificaciones/perfil', requireAuth, NotificacionesPerfil);
+
+
 export default router;
