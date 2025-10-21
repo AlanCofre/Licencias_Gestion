@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useTranslation } from "react-i18next";
+import logo from "../assets/logo.svg"; // <---  EL LOGO PORFIN!!!!
 
 export default function Navbar() {
   const { user } = useAuth?.() ?? {};
@@ -313,11 +314,12 @@ useEffect(() => {
         <div className="flex items-center justify-between h-20">
           <div className="flex items-center">
             <Link to="/" onClick={closeMenu} className="flex items-center p-1">
-              <span className="text-2xl font-bold tracking-wide font-display">
-                MedManager
-              </span>
-            </Link>
-          </div>
+              <img src={logo} alt="MedManager" className="h-10 w-10 mr-3" />
+                <span className="text-2xl font-bold tracking-wide font-display">
+                  MedManager
+               </span>
+              </Link>
+           </div>
 
           <nav className="hidden md:flex flex-1 justify-center">
             <ul className="flex gap-8 text-sm font-medium items-center">
