@@ -9,6 +9,8 @@ import healthRouter from './routes/health.route.js';
 import usuarioRoutes from './routes/usuario.route.js';
 import perfilRouter from './routes/perfil.routes.js';
 import devMailRoutes from './routes/dev.mail.routes.js';
+import archivoRoutes from './routes/archivo.routes.js'; // ✅ Asegúrate de importar esto
+
 import db from './../config/db.js';
 
 const app = express();                // ← declara app ANTES de usarla
@@ -22,8 +24,21 @@ console.log('[DB CONFIG]', {
   database: process.env.DB_NAME
 });
 
+/* === Configuración CORS mejorada === */
+const corsOptions = {
+  origin: ['http://127.0.0.1:5500', 'http://localhost:5500', 'http://localhost:3000'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  credentials: true,
+  optionsSuccessStatus: 200
+};
+
+app.use(cors(corsOptions));
+
+// Middleware para manejar preflight requests
+app.options('*', cors(corsOptions));
+
 /* === Middlewares globales === */
-app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -35,6 +50,9 @@ if (process.env.NODE_ENV !== "production") {
 
 /* === Rutas === */
 app.use(healthRouter);
+
+// ✅ Montar rutas de archivos
+app.use('/api/archivos', archivoRoutes);
 
 // ⚠️ Montar licencias SOLO una vez con prefijo fijo
 app.use('/api/licencias', licenciasRouter);

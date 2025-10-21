@@ -25,3 +25,182 @@ router.get('/licencia/:id', requireAuth, async (req, res) => {
 });
 
 export default router;
+
+    const id_usuario = req.user?.id_usuario
+    if (!id_usuario) {
+      return res.status(401).json({ ok: false, mensaje: 'Usuario no autenticado' })
+    }
+
+    const buffer = req.file.buffer
+    const nombreArchivo = req.file.originalname
+    const path = `${id_usuario}/${Date.now()}_${nombreArchivo}`
+
+    const { error: uploadError } = await supabase.storage
+      .from('licencias')
+      .upload(path, buffer, {
+        contentType: req.file.mimetype,
+        upsert: true
+      })
+
+    if (uploadError) throw uploadError
+
+    const { data: urlData } = supabase.storage.from('licencias').getPublicUrl(path)
+
+    return res.json({
+      ok: true,
+      mensaje: 'Archivo subido correctamente',
+      archivo: nombreArchivo,
+      ruta: path,
+      url: urlData.publicUrl
+    })
+  } catch (err) {
+    console.error('❌ Error subiendo archivo:', err)
+    return res.status(500).json({
+      ok: false,
+      mensaje: 'Error al subir archivo',
+      detalle: err.message
+    })
+  }
+})
+
+
+
+//  GET /api/archivos/mios → Listar archivos del usuario autenticado desde Supabase
+router.get('/mios', requireAuth, async (req, res) => {
+  try {
+    const id_usuario = String(req.user?.id_usuario)
+    if (!id_usuario) {
+      return res.status(401).json({ ok: false, mensaje: 'Usuario no autenticado' })
+    }
+
+    const { data: archivos, error } = await supabase.storage
+      .from('licencias')
+      .list(id_usuario, {
+        limit: 100,
+        offset: 0,
+        sortBy: { column: 'name', order: 'asc' }
+      })
+
+    if (error) throw error
+
+    const archivosConUrl = await Promise.all(
+      archivos.map(async (archivo) => {
+        const ruta = `${id_usuario}/${archivo.name}`
+        const { data: signedData, error: signedError } = await supabase.storage
+          .from('licencias')
+          .createSignedUrl(ruta, 60 * 60) // válido por 1 hora
+
+        if (signedError) throw signedError
+
+        return {
+          nombre: archivo.name,
+          url: signedData.signedUrl
+        }
+      })
+    )
+
+    return res.json({ ok: true, archivos: archivosConUrl })
+  } catch (err) {
+    console.error('❌ Error listando archivos del usuario:', err)
+    return res.status(500).json({
+      ok: false,
+      mensaje: 'Error al listar archivos',
+      detalle: err.message
+    })
+  }
+})
+
+// endpoint subir imagen perfil 
+// POST /api/archivos/subir-perfil → Subir imagen generada al bucket 'perfil'
+// POST /api/archivos/subir-perfil → Subir imagen circular al bucket 'perfil'
+// GET /api/archivos/perfil → Obtener imagen de perfil del usuario autenticado
+router.get('/perfil', requireAuth, async (req, res) => {
+  try {
+    const id_usuario = String(req.user?.id_usuario)
+    if (!id_usuario) {
+      return res.status(401).json({ ok: false, mensaje: 'Usuario no autenticado' })
+    }
+
+    const { data: archivos, error } = await supabase.storage
+      .from('perfil')
+      .list(id_usuario, {
+        limit: 10,
+        offset: 0,
+        sortBy: { column: 'created_at', order: 'desc' }
+      })
+
+    if (error) throw error
+    if (!archivos || archivos.length === 0) {
+      return res.json({ ok: true, url: null, mensaje: 'Sin imagen de perfil' })
+    }
+
+    const archivo = archivos[0] // tomamos la más reciente
+    const ruta = `${id_usuario}/${archivo.name}`
+
+    const { data: signedData, error: signedError } = await supabase.storage
+      .from('perfil')
+      .createSignedUrl(ruta, 60 * 60) // válido por 1 hora
+
+    if (signedError) throw signedError
+
+    return res.json({
+      ok: true,
+      url: signedData.signedUrl,
+      nombre: archivo.name
+    })
+  } catch (err) {
+    console.error('❌ Error obteniendo imagen de perfil:', err)
+    return res.status(500).json({
+      ok: false,
+      mensaje: 'Error al obtener imagen de perfil',
+      detalle: err.message
+    })
+  }
+})
+
+
+router.post('/subir-perfil', requireAuth, upload.single('imagen'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ ok: false, mensaje: 'Imagen no recibida' })
+    }
+
+    const id_usuario = req.user?.id_usuario
+    if (!id_usuario) {
+      return res.status(401).json({ ok: false, mensaje: 'Usuario no autenticado' })
+    }
+
+    const buffer = req.file.buffer
+    const nombreArchivo = req.file.originalname
+    const path = `${id_usuario}/${Date.now()}_${nombreArchivo}`
+
+    const { error: uploadError } = await supabase.storage
+      .from('perfil') // ← bucket cambiado
+      .upload(path, buffer, {
+        contentType: req.file.mimetype,
+        upsert: true
+      })
+
+    if (uploadError) throw uploadError
+
+    const { data: urlData } = supabase.storage.from('perfil').getPublicUrl(path)
+
+    return res.json({
+      ok: true,
+      mensaje: 'Imagen de perfil subida correctamente',
+      archivo: nombreArchivo,
+      ruta: path,
+      url: urlData.publicUrl
+    })
+  } catch (err) {
+    console.error('❌ Error subiendo imagen de perfil:', err)
+    return res.status(500).json({
+      ok: false,
+      mensaje: 'Error al subir imagen de perfil',
+      detalle: err.message
+    })
+  }
+})
+
+
+export default router
