@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import bannerLogin from "../assets/banner-login.png";
-import logo from "../assets/logo.svg"; // <-- tu logo
+import logo from "../assets/logo.svg"; 
 import { useNavigate } from "react-router-dom";
+import { toast } from "react-hot-toast";
 
 function AppRegistro() {
   const navigate = useNavigate();
@@ -9,14 +10,13 @@ function AppRegistro() {
   const [correo, setCorreo] = useState("");
   const [contrasena, setContrasena] = useState("");
   const [confirmar, setConfirmar] = useState("");
-  const [mensaje, setMensaje] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
-    if (e && e.preventDefault) e.preventDefault();
+    e.preventDefault();
 
     if (contrasena !== confirmar) {
-      setMensaje("Las contraseñas no coinciden");
+      toast.error("Las contraseñas no coinciden");
       return;
     }
 
@@ -35,13 +35,15 @@ function AppRegistro() {
       });
 
       const data = await res.json();
+
       if (res.ok) {
+        toast.success("Usuario creado correctamente");
         navigate("/login");
       } else {
-        setMensaje(data.error || "Error al registrar usuario");
+        toast.error(data.error || "Error al registrar usuario");
       }
     } catch (error) {
-      setMensaje("Error de conexión con el servidor");
+      toast.error("Error de conexión con el servidor");
     } finally {
       setLoading(false);
     }
@@ -70,9 +72,7 @@ function AppRegistro() {
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-3">
             <div>
-              <label className="block text-black font-medium mb-1 text-sm">
-                Nombre y Apellido:
-              </label>
+              <label className="block text-black font-medium mb-1 text-sm">Nombre y Apellido:</label>
               <input
                 type="text"
                 value={nombre}
@@ -83,9 +83,7 @@ function AppRegistro() {
             </div>
 
             <div>
-              <label className="block text-black font-medium mb-1 text-sm">
-                Correo Electrónico:
-              </label>
+              <label className="block text-black font-medium mb-1 text-sm">Correo Electrónico:</label>
               <input
                 type="email"
                 value={correo}
@@ -96,9 +94,7 @@ function AppRegistro() {
             </div>
 
             <div>
-              <label className="block text-black font-medium mb-1 text-sm">
-                Contraseña:
-              </label>
+              <label className="block text-black font-medium mb-1 text-sm">Contraseña:</label>
               <input
                 type="password"
                 value={contrasena}
@@ -109,9 +105,7 @@ function AppRegistro() {
             </div>
 
             <div>
-              <label className="block text-black font-medium mb-1 text-sm">
-                Confirmar Contraseña:
-              </label>
+              <label className="block text-black font-medium mb-1 text-sm">Confirmar Contraseña:</label>
               <input
                 type="password"
                 value={confirmar}
@@ -120,8 +114,6 @@ function AppRegistro() {
                 className="w-full bg-[#E0F2FF] rounded-md p-3 text-black text-sm"
               />
             </div>
-
-            {mensaje && <p className="text-red-600 text-xs text-center">{mensaje}</p>}
 
             <button
               type="submit"
