@@ -16,7 +16,7 @@ function mapLicenciaBackendToFrontend(l) {
     fechaEnvio: l.fecha_creacion,
     fechaInicioReposo: l.fecha_inicio,
     fechaFinReposo: l.fecha_fin,
-    estado: l.estado === "pendiente" ? "En revisión" : 
+    estado: l.estado === "pendiente" ? "En revisión" :
             l.estado?.charAt(0).toUpperCase() + l.estado?.slice(1)
   };
 }
@@ -36,23 +36,31 @@ function formatFechaHora(fechaStr) {
   const d = new Date(fechaStr);
   if (isNaN(d)) return fechaStr;
   const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2,"0");
+  const dd = String(d.getDate()).padStart(2,"0");
   const hh = String(d.getHours()).padStart(2,"0");
   const min = String(d.getMinutes()).padStart(2,"0");
   return `${yyyy}-${mm}-${dd} ${hh}:${min}`;
 }
 
+// función para obtener fecha local YYYY-MM-DD
+function hoyLocal() {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2,"0");
+  const dd = String(d.getDate()).padStart(2,"0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 export default function LicenciasPorRevisar() {
-  const [licencias, setLicencias] = useState([]);
+  const [licenciasTodas, setLicenciasTodas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // filtros
   const [filterDate, setFilterDate] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [page, setPage] = useState(1);
-  const [totalPaginas, setTotalPaginas] = useState(1);
+  const [itemsPorPagina] = useState(10);
 
   useEffect(() => {
     const cargarLicencias = async () => {
@@ -60,115 +68,103 @@ export default function LicenciasPorRevisar() {
       setError("");
       try {
         const token = localStorage.getItem("token");
-        const url = `${API_BASE}/api/licencias/en-revision?page=${page}&limit=10`;
-        
-        console.log("🔍 Cargando licencias en revisión desde:", url);
-        
+        const url = `${API_BASE}/api/licencias/en-revision?limit=1000`;
         const res = await fetch(url, {
           headers: {
             "Authorization": `Bearer ${token}`,
             "Accept": "application/json"
           }
         });
-
         if (!res.ok) {
           const errorText = await res.text();
           throw new Error(`Error ${res.status}: ${errorText}`);
         }
-
         const data = await res.json();
-        console.log("✅ Licencias en revisión:", data);
-
-        if (!data.ok) {
+        if (!data.ok && data.ok !== undefined) {
           throw new Error(data.error || "Error en la respuesta");
         }
 
         const lista = (data.data || []).map(mapLicenciaBackendToFrontend);
-        setLicencias(lista);
-        
-        const total = data.meta?.total || data.pagination?.total || lista.length;
-        setTotalPaginas(Math.max(1, Math.ceil(total / 10)));
-
+        setLicenciasTodas(lista);
       } catch (e) {
         console.error("❌ Error cargando licencias:", e);
         setError(e.message);
-        setLicencias([]);
+        setLicenciasTodas([]);
       } finally {
         setLoading(false);
       }
     };
     cargarLicencias();
-  }, [page]);
+  }, []);
 
-  // Calcular estadísticas
+  // Filtrado por búsqueda y fecha
+  const licenciasFiltradas = useMemo(() => {
+    return licenciasTodas.filter(l => {
+      const cumpleBusqueda = !searchTerm || 
+        l.estudiante.toLowerCase().includes(searchTerm.toLowerCase());
+      const cumpleFecha = !filterDate || 
+        (l.fechaEmision && formatFecha(l.fechaEmision) === filterDate);
+      return cumpleBusqueda && cumpleFecha;
+    });
+  }, [licenciasTodas, searchTerm, filterDate]);
+
+  // Estadísticas
   const estadisticas = useMemo(() => {
-    const hoy = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-    
-    const pendientesHoy = licencias.filter(licencia => 
-      licencia.fechaEmision === hoy
+    const hoy = hoyLocal();
+    const pendientesHoy = licenciasTodas.filter(l => 
+      l.fechaEmision && formatFecha(l.fechaEmision) === hoy
     ).length;
-
-    const totalEnRevision = licencias.length;
-
     return {
-      totalEnRevision,
-      pendientesHoy,
-      // Podemos agregar más estadísticas aquí si necesitas
+      totalEnRevision: licenciasTodas.length,
+      pendientesHoy
     };
-  }, [licencias]);
+  }, [licenciasTodas]);
 
-  const licenciasFiltradas = licencias.filter(l => {
-    const cumpleBusqueda = !searchTerm || 
-      l.estudiante.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const cumpleFecha = !filterDate || 
-      (l.fechaEmision && formatFecha(l.fechaEmision) === filterDate);
-    
-    return cumpleBusqueda && cumpleFecha;
-  });
+  // Paginación
+  const totalPaginas = Math.max(1, Math.ceil(licenciasFiltradas.length / itemsPorPagina));
+  const licenciasPagina = useMemo(() => {
+    const inicio = (page - 1) * itemsPorPagina;
+    return licenciasFiltradas.slice(inicio, inicio + itemsPorPagina);
+  }, [licenciasFiltradas, page, itemsPorPagina]);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-50 to-indigo-100 w-full overflow-x-hidden dark:bg-app dark:bg-none">
-        <Navbar />
-        <main className="flex-1 flex items-center justify-center">
-          <div className="text-center bg-white p-8 rounded-2xl shadow-lg">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p className="text-lg text-gray-700">Cargando licencias...</p>
-          </div>
-        </main>
-        <Footer />
-      </div>
-    );
-  }
+  if (loading) return (
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-50 to-indigo-100 w-full overflow-x-hidden dark:bg-app dark:bg-none">
+      <Navbar />
+      <main className="flex-1 flex items-center justify-center">
+        <div className="text-center bg-white p-8 rounded-2xl shadow-lg">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-lg text-gray-700">Cargando licencias...</p>
+        </div>
+      </main>
+      <Footer />
+    </div>
+  );
 
-  if (error) {
-    return (
-      <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-50 to-indigo-100 w-full overflow-x-hidden dark:bg-app dark:bg-none">
-        <Navbar />
-        <main className="flex-1 flex items-center justify-center">
-          <div className="bg-white p-8 rounded-2xl shadow-lg text-center max-w-md">
-            <h2 className="text-lg font-semibold mb-2">Error al cargar licencias</h2>
-            <p className="text-sm text-red-600 mb-4">{error}</p>
-            <button
-              onClick={() => window.location.reload()}
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-            >
-              Reintentar
-            </button>
-          </div>
-        </main>
-        <Footer />
-      </div>
-    );
-  }
+  if (error) return (
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-50 to-indigo-100 w-full overflow-x-hidden dark:bg-app dark:bg-none">
+      <Navbar />
+      <main className="flex-1 flex items-center justify-center">
+        <div className="bg-white p-8 rounded-2xl shadow-lg text-center max-w-md">
+          <h2 className="text-lg font-semibold mb-2">Error al cargar licencias</h2>
+          <p className="text-sm text-red-600 mb-4">{error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          >
+            Reintentar
+          </button>
+        </div>
+      </main>
+      <Footer />
+    </div>
+  );
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-50 to-indigo-100 w-full overflow-x-hidden dark:bg-app dark:bg-none">
       <Navbar />
       <main className="flex-1 w-full">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-10 max-w-7xl">
-          
+
           {/* Header */}
           <div className="mb-8 text-center">
             <div className="bg-white rounded-2xl shadow-lg p-8 border border-gray-100">
@@ -182,7 +178,7 @@ export default function LicenciasPorRevisar() {
                 </div>
               </div>
 
-              {/* Estadísticas ACTUALIZADAS */}
+              {/* Estadísticas */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
                 <div className="bg-yellow-50 p-4 rounded-xl border border-yellow-200">
                   <div className="flex items-center justify-center">
@@ -214,7 +210,6 @@ export default function LicenciasPorRevisar() {
 
               {/* Controles */}
               <div className="mt-6 flex items-center gap-4 flex-wrap justify-center">
-                {/* Filtro fecha */}
                 <div className="flex items-center gap-2">
                   <label htmlFor="filterDate" className="text-sm text-gray-600">Fecha (Emisión)</label>
                   <input
@@ -225,8 +220,6 @@ export default function LicenciasPorRevisar() {
                     className="border border-gray-200 bg-white px-3 py-1 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#048FD4]"
                   />
                 </div>
-
-                {/* Barra de búsqueda */}
                 <form
                   onSubmit={(e) => e.preventDefault()}
                   className="flex items-center w-full max-w-xs bg-white border border-gray-300 rounded-lg shadow-sm px-3 py-2"
@@ -240,8 +233,6 @@ export default function LicenciasPorRevisar() {
                     className="flex-1 outline-none text-gray-700 placeholder-gray-400"
                   />
                 </form>
-
-                {/* Botón limpiar */}
                 <button
                   onClick={() => {
                     setFilterDate("");
@@ -255,17 +246,17 @@ export default function LicenciasPorRevisar() {
             </div>
           </div>
 
-          {/* Tabla o mensaje vacío */}
-          {licenciasFiltradas.length === 0 ? (
+          {/* Tabla */}
+          {licenciasPagina.length === 0 ? (
             <div className="bg-white rounded-2xl shadow-lg p-12 text-center border border-gray-100">
               <div className="bg-gray-100 rounded-full w-24 h-24 flex items-center justify-center mx-auto mb-6">
                 <Clock className="h-12 w-12 text-gray-400" />
               </div>
               <h2 className="text-2xl font-bold text-gray-700 mb-3">
-                {licencias.length === 0 ? 'No hay licencias pendientes' : 'No hay resultados para los filtros'}
+                {licenciasTodas.length === 0 ? 'No hay licencias pendientes' : 'No hay resultados para los filtros'}
               </h2>
               <p className="text-gray-500 text-lg">
-                {licencias.length === 0 
+                {licenciasTodas.length === 0 
                   ? 'Todas las licencias han sido procesadas.' 
                   : 'Intenta con otros criterios de búsqueda.'}
               </p>
@@ -306,7 +297,7 @@ export default function LicenciasPorRevisar() {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-100">
-                    {licenciasFiltradas.map((licencia) => (
+                    {licenciasPagina.map((licencia) => (
                       <tr key={licencia.id} className="hover:bg-blue-50 transition-colors duration-200">
                         <td className="px-6 py-5 whitespace-nowrap">
                           <div className="flex items-center">
@@ -314,12 +305,8 @@ export default function LicenciasPorRevisar() {
                               <User className="h-4 w-4 text-blue-600" />
                             </div>
                             <div>
-                              <div className="text-sm font-semibold text-gray-900">
-                                {licencia.estudiante}
-                              </div>
-                              <div className="text-xs text-gray-500">
-                                ID: {licencia.id}
-                              </div>
+                              <div className="text-sm font-semibold text-gray-900">{licencia.estudiante}</div>
+                              <div className="text-xs text-gray-500">ID: {licencia.id}</div>
                             </div>
                           </div>
                         </td>
