@@ -81,6 +81,10 @@ export default function LicenciasEstudiante() {
 
   useEffect(() => {
     const cargarLicencias = async () => {
+      const interval = setInterval(() => {
+        refreshLicencias();
+      }, 30000); // Actualiza cada 30 segundos
+
       setLoading(true);
       try {
         const API = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
@@ -113,6 +117,7 @@ export default function LicenciasEstudiante() {
       }
     };
     cargarLicencias();
+    return () => clearInterval(interval);
   }, []);
 
   // opciones dinámicas de estados según lo que trae el BE (normalizado)
