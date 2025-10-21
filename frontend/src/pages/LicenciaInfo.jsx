@@ -33,11 +33,6 @@ function normalizeItem(raw) {
     raw.nombre ||
     (raw.id_usuario ? `Usuario #${raw.id_usuario}` : "-");
 
-  const carrera =
-    (usuario && (usuario.facultad || usuario.carrera)) ||
-    raw.carrera ||
-    raw.facultad ||
-    "-";
 
   const fechaEmision       = fmtDateOnly(raw.fecha_emision || raw.emision);
   const fechaEnvio         = fmtDateOnly(raw.fecha_creacion || raw.createdAt);
@@ -57,7 +52,6 @@ function normalizeItem(raw) {
   return {
     id,
     estudiante,
-    carrera,
     fechaEmision,
     fechaEnvio,
     fechaInicioReposo,
@@ -290,10 +284,6 @@ useEffect(() => {
                         </div>
                       </th>
                       <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">
-                        <GraduationCap className="h-4 w-4 mr-2" />
-                        Carrera
-                      </th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">
                         <Calendar className="h-4 w-4 mr-2" />
                         Fechas
                       </th>
@@ -317,11 +307,6 @@ useEffect(() => {
                               <div className="text-sm font-semibold text-gray-900">{lic.estudiante}</div>
                               <div className="text-xs text-gray-500">ID: {lic.id}</div>
                             </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-5 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900 bg-gray-50 px-3 py-1 rounded-full inline-block">
-                            {lic.carrera}
                           </div>
                         </td>
                         <td className="px-6 py-5 whitespace-nowrap text-sm space-y-1">
