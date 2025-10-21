@@ -154,4 +154,39 @@ export async function obtenerPerfilPorUsuario(req, res) {
   }
 }
 
-export default { obtenerMiPerfil, guardarMiPerfil, obtenerPerfilPorUsuario };
+export const NotificacionesPassword = async (req, res) => {
+  try {
+    const { id_usuario } = req.user;
+
+    const [notificaciones] = await db.execute(
+      'SELECT id_notificacion, asunto, contenido, fecha_envio FROM notificaciones WHERE id_usuario = ? AND asunto = ? ORDER BY fecha_envio DESC',
+      [id_usuario, 'Cambio de contraseña']
+    );
+
+    console.log('🔐 Notificaciones de cambio de contraseña:', notificaciones);
+
+    res.json({ ok: true, mensaje: 'Notificaciones de contraseña mostradas en terminal' });
+  } catch (e) {
+    console.error('❌ Error al obtener notificaciones de contraseña:', e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+};
+
+
+export const NotificacionesPerfil = async (req, res) => {
+  try {
+    const { id_usuario } = req.user;
+
+    const [notificaciones] = await db.execute(
+      'SELECT id_notificacion, asunto, contenido, fecha_envio FROM notificaciones WHERE id_usuario = ? AND asunto = ? ORDER BY fecha_envio DESC',
+      [id_usuario, 'Actualización de perfil']
+    );
+
+    console.log('👤 Notificaciones de modificación de perfil:', notificaciones);
+
+    res.json({ ok: true, mensaje: 'Notificaciones de perfil mostradas en terminal' });
+  } catch (e) {
+    console.error('❌ Error al obtener notificaciones de perfil:', e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+};
