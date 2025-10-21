@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
 import Navbar from "../components/Navbar";
+import BannerSection from "../components/BannerSection";
 import Footer from "../components/Footer";
 import { Eye, Clock, Calendar, User, GraduationCap, Search } from "lucide-react";
 
@@ -162,6 +163,7 @@ export default function LicenciasPorRevisar() {
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-50 to-indigo-100 w-full overflow-x-hidden dark:bg-app dark:bg-none">
       <Navbar />
+      <BannerSection />
       <main className="flex-1 w-full">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-10 max-w-7xl">
 

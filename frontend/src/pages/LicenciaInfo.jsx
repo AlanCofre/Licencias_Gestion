@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
+import BannerSection from "../components/BannerSection";
 import { CheckCircle, XCircle, Clock, Calendar, User, GraduationCap, Search, Eye } from "lucide-react";
 
 const API_BASE = import.meta.env.VITE_API_URL?.replace(/\/+$/,"") || "http://localhost:3000";
@@ -189,6 +190,7 @@ useEffect(() => {
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-50 to-indigo-100 dark:bg-app dark:bg-none">
       <Navbar />
+      <BannerSection />
       <main className="flex-1 w-full">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-10 max-w-7xl">
           {/* Header */}

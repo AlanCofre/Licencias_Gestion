@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
+import BannerSection from "../components/BannerSection";
 import { Eye, Clock, Calendar, Search } from "lucide-react";
 
 const LIST_ENDPOINT = "/api/licencias/mis-licencias"; // ← ajusta si tu BE usa otra ruta
@@ -173,6 +174,7 @@ export default function LicenciasEstudiante() {
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-50 to-indigo-100 w-full overflow-x-hidden dark:bg-app dark:bg-none">
       <Navbar />
       <main className="flex-1 w-full">
+      <BannerSection />
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-10 max-w-5xl">
           {/* Header */}
           <div className="mb-8 text-center">
