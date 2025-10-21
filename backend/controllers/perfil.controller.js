@@ -58,56 +58,42 @@ export async function obtenerMiPerfil(req, res) {
 // PUT /api/perfil/me
 export async function guardarMiPerfil(req, res) {
   try {
-    const id = req.user.id_usuario;
+    const id_usuario = req.user?.id_usuario;
+    if (!id_usuario) return res.status(401).json({ ok: false, mensaje: 'No autenticado' });
 
-    // 1) Construir payload desde body (sea JSON o multipart/form-data)
-    const body = {
-      email_alt: req.body?.email_alt ?? null,
-      numero_telef: req.body?.numero_telef ?? null,
-      direccion: req.body?.direccion ?? null,
-      foto_url: req.body?.foto_url ?? null,
-    };
+    // viene por JSON desde el FE (paso 2)
+    const {
+      email_alt = null,
+      numero_telef = null,
+      direccion = null,
+      foto_url = null, // si no hay nueva foto, vendrá null
+    } = req.body || {};
 
-    // Si vino archivo (upload.single('foto')), intentar tomar su URL/ruta
-    if (req.file) {
-      // adapta según tu middleware de storage:
-      // - local: req.file.path
-      // - supabase/s3: quizá req.file.location o un campo personalizado
-      body.foto_url = req.file.location || req.file.path || body.foto_url || null;
-    }
+    // UPSERT por id_usuario
+    const sql = `
+      INSERT INTO perfil (id_usuario, email_alt, numero_telef, direccion, foto_url)
+      VALUES (?, ?, ?, ?, ?)
+      ON DUPLICATE KEY UPDATE
+        email_alt    = VALUES(email_alt),
+        numero_telef = VALUES(numero_telef),
+        direccion    = VALUES(direccion),
+        -- si foto_url viene null, conserva la anterior
+        foto_url     = COALESCE(VALUES(foto_url), foto_url)
+    `;
+    const params = [id_usuario, email_alt, numero_telef, direccion, foto_url];
+    await db.execute(sql, params);
 
-    // 2) Validar
-    const { valido, errores, data } = validarPerfilPayload(body);
-    if (!valido) {
-      return res.status(400).json({ ok: false, error: "Payload inválido", detalles: errores });
-    }
-
-    // 3) UPSERT a tabla perfil (id_usuario es UNIQUE)
-    await db.execute(
-      `INSERT INTO perfil (id_usuario, email_alt, numero_telef, direccion, foto_url)
-       VALUES (?, ?, ?, ?, ?)
-       ON DUPLICATE KEY UPDATE
-         email_alt = VALUES(email_alt),
-         numero_telef = VALUES(numero_telef),
-         direccion = VALUES(direccion),
-         foto_url = VALUES(foto_url)`,
-      [id, data.email_alt, data.numero_telef, data.direccion, data.foto_url]
-    );
-
-    // 4) Devolver el estado actualizado
+    // devuelve el perfil actualizado
     const [rows] = await db.execute(
-      `SELECT p.email_alt, p.numero_telef, p.direccion, p.foto_url
-       FROM perfil p
-       WHERE p.id_usuario = ?`,
-      [id]
+      `SELECT id_perfil, id_usuario, email_alt, numero_telef, direccion, foto_url
+       FROM perfil WHERE id_usuario = ? LIMIT 1`,
+      [id_usuario]
     );
 
-    const perfil = rows[0] || { email_alt: null, numero_telef: null, direccion: null, foto_url: null };
-
-    return res.json({ ok: true, data: perfil });
-  } catch (e) {
-    console.error("[guardarMiPerfil]", e);
-    return res.status(500).json({ ok: false, error: "Error guardando perfil" });
+    return res.json({ ok: true, data: rows[0] || null });
+  } catch (err) {
+    console.error('[perfil] Error guardarMiPerfil:', err);
+    return res.status(500).json({ ok: false, mensaje: 'Error guardando perfil', detalle: err.message });
   }
 }
 

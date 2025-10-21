@@ -50,29 +50,33 @@ function mapFrontendToBackend(body) {
 export async function updateMiPerfil(bodyObj, file) {
   const token = localStorage.getItem("token");
   if (!token) throw new Error("No autorizado");
+
+  // 1) Mapear FE -> BE
   const mapped = mapFrontendToBackend(bodyObj);
-  let res;
-  if (file) {
-    const fd = new FormData();
-    Object.keys(mapped).forEach((k) => {
-      if (mapped[k] !== undefined && mapped[k] !== null) fd.append(k, mapped[k]);
-    });
-    fd.append("foto", file);
-    res = await fetch(`${BASE}/perfil/me`, {
-      method: "PUT",
-      headers: { Authorization: `Bearer ${token}` },
-      body: fd,
-    });
-  } else {
-    res = await fetch(`${BASE}/perfil/me`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(mapped),
-    });
+
+  // 2) Si hay archivo, primero subir a Supabase vía backend (/archivo/subir-perfil)
+if (file) {
+  const fd = new FormData();
+  fd.append("imagen", file);           // 👈 el backend espera "imagen"
+  const upRes = await fetch(`${BASE}/archivos/subir-perfil`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` }, // no seteas Content-Type
+    body: fd,
+  });
+  if (!upRes.ok) {
+    const err = await upRes.json().catch(() => ({}));
+    throw new Error(err.mensaje || err.error || "Error subiendo imagen");
   }
+  const upJson = await upRes.json();
+  mapped.foto_url = upJson.url;        // 👈 usa la URL pública devuelta
+}
+
+// 3) Guardar perfil por JSON
+const res = await fetch(`${BASE}/perfil/me`, {
+  method: "PUT",
+  headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+  body: JSON.stringify(mapped),
+});
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || err.message || "Error guardando perfil");

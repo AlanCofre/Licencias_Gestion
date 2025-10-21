@@ -4,7 +4,7 @@ import requireAuth from '../../middlewares/requireAuth.js';
 import ctrl from '../../controllers/archivo.controller.js';
 import pool from '../../db/db.js';
 import upload from '../../middlewares/upload.js';
-import { supabase } from '../supabase/supabaseClient.js'; // asegúrate de tener este archivo
+import { supabase } from '../supabase/supabaseClient.js';
 
 const router = Router();
 
