@@ -57,7 +57,7 @@ export async function updateMiPerfil(bodyObj, file) {
   // 2) Si hay archivo, primero subir a Supabase vía backend (/archivo/subir-perfil)
 if (file) {
   const fd = new FormData();
-  fd.append("imagen", file);           // 👈 el backend espera "imagen"
+  fd.append("imagen", file);         
   const upRes = await fetch(`${BASE}/archivos/subir-perfil`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}` }, // no seteas Content-Type
@@ -68,7 +68,7 @@ if (file) {
     throw new Error(err.mensaje || err.error || "Error subiendo imagen");
   }
   const upJson = await upRes.json();
-  mapped.foto_url = upJson.url;        // 👈 usa la URL pública devuelta
+  mapped.foto_url = upJson.url;        
 }
 
 // 3) Guardar perfil por JSON
