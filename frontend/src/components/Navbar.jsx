@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useTranslation } from "react-i18next";
+import { getMiPerfil } from "../services/perfilService";
 import logo from "../assets/logo.svg"; // <---  EL LOGO PORFIN!!!!
 
 export default function Navbar() {
@@ -11,6 +12,19 @@ export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState(null);
   const [expanded, setExpanded] = useState({});
+  const [perfil, setPerfil] = useState(null);
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await getMiPerfil();
+        const data = res?.data?.perfil ?? res?.perfil ?? res?.data ?? null;
+        setPerfil(data);
+      } catch (e) {
+        console.error("[Navbar] getMiPerfil()", e);
+        setPerfil(null);
+      }
+    })();
+  }, []);
 
   const role = String(user?.role || "").toLowerCase();
   const isSecretary = role === "secretaria" || role === "secretary" || role === "funcionario";
@@ -344,10 +358,11 @@ useEffect(() => {
                 to="/edit-profile"
                 className="inline-flex items-center gap-3 max-w-[220px] font-semibold text-sm hover:underline hover:text-gray-200 transition-colors"
               >
-                {user?.avatar || user?.photoURL ? (
+                {perfil?.foto_url ? (
                   <img
-                    src={user.avatar || user.photoURL}
+                    src={perfil.foto_url}
                     alt={displayName}
+                    onError={(e) => (e.currentTarget.src = "/img/avatar-placeholder.png")}
                     className="w-9 h-9 rounded-full object-cover border-2 border-white/30"
                   />
                 ) : (
@@ -355,6 +370,7 @@ useEffect(() => {
                     {initials || "U"}
                   </div>
                 )}
+
                 <span className="truncate">{displayName}</span>
               </Link>
             </div>
