@@ -20,6 +20,7 @@ import LicenciasPorRevisar from "./pages/LicenciasPorRevisar";
 import LicenciasEstudiante from "./pages/LicenciasEstudiante";
 import LicenciasEvaluadas from "./pages/LicenciasEvaluadas";
 import LicenciaDetalle from "./pages/DetalleLicencia";
+import AdminMatriculas from "./pages/Matriculas";
 
 export default function AppRoutes() {
   return (
@@ -47,6 +48,7 @@ export default function AppRoutes() {
       <Route path="/edit-profile" element={<AppEditProfile />} />
       <Route path="/mis-licencias" element={<LicenciasEstudiante />} />
       <Route path="/detalle-licencia/:id" element={<LicenciaDetalle />} />
+      <Route path="/matriculas" element={<AdminMatriculas />} />
       
       {/* Rutas nuevas de secretaria */}
       <Route path="/evaluar/:id" element={<EvaluarLicencia />} />
