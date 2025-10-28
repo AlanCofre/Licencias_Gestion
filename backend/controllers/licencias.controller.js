@@ -91,15 +91,7 @@ export async function listarMisLicencias(req, res) {
       [idUsuario]
     );
 
-    // 🔎 AUDIT: ver_historial
-    try {
-      await req.audit('ver_historial', 'LicenciaMedica', {
-        mensaje: `Estudiante ${idUsuario} consultó su historial de licencias`,
-        page, limit, total: Number(total)
-      });
-    } catch (e) {
-      console.warn('[audit] listarMisLicencias:', e?.message || e);
-    }
+
 
     return res.status(200).json({ 
       ok: true, 
@@ -153,15 +145,7 @@ export async function listarLicencias(req, res) {
       [idUsuario, limit, offset]
     );
 
-    // 🔎 AUDIT: ver_historial (si este endpoint lo usa el estudiante)
-    try {
-      await req.audit('ver_historial', 'LicenciaMedica', {
-        mensaje: `Estudiante ${idUsuario} listó sus licencias`,
-        page, limit, dev: 'listarLicencias'
-      });
-    } catch (e) {
-      console.warn('[audit] listarLicencias:', e?.message || e);
-    }
+   
 
     return res.json({ ok: true, data: rows });
   } catch (err) {
@@ -647,15 +631,7 @@ export const detalleLicencia = async (req, res) => {
       console.warn('Detalle: archivo omitido →', e?.message);
     }
 
-    // 🔎 AUDIT: ver_detalle
-    try {
-      await req.audit('ver_detalle', 'LicenciaMedica', {
-        mensaje: `Estudiante ${usuarioId} abrió detalle de licencia ${id}`,
-        id_licencia: id
-      });
-    } catch (e) {
-      console.warn('[audit] detalleLicencia:', e?.message || e);
-    }
+
 
     return res.json({ ok: true, licencia });
   } catch (error) {
@@ -775,18 +751,18 @@ export async function decidirLicencia(req, res) {
     };
 
     const out = await decidirLicenciaSvc(payload);
-
-    // 🔎 AUDIT: cambiar_estado_licencia (decisión por funcionario)
-    try {
-      await req.audit('cambiar_estado_licencia', 'LicenciaMedica', {
-        mensaje: `Licencia ${idLicencia} decidida por funcionario ${actorId}: ${decisionRaw}`,
-        id_licencia: idLicencia,
-        a: decisionRaw,
-        motivo_rechazo: decisionRaw === 'rechazado' ? (motivo_rechazo ?? null) : null
-      });
-    } catch (e) {
-      console.warn('[audit] decidirLicencia:', e?.message || e);
-    }
+    // auditoría aceptar/rechazar
+  try {
+    const accion = (decisionRaw === 'aceptado') ? 'aceptar licencia' : 'rechazar licencia'
+    await req.audit(accion, 'LicenciaMedica', {
+      mensaje: `Funcionario/Secretario ${actorId} ${accion} #${idLicencia}`,
+      id_licencia: idLicencia,
+      estado_nuevo: decisionRaw,
+      motivo_rechazo: motivo_rechazo ?? null
+    }, { userId: actorId })
+  } catch (e) {
+    console.warn('[audit] decidirLicencia:', e?.message || e)
+  }
 
     return res.status(200).json({
       ok: true,
@@ -926,18 +902,7 @@ export async function cambiarEstado(req, res, next) {
 
     await lic.save({ userId: req.user.id });
 
-    // 🔎 AUDIT: cambiar_estado_licencia (Sequelize path)
-    try {
-      await req.audit('cambiar_estado_licencia', 'LicenciaMedica', {
-        mensaje: `Licencia ${id} cambió de ${anterior} a ${nuevo_estado} (funcionario ${req.user.id_usuario ?? req.user.id ?? 'N/D'})`,
-        id_licencia: Number(id),
-        de: anterior,
-        a: nuevo_estado,
-        motivo_rechazo: nuevo_estado === 'rechazado' ? (motivo_rechazo ?? null) : null
-      });
-    } catch (e) {
-      console.warn('[audit] cambiarEstado(Sequelize):', e?.message || e);
-    }
+    
 
     return res.json({ ok: true, data: { id: lic.id_licencia, estado: lic.estado } });
   } catch (err) { next(err); }
