@@ -45,7 +45,7 @@ function _safeJoin(baseDir, relative) {
 function _puedeVerArchivo(user, idPropietario) {
   if (!user) return false;
   const rol = String(user.rol || '').toLowerCase();
-  if (rol === 'funcionario') return true;
+  if (rol === 'funcionario' || rol === 'secretario') return true;
   if (rol === 'estudiante' && Number(user.id_usuario) === Number(idPropietario)) return true;
   return false;
 }
@@ -60,7 +60,6 @@ export async function listarMisLicencias(req, res) {
       return res.status(401).json({ ok: false, error: 'Usuario no autenticado' });
     }
 
-    // Usar parámetros de paginación para limitar resultados
     const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
     const offset = (page - 1) * limit;
@@ -85,13 +84,10 @@ export async function listarMisLicencias(req, res) {
       [idUsuario, limit, offset]
     );
 
-    // Obtener total para paginación
     const [[{ total }]] = await db.execute(
       'SELECT COUNT(*) as total FROM LicenciaMedica WHERE id_usuario = ?',
       [idUsuario]
     );
-
-
 
     return res.status(200).json({ 
       ok: true, 
@@ -144,8 +140,6 @@ export async function listarLicencias(req, res) {
       `,
       [idUsuario, limit, offset]
     );
-
-   
 
     return res.json({ ok: true, data: rows });
   } catch (err) {
@@ -258,7 +252,7 @@ export const crearLicencia = async (req, res) => {
       [folio, fecha_inicio, fecha_fin, usuarioId]
     );
 
-    // 🔎 AUDIT: emitir_licencia
+    // 🔎 AUDIT: emitir licencia
     try {
       await req.audit('emitir licencia', 'LicenciaMedica', {
         mensaje: `Estudiante ${usuarioId} subió licencia ${result.insertId}`,
@@ -362,7 +356,6 @@ export const getLicenciasEnRevision = async (req, res) => {
 
     const { nombre, folio, desde, hasta, page = 1, limit = 10 } = req.query;
     
-    // Validar y normalizar parámetros
     const pageNum = Math.max(1, parseInt(page));
     const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
     const offset = (pageNum - 1) * limitNum;
@@ -370,7 +363,6 @@ export const getLicenciasEnRevision = async (req, res) => {
     let condiciones = [`lm.estado = 'pendiente'`];
     let params = [];
 
-    // Solo funcionarios pueden usar filtros amplios
     if (['funcionario', 'secretario'].includes(rol)) {
       if (nombre) { 
         condiciones.push(`u.nombre LIKE ?`); 
@@ -395,7 +387,6 @@ export const getLicenciasEnRevision = async (req, res) => {
 
     const where = condiciones.length ? `WHERE ${condiciones.join(' AND ')}` : '';
 
-    // Consulta principal con LIMIT optimizado
     const [rows] = await db.execute(`
       SELECT 
         lm.id_licencia, 
@@ -416,7 +407,6 @@ export const getLicenciasEnRevision = async (req, res) => {
       LIMIT ? OFFSET ?
     `, [...params, limitNum, offset]);
 
-    // Contar total (separado para mejor performance)
     const [countRows] = await db.execute(`
       SELECT COUNT(*) as total
       FROM LicenciaMedica lm
@@ -454,7 +444,6 @@ export const licenciasResueltas = async (req, res) => {
 
     const { estado, desde, hasta, nombre, folio, page = 1, limit = 20 } = req.query;
     
-    // Validar parámetros
     const pageNum = Math.max(1, parseInt(page));
     const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
     const offset = (pageNum - 1) * limitNum;
@@ -505,7 +494,6 @@ export const licenciasResueltas = async (req, res) => {
       LIMIT ? OFFSET ?
     `, [...valores, limitNum, offset]);
 
-    // Contar total
     const [countRows] = await db.execute(`
       SELECT COUNT(*) as total
       FROM licenciamedica lm
@@ -574,7 +562,7 @@ export const detalleLicencia = async (req, res) => {
 
     const r = rows[0];
 
-    if (rol !== 'funcionario' && Number(r.id_usuario) !== Number(usuarioId)) {
+    if (!['funcionario','secretario'].includes(rol) && Number(r.id_usuario) !== Number(usuarioId)) {
       return res.status(403).json({ error: 'No autorizado' });
     }
 
@@ -631,8 +619,6 @@ export const detalleLicencia = async (req, res) => {
       console.warn('Detalle: archivo omitido →', e?.message);
     }
 
-
-
     return res.json({ ok: true, licencia });
   } catch (error) {
     console.error('[licencias:detalleLicencia] error:', error);
@@ -680,7 +666,7 @@ export const crearLicenciaLegacy = async (req, res) => {
     `;
     const [result] = await db.execute(sql, [folio, fecha_inicio, fecha_fin, id_usuario]);
 
-    // 🔎 AUDIT: emitir_licencia (legacy)
+    // 🔎 AUDIT: emitir licencia (legacy)
     try {
       await req.audit('emitir licencia', 'LicenciaMedica', {
         mensaje: `Estudiante ${id_usuario} subió licencia ${result.insertId}`,
@@ -751,18 +737,21 @@ export async function decidirLicencia(req, res) {
     };
 
     const out = await decidirLicenciaSvc(payload);
-    // auditoría aceptar/rechazar
-  try {
-    const accion = (decisionRaw === 'aceptado') ? 'aceptar licencia' : 'rechazar licencia'
-    await req.audit(accion, 'LicenciaMedica', {
-      mensaje: `Funcionario/Secretario ${actorId} ${accion} #${idLicencia}`,
-      id_licencia: idLicencia,
-      estado_nuevo: decisionRaw,
-      motivo_rechazo: motivo_rechazo ?? null
-    }, { userId: actorId })
-  } catch (e) {
-    console.warn('[audit] decidirLicencia:', e?.message || e)
-  }
+
+    // 🔎 AUDITORÍA — aceptar / rechazar (servicio decidirLicencia)
+    try {
+      const accion = (decisionRaw === 'aceptado') ? 'aceptar licencia' : 'rechazar licencia';
+      const pl = {
+        mensaje: `Funcionario/Secretario ${actorId} ${accion} #${idLicencia}`,
+        id_licencia: idLicencia,
+        estado_nuevo: decisionRaw
+      };
+      if (decisionRaw === 'rechazado') pl.motivo_rechazo = motivo_rechazo;
+
+      await req.audit(accion, 'LicenciaMedica', pl, { userId: actorId });
+    } catch (e) {
+      console.warn('[audit] decidirLicencia:', e?.message || e);
+    }
 
     return res.status(200).json({
       ok: true,
@@ -797,7 +786,7 @@ export async function decidirLicencia(req, res) {
 }
 
 // ========================
-// GET /api/licencias/:id/archivo  
+// GET /api/licencias/:id/archivo
 // ========================
 export const descargarArchivoLicencia = async (req, res) => {
   try {
@@ -887,22 +876,38 @@ export async function cambiarEstado(req, res, next) {
     if (!['aceptado','rechazado','pendiente'].includes(nuevo_estado)) {
       return res.status(400).json({ error: 'ESTADO_INVALIDO' });
     }
-    if (req.user?.rol !== 'funcionario') {
+
+    // ✅ permitir funcionario y secretario
+    if (!['funcionario','secretario'].includes(String(req.user?.rol || '').toLowerCase())) {
       return res.status(403).json({ error: 'NO_AUTORIZADO' });
     }
 
     const lic = await LicenciaMedica.findByPk(id);
     if (!lic) return res.status(404).json({ error: 'LICENCIA_NO_ENCONTRADA' });
 
-    const anterior = lic.estado; // ⬅️ capturar estado previo
+    const anterior = lic.estado;
     lic.estado = nuevo_estado;
     if (nuevo_estado === 'rechazado') {
       lic.motivo_rechazo = motivo_rechazo ?? lic.motivo_rechazo;
     }
 
-    await lic.save({ userId: req.user.id });
+    await lic.save({ userId: req.user?.id_usuario ?? req.user?.id ?? null });
 
-    
+    // 🔎 AUDIT: solo registramos si es aceptado/rechazado (coincide con tu ENUM)
+    if (nuevo_estado === 'aceptado' || nuevo_estado === 'rechazado') {
+      try {
+        const accion = nuevo_estado === 'aceptado' ? 'aceptar licencia' : 'rechazar licencia';
+        await req.audit(accion, 'LicenciaMedica', {
+          mensaje: `Funcionario/Secretario ${req.user?.id_usuario ?? 'desconocido'} ${accion} #${lic.id_licencia}`,
+          id_licencia: lic.id_licencia,
+          estado_anterior: anterior,
+          estado_nuevo: nuevo_estado,
+          ...(nuevo_estado === 'rechazado' ? { motivo_rechazo: lic.motivo_rechazo ?? motivo_rechazo ?? null } : {})
+        });
+      } catch (e) {
+        console.warn('[audit] cambiarEstado:', e?.message || e);
+      }
+    }
 
     return res.json({ ok: true, data: { id: lic.id_licencia, estado: lic.estado } });
   } catch (err) { next(err); }

@@ -304,7 +304,7 @@ router.post(
 );
 
 // Profesor o Secretario (demo simple)
-router.get('/revisar', [validarJWT, tieneRol('profesor', 'funcionario')], (req, res) => {
+router.get('/revisar', [validarJWT, tieneRol('profesor', 'funcionario', 'secretario')], (req, res) => {
   res.json({ ok: true, msg: 'Revisando licencias...', rol: req.rol });
 });
 
@@ -315,14 +315,14 @@ router.get('/revisar', [validarJWT, tieneRol('profesor', 'funcionario')], (req, 
 router.put(
   '/:id/estado',
   authRequired,
-  requireRole(['funcionario']),
+  requireRole(['funcionario','secretario']),
   cambiarEstado
 );
 
 router.post(
   '/:id/decidir',
   authRequired,
-  requireRole(['funcionario']),
+  requireRole(['funcionario','secretario']),
   // 🔧 inject id_usuario for validateDecision
   (req, _res, next) => {
     req.body ||= {};
@@ -345,7 +345,7 @@ router.post(
 router.put(
   '/:id/notificar',
   authRequired,
-  requireRole(['funcionario']),
+  requireRole(['funcionario','secretario']),
   // 🔧 inject id_usuario también aquí por si el middleware lo necesita
   (req, _res, next) => {
     req.body ||= {};
@@ -487,7 +487,7 @@ router.get('/:id/archivo', validarJWT, descargarArchivoLicencia);
 router.post(
   '/:id/rechazar',
   validarJWT,
-  tieneRol('funcionario'),
+  tieneRol('funcionario','secretario'),
   (req, _res, next) => { req.body = { ...(req.body || {}), decision: 'rechazado' }; next(); },
   validateDecision,
   cargarLicencia,
