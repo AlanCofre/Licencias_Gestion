@@ -56,7 +56,7 @@ export const requestPasswordReset = async (req, res) => {
 
     // Dentro de requestPasswordReset (después de generar y guardar el código)
     try {
-      await req.audit('recuperar_contrasena', 'Usuario', {
+      await req.audit('recuperar contrasena', 'Usuario', {
         mensaje: `Solicitud de código de recuperación`,
         email
       })
@@ -140,7 +140,7 @@ export const confirmPasswordReset = async (req, res) => {
 
       // Dentro de confirmPasswordReset (luego de UPDATE de contraseña, antes del return 200) 
       try {
-        await req.audit('recuperar_contrasena', 'Usuario', {
+        await req.audit('recuperar contrasena', 'Usuario', {
           mensaje: `Contraseña restablecida correctamente`,
           email,
           id_usuario

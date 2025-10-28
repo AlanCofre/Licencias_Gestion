@@ -276,7 +276,7 @@ export const crearLicencia = async (req, res) => {
 
     // 🔎 AUDIT: emitir_licencia
     try {
-      await req.audit('emitir_licencia', 'LicenciaMedica', {
+      await req.audit('emitir licencia', 'LicenciaMedica', {
         mensaje: `Estudiante ${usuarioId} subió licencia ${result.insertId}`,
         id_licencia: result.insertId,
         estado: 'pendiente',
@@ -706,7 +706,7 @@ export const crearLicenciaLegacy = async (req, res) => {
 
     // 🔎 AUDIT: emitir_licencia (legacy)
     try {
-      await req.audit('emitir_licencia', 'LicenciaMedica', {
+      await req.audit('emitir licencia', 'LicenciaMedica', {
         mensaje: `Estudiante ${id_usuario} subió licencia ${result.insertId}`,
         id_licencia: result.insertId,
         estado: 'pendiente',

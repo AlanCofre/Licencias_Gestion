@@ -8,14 +8,11 @@ LogAuditoria.init({
   id_usuario: { type: DataTypes.INTEGER, allowNull: true },
   accion: {
     type: DataTypes.ENUM(
-      'crear_cuenta',
-      'actualizar_cuenta',
-      'iniciar_sesion',
-      'recuperar_contrasena',
-      'emitir_licencia',
-      'cambiar_estado_licencia',
-      'ver_historial',
-      'ver_detalle'
+      'crear cuenta',
+      'actualizar cuenta',
+      'iniciar sesion',
+      'recuperar contrasena',
+      'emitir licencia',
     ),
     allowNull: false
   },

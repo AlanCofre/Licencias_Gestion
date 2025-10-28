@@ -58,7 +58,7 @@ export async function registrar(req, res) {
 
     // 🔎 AUDIT: crear cuenta (no romper respuesta si falla)
     try {
-      await req.audit('crear_cuenta', 'Usuario', {
+      await req.audit('crear cuenta', 'Usuario', {
         mensaje: `Estudiante ${correo_usuario} creó su cuenta`,
         id_usuario_creado: usuario?.id_usuario ?? usuario?.id ?? null,
         nombre
@@ -130,7 +130,7 @@ export async function login(req, res) {
 
     // 🔎 AUDIT: iniciar sesión (no romper respuesta si falla)
     try {
-      await req.audit('iniciar_sesion', 'Usuario', {
+      await req.audit('iniciar sesion', 'Usuario', {
         mensaje: `Usuario ${id} inició sesión`,
         email: correo_usuario,
         rol

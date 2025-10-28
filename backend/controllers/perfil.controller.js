@@ -92,7 +92,7 @@ export async function guardarMiPerfil(req, res) {
 
     // 🧾 Auditoría: actualización de perfil
     try {
-      await req.audit('actualizar_cuenta', 'Usuario', {
+      await req.audit('actualizar cuenta', 'Usuario', {
         mensaje: `Estudiante ${req.user.id_usuario} actualizó su cuenta`,
         campos_modificados: Object.keys(req.body || {})
       })

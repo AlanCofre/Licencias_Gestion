@@ -49,7 +49,7 @@ export async function login(req, res) {
     try {
       await auditLog({
         id_usuario: u.id_usuario,
-        accion: 'iniciar_sesion',
+        accion: 'iniciar sesion',
         recurso: 'Usuario',
         payload: {
           mensaje: `Usuario ${u.id_usuario} inició sesión`,
