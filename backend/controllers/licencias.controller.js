@@ -91,6 +91,16 @@ export async function listarMisLicencias(req, res) {
       [idUsuario]
     );
 
+    // 🔎 AUDIT: ver_historial
+    try {
+      await req.audit('ver_historial', 'LicenciaMedica', {
+        mensaje: `Estudiante ${idUsuario} consultó su historial de licencias`,
+        page, limit, total: Number(total)
+      });
+    } catch (e) {
+      console.warn('[audit] listarMisLicencias:', e?.message || e);
+    }
+
     return res.status(200).json({ 
       ok: true, 
       data: rows,
@@ -142,6 +152,16 @@ export async function listarLicencias(req, res) {
       `,
       [idUsuario, limit, offset]
     );
+
+    // 🔎 AUDIT: ver_historial (si este endpoint lo usa el estudiante)
+    try {
+      await req.audit('ver_historial', 'LicenciaMedica', {
+        mensaje: `Estudiante ${idUsuario} listó sus licencias`,
+        page, limit, dev: 'listarLicencias'
+      });
+    } catch (e) {
+      console.warn('[audit] listarLicencias:', e?.message || e);
+    }
 
     return res.json({ ok: true, data: rows });
   } catch (err) {
@@ -254,6 +274,20 @@ export const crearLicencia = async (req, res) => {
       [folio, fecha_inicio, fecha_fin, usuarioId]
     );
 
+    // 🔎 AUDIT: emitir_licencia
+    try {
+      await req.audit('emitir_licencia', 'LicenciaMedica', {
+        mensaje: `Estudiante ${usuarioId} subió licencia ${result.insertId}`,
+        id_licencia: result.insertId,
+        estado: 'pendiente',
+        folio,
+        fecha_inicio,
+        fecha_fin
+      });
+    } catch (e) {
+      console.warn('[audit] crearLicencia:', e?.message || e);
+    }
+
     // Notificaciones (best-effort en BD)
     try {
       const asunto = 'creacion de licencia';
@@ -282,37 +316,30 @@ export const crearLicencia = async (req, res) => {
       console.error('❌ Error al registrar archivo:', archivoError.message);
     }
 
-    // ✉️ Enviar correo a TODOS los funcionarios (id_rol=3, activos) — SIN usar SECRETARIA_EMAILS
+    // ✉️ Enviar correo (best-effort)
     try {
       const idLicencia = result.insertId;
-
-      // 1) Leer correos de funcionarios activos
       const [destRows] = await db.execute(
         `SELECT correo_usuario AS correo
            FROM Usuario
           WHERE id_rol = 3 AND activo = 1 AND correo_usuario IS NOT NULL`
       );
-
       const destinatarios = Array.isArray(destRows)
         ? [...new Set(destRows.map(r => (r.correo || '').trim()).filter(Boolean))]
         : [];
-
-      console.log('✉️ Funcionarios destino:', destinatarios);
-
-      if (!destinatarios.length) {
-        console.warn('✉️ [crearLicencia] No hay funcionarios (id_rol=3) activos con correo; correo omitido.');
-      } else {
+      if (destinatarios.length) {
         const enlaceDetalle = `${process.env.APP_BASE_URL || 'http://localhost:5173'}/licencias/${idLicencia}`;
-
         await notificarNuevaLicencia({
           folio,
           estudiante: { nombre: nombreEstudiante, correo: correoEstudiante },
           fechaCreacionISO: new Date().toISOString(),
           enlaceDetalle,
-          to: destinatarios, // ← lista dinámica, evita fallback
+          to: destinatarios,
         }).then(r => {
           if (!r?.ok) console.error('✉️ Email nueva licencia falló:', r?.error);
         });
+      } else {
+        console.warn('✉️ [crearLicencia] No hay funcionarios (id_rol=3) activos con correo; correo omitido.');
       }
     } catch (e) {
       console.warn('✉️ [crearLicencia] envío correo omitido:', e?.message || e);
@@ -620,6 +647,16 @@ export const detalleLicencia = async (req, res) => {
       console.warn('Detalle: archivo omitido →', e?.message);
     }
 
+    // 🔎 AUDIT: ver_detalle
+    try {
+      await req.audit('ver_detalle', 'LicenciaMedica', {
+        mensaje: `Estudiante ${usuarioId} abrió detalle de licencia ${id}`,
+        id_licencia: id
+      });
+    } catch (e) {
+      console.warn('[audit] detalleLicencia:', e?.message || e);
+    }
+
     return res.json({ ok: true, licencia });
   } catch (error) {
     console.error('[licencias:detalleLicencia] error:', error);
@@ -666,6 +703,20 @@ export const crearLicenciaLegacy = async (req, res) => {
         (?,     CURDATE(),     ?,            ?,          'pendiente', NULL,            CURDATE(),     ?)
     `;
     const [result] = await db.execute(sql, [folio, fecha_inicio, fecha_fin, id_usuario]);
+
+    // 🔎 AUDIT: emitir_licencia (legacy)
+    try {
+      await req.audit('emitir_licencia', 'LicenciaMedica', {
+        mensaje: `Estudiante ${id_usuario} subió licencia ${result.insertId}`,
+        id_licencia: result.insertId,
+        estado: 'pendiente',
+        folio,
+        fecha_inicio,
+        fecha_fin
+      });
+    } catch (e) {
+      console.warn('[audit] crearLicenciaLegacy:', e?.message || e);
+    }
 
     const [row] = await db.execute(
       'SELECT id_licencia, folio, fecha_emision, fecha_inicio, fecha_fin, estado, motivo_rechazo, fecha_creacion, id_usuario FROM LicenciaMedica WHERE id_licencia = ?',
@@ -724,6 +775,18 @@ export async function decidirLicencia(req, res) {
     };
 
     const out = await decidirLicenciaSvc(payload);
+
+    // 🔎 AUDIT: cambiar_estado_licencia (decisión por funcionario)
+    try {
+      await req.audit('cambiar_estado_licencia', 'LicenciaMedica', {
+        mensaje: `Licencia ${idLicencia} decidida por funcionario ${actorId}: ${decisionRaw}`,
+        id_licencia: idLicencia,
+        a: decisionRaw,
+        motivo_rechazo: decisionRaw === 'rechazado' ? (motivo_rechazo ?? null) : null
+      });
+    } catch (e) {
+      console.warn('[audit] decidirLicencia:', e?.message || e);
+    }
 
     return res.status(200).json({
       ok: true,
@@ -855,12 +918,27 @@ export async function cambiarEstado(req, res, next) {
     const lic = await LicenciaMedica.findByPk(id);
     if (!lic) return res.status(404).json({ error: 'LICENCIA_NO_ENCONTRADA' });
 
+    const anterior = lic.estado; // ⬅️ capturar estado previo
     lic.estado = nuevo_estado;
     if (nuevo_estado === 'rechazado') {
       lic.motivo_rechazo = motivo_rechazo ?? lic.motivo_rechazo;
     }
 
     await lic.save({ userId: req.user.id });
+
+    // 🔎 AUDIT: cambiar_estado_licencia (Sequelize path)
+    try {
+      await req.audit('cambiar_estado_licencia', 'LicenciaMedica', {
+        mensaje: `Licencia ${id} cambió de ${anterior} a ${nuevo_estado} (funcionario ${req.user.id_usuario ?? req.user.id ?? 'N/D'})`,
+        id_licencia: Number(id),
+        de: anterior,
+        a: nuevo_estado,
+        motivo_rechazo: nuevo_estado === 'rechazado' ? (motivo_rechazo ?? null) : null
+      });
+    } catch (e) {
+      console.warn('[audit] cambiarEstado(Sequelize):', e?.message || e);
+    }
+
     return res.json({ ok: true, data: { id: lic.id_licencia, estado: lic.estado } });
   } catch (err) { next(err); }
 }

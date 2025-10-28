@@ -5,7 +5,6 @@ import db from '../config/db.js'; // mysql2/promise pool
 import { generateRecoveryCode } from "../src/utils/Codigoverificacion.js";
 import { enviarCodigoRecuperacion } from "../services/servicio_Correo.js";
 
-
 const TTL_MIN = Number(process.env.RESET_CODE_TTL_MIN || 10); // minutos
 const MAX_ATTEMPTS = Number(process.env.RESET_MAX_ATTEMPTS || 5);
 
@@ -54,6 +53,14 @@ export const requestPasswordReset = async (req, res) => {
       attempts: 0,
       used: false,
     });
+
+    // Dentro de requestPasswordReset (después de generar y guardar el código)
+    try {
+      await req.audit('recuperar_contrasena', 'Usuario', {
+        mensaje: `Solicitud de código de recuperación`,
+        email
+      })
+    } catch (e) { console.warn('[audit] password-reset/request:', e?.message || e) }
 
     console.log(`🔐 Código generado para ${email}: ${code}`);
 
@@ -130,6 +137,15 @@ export const confirmPasswordReset = async (req, res) => {
       // Marcar usado y eliminar de la memoria
       entry.used = true;
       resetStore.delete(email);
+
+      // Dentro de confirmPasswordReset (luego de UPDATE de contraseña, antes del return 200) 
+      try {
+        await req.audit('recuperar_contrasena', 'Usuario', {
+          mensaje: `Contraseña restablecida correctamente`,
+          email,
+          id_usuario
+        })
+      } catch (e) { console.warn('[audit] password-reset/confirm:', e?.message || e) }
 
       return res
         .status(200)

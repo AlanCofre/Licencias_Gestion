@@ -90,6 +90,16 @@ export async function guardarMiPerfil(req, res) {
       [id_usuario]
     );
 
+    // 🧾 Auditoría: actualización de perfil
+    try {
+      await req.audit('actualizar_cuenta', 'Usuario', {
+        mensaje: `Estudiante ${req.user.id_usuario} actualizó su cuenta`,
+        campos_modificados: Object.keys(req.body || {})
+      })
+    } catch (e) {
+      console.warn('[audit] actualizarPerfil:', e?.message || e)
+    }
+
     return res.json({ ok: true, data: rows[0] || null });
   } catch (err) {
     console.error('[perfil] Error guardarMiPerfil:', err);
@@ -157,7 +167,6 @@ export const NotificacionesPassword = async (req, res) => {
     res.status(500).json({ ok: false, error: e.message });
   }
 };
-
 
 export const NotificacionesPerfil = async (req, res) => {
   try {

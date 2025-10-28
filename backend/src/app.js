@@ -10,7 +10,7 @@ import usuarioRoutes from './routes/usuario.route.js';
 import perfilRouter from './routes/perfil.routes.js';
 import devMailRoutes from './routes/dev.mail.routes.js';
 import archivoRoutes from './routes/archivo.routes.js'; // ✅ Asegúrate de importar esto
-
+import { attachAudit } from '../middlewares/audit.middleware.js';
 import db from './../config/db.js';
 
 const app = express();                // ← declara app ANTES de usarla
@@ -45,6 +45,7 @@ app.use(express.urlencoded({ extended: true }));
 /* === Rutas de DEV (solo en desarrollo) === */
 if (process.env.NODE_ENV !== "production") {
   app.use(express.json());
+  app.use(attachAudit());
   app.use(devMailRoutes); // aquí ya existe app
 }
 
