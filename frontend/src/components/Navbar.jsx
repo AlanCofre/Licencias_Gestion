@@ -13,6 +13,7 @@ export default function Navbar() {
 
   const role = String(user?.role || "").toLowerCase();
   const isSecretary = role === "secretaria" || role === "secretary";
+  const isStudent = role === "alumno" || role === "student";
   const displayName = user
     ? isSecretary
       ? `${t("prefix.secretary")} ${user.name || t("user.defaultName")}`
