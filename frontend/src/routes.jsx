@@ -21,6 +21,7 @@ import LicenciasEstudiante from "./pages/LicenciasEstudiante";
 import LicenciasEvaluadas from "./pages/LicenciasEvaluadas";
 import LicenciaDetalle from "./pages/DetalleLicencia";
 import AdminMatriculas from "./pages/Matriculas";
+import AdminCursos from "./pages/Cursos";
 
 export default function AppRoutes() {
   return (
@@ -49,6 +50,7 @@ export default function AppRoutes() {
       <Route path="/mis-licencias" element={<LicenciasEstudiante />} />
       <Route path="/detalle-licencia/:id" element={<LicenciaDetalle />} />
       <Route path="/matriculas" element={<AdminMatriculas />} />
+      <Route path="/cursos" element={<AdminCursos />} />
       
       {/* Rutas nuevas de secretaria */}
       <Route path="/evaluar/:id" element={<EvaluarLicencia />} />
