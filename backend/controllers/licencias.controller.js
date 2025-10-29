@@ -255,7 +255,6 @@ export const crearLicencia = async (req, res) => {
     // 🔎 AUDIT: emitir licencia
     try {
       await req.audit('emitir licencia', 'LicenciaMedica', {
-        mensaje: `Estudiante ${usuarioId} subió licencia ${result.insertId}`,
         id_licencia: result.insertId,
         estado: 'pendiente',
         folio,
@@ -669,7 +668,6 @@ export const crearLicenciaLegacy = async (req, res) => {
     // 🔎 AUDIT: emitir licencia (legacy)
     try {
       await req.audit('emitir licencia', 'LicenciaMedica', {
-        mensaje: `Estudiante ${id_usuario} subió licencia ${result.insertId}`,
         id_licencia: result.insertId,
         estado: 'pendiente',
         folio,
@@ -742,7 +740,6 @@ export async function decidirLicencia(req, res) {
     try {
       const accion = (decisionRaw === 'aceptado') ? 'aceptar licencia' : 'rechazar licencia';
       const pl = {
-        mensaje: `Funcionario/Secretario ${actorId} ${accion} #${idLicencia}`,
         id_licencia: idLicencia,
         estado_nuevo: decisionRaw
       };
@@ -893,14 +890,11 @@ export async function cambiarEstado(req, res, next) {
 
     await lic.save({ userId: req.user?.id_usuario ?? req.user?.id ?? null });
 
-    // 🔎 AUDIT: solo registramos si es aceptado/rechazado (coincide con tu ENUM)
     if (nuevo_estado === 'aceptado' || nuevo_estado === 'rechazado') {
       try {
         const accion = nuevo_estado === 'aceptado' ? 'aceptar licencia' : 'rechazar licencia';
         await req.audit(accion, 'LicenciaMedica', {
-          mensaje: `Funcionario/Secretario ${req.user?.id_usuario ?? 'desconocido'} ${accion} #${lic.id_licencia}`,
           id_licencia: lic.id_licencia,
-          estado_anterior: anterior,
           estado_nuevo: nuevo_estado,
           ...(nuevo_estado === 'rechazado' ? { motivo_rechazo: lic.motivo_rechazo ?? motivo_rechazo ?? null } : {})
         });
@@ -908,6 +902,7 @@ export async function cambiarEstado(req, res, next) {
         console.warn('[audit] cambiarEstado:', e?.message || e);
       }
     }
+
 
     return res.json({ ok: true, data: { id: lic.id_licencia, estado: lic.estado } });
   } catch (err) { next(err); }
