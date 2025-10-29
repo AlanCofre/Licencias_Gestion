@@ -7,7 +7,9 @@ import {
   requestPasswordReset,
   confirmPasswordReset
 } from '../../controllers/passwordResetController.js';
-
+import requireAuth from '../../middlewares/requireAuth.js';
+import { NotificacionesPassword } from '../../controllers/perfil.controller.js';
+import { NotificacionesPerfil } from '../../controllers/perfil.controller.js';
 const router = Router();
 
 // Vistas servidas como estáticos

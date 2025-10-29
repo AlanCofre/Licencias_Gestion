@@ -6,7 +6,8 @@ import Curso from './modelo_Curso.js';
 import Notificacion from './modelo_Notificacion.js';
 import HistorialLicencias from './modelo_HistorialLicencias.js';
 import LogAuditoria from './modelo_LogAuditoria.js';
-
+import LicenciasEntregas from './modelo_LicenciasEntregas.js';
+import Matricula from './modelo_Matricula.js';
 // 1) Rol ⇄ Usuario
 Rol.hasMany(Usuario, { foreignKey: 'id_rol' });
 Usuario.belongsTo(Rol, { foreignKey: 'id_rol' });
@@ -24,8 +25,8 @@ Usuario.hasMany(Notificacion, { foreignKey: 'id_usuario' });
 Notificacion.belongsTo(Usuario, { foreignKey: 'id_usuario' });
 
 // 5) Usuario ⇄ Curso
-Usuario.hasMany(Curso, { foreignKey: 'id_usuario' });
-Curso.belongsTo(Usuario, { foreignKey: 'id_usuario' });
+Usuario.hasMany(Curso, { foreignKey: 'id_usuario', as: 'cursosImpartidos'});
+Curso.belongsTo(Usuario, { foreignKey: 'id_usuario', as: 'profesor'});
 
 // 6) HistorialLicencias → LicenciaMedica y Usuario
 HistorialLicencias.belongsTo(LicenciaMedica, { foreignKey: 'id_licencia' });
@@ -35,6 +36,22 @@ HistorialLicencias.belongsTo(Usuario, { foreignKey: 'id_usuario' });
 Usuario.hasMany(LogAuditoria, { foreignKey: 'id_usuario' });
 LogAuditoria.belongsTo(Usuario, { foreignKey: 'id_usuario' });
 
+// 8) Nuevas asociaciones para LicenciasEntregas
+LicenciaMedica.hasMany(LicenciasEntregas, { foreignKey: 'id_licencia', as: 'entregas'});
+Curso.hasMany(LicenciasEntregas, { foreignKey: 'id_curso', as: 'licenciasEntregadas'});
+LicenciasEntregas.belongsTo(LicenciaMedica, { foreignKey: 'id_licencia', as: 'licencia'});
+LicenciasEntregas.belongsTo(Curso, { foreignKey: 'id_curso', as: 'curso'});
+
+// 9) Nuevas asociaciones para Matriculas (Relación N-N Usuario-Curso)
+Usuario.hasMany(Matricula, { foreignKey: 'id_usuario',as: 'matriculas'});
+Curso.hasMany(Matricula, { foreignKey: 'id_curso', as: 'estudiantesMatriculados'});
+Matricula.belongsTo(Usuario, { foreignKey: 'id_usuario', as: 'estudiante'});
+Matricula.belongsTo(Curso, { foreignKey: 'id_curso',as: 'curso'});
+
+
+// Asociación directa N-N entre Usuario y Curso a través de Matricula
+Usuario.belongsToMany(Curso, {through: Matricula, foreignKey: 'id_usuario', otherKey: 'id_curso', as: 'cursosMatriculados'});
+Curso.belongsToMany(Usuario, {through: Matricula, foreignKey: 'id_curso', otherKey: 'id_usuario', as: 'estudiantes' });
 export {
   Rol,
   Usuario,
@@ -43,5 +60,7 @@ export {
   Curso,
   Notificacion,
   HistorialLicencias,
-  LogAuditoria
+  LogAuditoria,
+  LicenciasEntregas,
+  Matricula
 };
