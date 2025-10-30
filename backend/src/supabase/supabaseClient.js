@@ -3,12 +3,12 @@ import dotenv from 'dotenv'
 import path from 'path'
 import { fileURLToPath } from 'url'
 
-// Resolver ruta absoluta a .env.local
+// Resolver ruta absoluta a .env
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
-const envPath = path.resolve(__dirname, '../../.env.local')
+const envPath = path.resolve(__dirname, '../../.env')
 
-// Cargar .env.local
+// Cargar .env
 dotenv.config({ path: envPath })
 
 // Validación explícita
