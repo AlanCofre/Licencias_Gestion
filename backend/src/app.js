@@ -7,7 +7,8 @@ import licenciasRouter from './routes/licencias.routes.js';
 import healthRouter from './routes/health.route.js';
 import usuarioRoutes from './routes/usuario.route.js';
 import perfilRouter from './routes/perfil.routes.js';
-import archivoRoutes from './routes/archivo.routes.js'; // ✅ Asegúrate de importar esto
+import archivoRoutes from './routes/archivo.routes.js';
+import cursoRoutes from './routes/curso.route.js';
 
 import db from './../config/db.js';
 
@@ -55,6 +56,7 @@ app.use('/archivos', insertRouter);
 app.use('/notificaciones', notificationRouter);
 app.use('/usuarios', usuarioRoutes);
 app.use('/api', perfilRouter);
+app.use('/cursos', cursoRoutes);
 
 // Home (debe ir antes del 404)
 app.get('/', (req, res) => res.redirect('/usuarios/login'));
