@@ -7,22 +7,30 @@ import { Upload } from "lucide-react";
 export default function GenerarRevision() {
   const [formData, setFormData] = useState({
     folio: "",
-    fechaEmision: "", 
-    fechaInicioReposo: "", 
+    fechaEmision: "",
+    fechaInicioReposo: "",
     fechaFinalReposo: "",
   });
   const [file, setFile] = useState(null);
   const fileInputRef = useRef(null);
 
+  // --- Validación de cursos seleccionados ---
+  const [selectedCursos, setSelectedCursos] = useState([]);
+  const [errorCursos, setErrorCursos] = useState(false);
+  const cursosSelectorRef = useRef(null);
+
+  // Simulación de cursos activos (reemplaza por tu fuente real)
+  const cursosActivos = [
+    { codigo: "INF-101", nombre: "Programación I", seccion: "A" },
+    { codigo: "MAT-201", nombre: "Matemáticas II", seccion: "B" },
+  ];
+
   // Manejo de inputs
   const handleChange = (e) => {
     const { name, value } = e.target;
-
-    // Validación: solo números en folio
     if (name === "folio" && !/^\d*$/.test(value)) {
       return;
     }
-
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
@@ -31,7 +39,6 @@ export default function GenerarRevision() {
     const selectedFile = e.target.files[0];
     if (selectedFile && selectedFile.type === "application/pdf") {
       setFile(selectedFile);
-      // La fecha y el ID se generarán automáticamente en el backend
     } else {
       alert("Por favor sube un archivo PDF válido.");
     }
@@ -42,7 +49,6 @@ export default function GenerarRevision() {
     const droppedFile = e.dataTransfer.files[0];
     if (droppedFile && droppedFile.type === "application/pdf") {
       setFile(droppedFile);
-      // La fecha y el ID se generarán automáticamente en el backend
     } else {
       alert("Solo se permiten archivos PDF.");
     }
@@ -52,55 +58,54 @@ export default function GenerarRevision() {
     e.preventDefault();
   };
 
-  // Validar si todos los campos están completos 
+  // Validar si todos los campos están completos
   const isFormValid =
     formData.folio.trim() !== "" &&
-    formData.fechaEmision.trim() !== "" && 
+    formData.fechaEmision.trim() !== "" &&
     formData.fechaInicioReposo.trim() !== "" &&
     formData.fechaFinalReposo.trim() !== "" &&
-    file !== null;
+    file !== null &&
+    selectedCursos.length > 0;
 
   // Envío real al backend (multipart/form-data)
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (selectedCursos.length === 0) {
+      setErrorCursos(true);
+      cursosSelectorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+    setErrorCursos(false);
     if (!isFormValid) return;
 
     try {
       const fd = new FormData();
-      // campo que el BE espera: 'archivo'
       fd.append("archivo", file);
-      // campos que el BE guarda en BD
       fd.append("folio", formData.folio);
       fd.append("fecha_emision", formData.fechaEmision);
       fd.append("fecha_inicio", formData.fechaInicioReposo);
       fd.append("fecha_fin", formData.fechaFinalReposo);
-      // opcional: enviar razón (motivo) si el BE lo acepta; si no, queda null por defecto
-      fd.append("motivo", formData.razon);
+      fd.append("cursos", JSON.stringify(selectedCursos));
 
-      // obtener token desde localStorage (ajustar clave si usan otra)
       const token =
         localStorage.getItem("token") ||
         localStorage.getItem("jwt") ||
         localStorage.getItem("accessToken") ||
         "";
 
-      // usar VITE_API_URL si está definido en .env; fallback a localhost:3000
       const apiBase = (import.meta.env.VITE_API_URL || "http://localhost:3000").replace(/\/$/, "");
       const res = await fetch(`${apiBase}/api/licencias/crear`, {
-         method: "POST",
-         headers: {
-           ...(token ? { Authorization: `Bearer ${token}` } : {}),
-           // DO NOT set Content-Type; fetch lo maneja para FormData
-         },
-         body: fd,
-       });
+        method: "POST",
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: fd,
+      });
 
       const json = await res.json().catch(() => ({}));
 
       if (res.ok) {
         alert("Licencia enviada correctamente.");
-        console.log("Respuesta BE:", json);
-        // limpiar formulario
         setFormData({
           id: "",
           folio: "",
@@ -111,6 +116,7 @@ export default function GenerarRevision() {
           razon: "",
         });
         setFile(null);
+        setSelectedCursos([]);
       } else {
         const msg = json?.mensaje || json?.error || JSON.stringify(json);
         alert("Error enviando licencia: " + msg);
@@ -163,7 +169,6 @@ export default function GenerarRevision() {
               </small>
             </div>
 
-            
             <div>
               <label className="block text-gray-600 mb-1">Fecha inicio reposo</label>
               <input
@@ -185,6 +190,66 @@ export default function GenerarRevision() {
                 min={hoy} // no permite fechas pasadas
                 className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
               />
+            </div>
+
+            {/* Selector de cursos */}
+            <div
+              ref={cursosSelectorRef}
+              className={`mb-4 p-4 rounded border transition
+                ${errorCursos ? "border-red-500 bg-red-50 dark:bg-red-900/20" : "border-gray-200 dark:border-app"}
+              `}
+              aria-live="polite"
+            >
+              <label className="block font-medium mb-2">
+                Cursos afectados por la licencia
+                <span
+                  className="ml-2 text-gray-400 cursor-pointer"
+                  tabIndex={0}
+                  title="Solo verás cursos del periodo activo"
+                  aria-label="Ayuda: Solo verás cursos del periodo activo"
+                >
+                  <svg className="inline w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="10" strokeWidth="2" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 16v-4m0-4h.01" />
+                  </svg>
+                </span>
+              </label>
+              <div className="flex flex-col gap-2">
+                {cursosActivos.length === 0 ? (
+                  <span className="text-gray-500 dark:text-muted text-sm">No hay cursos activos disponibles.</span>
+                ) : (
+                  cursosActivos.map((curso) => (
+                    <label key={curso.codigo + curso.seccion} className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        value={curso.codigo}
+                        checked={selectedCursos.includes(curso.codigo)}
+                        onChange={(e) => {
+                          setErrorCursos(false);
+                          setSelectedCursos((prev) =>
+                            e.target.checked
+                              ? [...prev, curso.codigo]
+                              : prev.filter((c) => c !== curso.codigo)
+                          );
+                        }}
+                      />
+                      <span>
+                        {curso.nombre} ({curso.codigo} - Sección {curso.seccion})
+                      </span>
+                    </label>
+                  ))
+                )}
+              </div>
+              {/* Mensaje de error inline */}
+              {errorCursos && (
+                <div className="mt-2 text-red-600 text-sm font-medium" aria-live="polite">
+                  Debes seleccionar al menos un curso afectado por tu licencia.
+                </div>
+              )}
+              {/* Tooltip/ayuda accesible */}
+              <div className="mt-1 text-xs text-gray-400 dark:text-muted">
+                Solo verás cursos del periodo activo.
+              </div>
             </div>
 
             <button
