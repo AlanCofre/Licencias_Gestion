@@ -1,4 +1,5 @@
 // backend/src/app.js
+import '../config/env.js'
 import express from 'express';
 import cors from 'cors';
 import detailsRouter from './detail/details.js';
