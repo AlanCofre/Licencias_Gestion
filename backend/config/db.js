@@ -1,24 +1,18 @@
-import dotenv from 'dotenv';
 import mysql from 'mysql2/promise';
-import { fileURLToPath } from 'url';
-import path from 'path';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-dotenv.config({ path: path.join(__dirname, '..', '.env') });
-
+import { env } from './env.js'; // importa la configuración unificada
 
 const db = mysql.createPool({
-  host: process.env.DB_HOST || '127.0.0.1',
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD || process.env.DB_PASS || '',
-  database: process.env.DB_NAME,
-  port: Number(process.env.DB_PORT) || 3306,
-  ssl: (process.env.DB_SSL || 'false').toString() === 'true' ? { rejectUnauthorized: true } : undefined,
+  host: env.db.host,
+  user: env.db.user,
+  password: env.db.pass,
+  database: env.db.name,
+  port: Number(env.db.port) || 3306,
+  ssl: (process.env.DB_SSL || 'false').toString() === 'true'
+    ? { rejectUnauthorized: true }
+    : undefined,
   waitForConnections: true,
   connectionLimit: 10,
-  queueLimit: 0
+  queueLimit: 0,
 });
-
 
 export default db;

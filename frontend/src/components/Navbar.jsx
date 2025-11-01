@@ -61,7 +61,7 @@ export default function Navbar() {
     if (isSecretary) {
       const fetchNotis = async () => {
         const token = localStorage.getItem("token");
-        const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || "http://localhost:3000"}/api/notificaciones`, {
+        const res = await fetch(`${import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000"}/api/notificaciones`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         const data = await res.json();
@@ -74,7 +74,7 @@ export default function Navbar() {
   }, [isSecretary]);
 
 // === Notificaciones de ALUMNO ===
-const API = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
+const API = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
 
 const mapStudentNotif = (r) => ({
   id: r.id_notificacion,                          // backend
@@ -177,7 +177,7 @@ useEffect(() => {
     }
     const filteredNotifications = notifications; // El desarrollador puede personalizar el filtro
 
-    const API = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
+    const API = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
 
     const unread = isSecretary
       ? notifications.filter((n) => !n.leido).length

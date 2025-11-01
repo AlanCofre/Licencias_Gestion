@@ -46,7 +46,7 @@ function AppLogin() {
     setLoading(true);
 
     try {
-      const base = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
+      const base = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
       const res = await fetch(`${base}/usuarios/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

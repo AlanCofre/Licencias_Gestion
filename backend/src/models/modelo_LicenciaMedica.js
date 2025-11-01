@@ -3,9 +3,9 @@ import { DataTypes, Model } from 'sequelize';
 import sequelize from '../../db/sequelize.js';
 import Usuario from './modelo_Usuario.js';
 
-class LicenciaMedica extends Model {}
+class licenciamedica extends Model {}
 
-LicenciaMedica.init(
+licenciamedica.init(
   {
     id_licencia: {
       type: DataTypes.INTEGER,
@@ -48,7 +48,7 @@ LicenciaMedica.init(
   },
   {
     sequelize,
-    tableName: 'LicenciaMedica',
+    tableName: 'licenciamedica',
     timestamps: false, // Si tu tabla ya tiene createdAt/updatedAt, cambia a true y mapea underscored si aplica
     defaultScope: {
       order: [['fecha_creacion', 'DESC']],
@@ -117,17 +117,17 @@ hooks: {
 );
 
 // Asociación (FK ya definida arriba)
-LicenciaMedica.belongsTo(Usuario, { foreignKey: 'id_usuario' });
+licenciamedica.belongsTo(Usuario, { foreignKey: 'id_usuario' });
 
 // Índices útiles (solo si usas sync; si ya tienes migraciones, crea el índice vía migration)
 try {
   // No lanza error si existe en bases que sincronizan con Sequelize
-  await LicenciaMedica.sync(); // opcional si usas sync en otra parte
-  await sequelize.getQueryInterface().addIndex('LicenciaMedica', ['id_usuario'], {
+  await licenciamedica.sync(); // opcional si usas sync en otra parte
+  await sequelize.getQueryInterface().addIndex('licenciamedica', ['id_usuario'], {
     name: 'idx_licencia_medica_usuario',
   });
 } catch (_) {
   // ignora si ya existen / usas migraciones
 }
 
-export default LicenciaMedica;
+export default licenciamedica;

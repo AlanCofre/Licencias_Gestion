@@ -1,6 +1,6 @@
 // backend/controllers/licencias.controller.js  (ESM unificado)
 import crypto from 'crypto';
-import LicenciaMedica from '../src/models/modelo_LicenciaMedica.js';
+import licenciamedica from '../src/models/modelo_LicenciaMedica.js';
 import db from '../config/db.js';
 import { decidirLicenciaSvc } from '../services/servicio_Licencias.js';
 import fs from 'fs';
@@ -76,7 +76,7 @@ export async function listarMisLicencias(req, res) {
         motivo_rechazo,
         DATE_FORMAT(fecha_creacion, '%Y-%m-%d %H:%i:%s') AS fecha_creacion,
         id_usuario
-      FROM LicenciaMedica
+      FROM licenciamedica
       WHERE id_usuario = ?
       ORDER BY fecha_creacion DESC
       LIMIT ? OFFSET ?
@@ -85,7 +85,7 @@ export async function listarMisLicencias(req, res) {
     );
 
     const [[{ total }]] = await db.execute(
-      'SELECT COUNT(*) as total FROM LicenciaMedica WHERE id_usuario = ?',
+      'SELECT COUNT(*) as total FROM licenciamedica WHERE id_usuario = ?',
       [idUsuario]
     );
 
@@ -133,7 +133,7 @@ export async function listarLicencias(req, res) {
         DATE_FORMAT(fecha_inicio, '%Y-%m-%d') AS fecha_inicio,
         DATE_FORMAT(fecha_fin, '%Y-%m-%d') AS fecha_fin,
         estado
-      FROM LicenciaMedica
+      FROM licenciamedica
       WHERE id_usuario = ?
       ORDER BY fecha_creacion DESC
       LIMIT ? OFFSET ?
@@ -166,7 +166,7 @@ export const crearLicencia = async (req, res) => {
 
     // ✉️ obtener también correo para el mail
     const [userRow] = await db.execute(
-      'SELECT nombre, correo_usuario AS correo FROM Usuario WHERE id_usuario = ?',
+      'SELECT nombre, correo_usuario AS correo FROM usuario WHERE id_usuario = ?',
       [usuarioId]
     );
     const nombreEstudiante = userRow[0]?.nombre || usuarioId;
@@ -198,7 +198,7 @@ export const crearLicencia = async (req, res) => {
     // Superposición de fechas
     const [solape] = await db.execute(
       `SELECT id_licencia, fecha_inicio, fecha_fin, estado
-       FROM LicenciaMedica
+       FROM licenciamedica
        WHERE id_usuario = ?
          AND estado IN ('pendiente','aceptado')
          AND (? <= fecha_fin AND ? >= fecha_inicio)
@@ -223,8 +223,8 @@ export const crearLicencia = async (req, res) => {
     if (hashEntrada) {
       const [dup] = await db.execute(
         `SELECT al.id_archivo, lm.id_licencia
-           FROM ArchivoLicencia al
-           JOIN LicenciaMedica lm ON lm.id_licencia = al.id_licencia
+           FROM archivolicencia al
+           JOIN licenciamedica lm ON lm.id_licencia = al.id_licencia
           WHERE lm.id_usuario = ? AND al.hash = ?
           LIMIT 1`,
         [usuarioId, hashEntrada]
@@ -239,14 +239,14 @@ export const crearLicencia = async (req, res) => {
     }
 
     // Insert
-    const [u] = await db.execute('SELECT id_usuario FROM Usuario WHERE id_usuario = ?', [usuarioId]);
+    const [u] = await db.execute('SELECT id_usuario FROM usuario WHERE id_usuario = ?', [usuarioId]);
     if (!u.length) return res.status(404).json({ msg: 'Usuario no encontrado' });
 
     const folio = String(req.body?.folio ?? '').trim();
     if (!folio) return res.status(400).json({ msg: 'El folio es obligatorio' });
 
     const [result] = await db.execute(
-      `INSERT INTO LicenciaMedica
+      `INSERT INTO licenciamedica
        (folio, fecha_emision, fecha_inicio, fecha_fin, estado, motivo_rechazo, fecha_creacion, id_usuario)
        VALUES (?, CURDATE(), ?, ?, 'pendiente', NULL, CURDATE(), ?)`,
       [folio, fecha_inicio, fecha_fin, usuarioId]
@@ -254,7 +254,7 @@ export const crearLicencia = async (req, res) => {
 
     // 🔎 AUDIT: emitir licencia
     try {
-      await req.audit('emitir licencia', 'LicenciaMedica', {
+      await req.audit('emitir licencia', 'licenciamedica', {
         id_licencia: result.insertId,
         estado: 'pendiente',
         folio,
@@ -284,7 +284,7 @@ export const crearLicencia = async (req, res) => {
       const tamano = Number(req.body?.tamano ?? (archivo?.size ?? 0));
       if ((hashEntrada || ruta_url || tipo_mime || tamano) && ruta_url) {
         await db.execute(
-          `INSERT INTO ArchivoLicencia (ruta_url, tipo_mime, hash, tamano, fecha_subida, id_licencia)
+          `INSERT INTO archivolicencia (ruta_url, tipo_mime, hash, tamano, fecha_subida, id_licencia)
            VALUES (?, ?, ?, ?, NOW(), ?)`,
           [ruta_url, tipo_mime ?? 'application/octet-stream', hashEntrada ?? null, tamano, idLicencia]
         );
@@ -298,7 +298,7 @@ export const crearLicencia = async (req, res) => {
       const idLicencia = result.insertId;
       const [destRows] = await db.execute(
         `SELECT correo_usuario AS correo
-           FROM Usuario
+           FROM usuario
           WHERE id_rol = 3 AND activo = 1 AND correo_usuario IS NOT NULL`
       );
       const destinatarios = Array.isArray(destRows)
@@ -398,9 +398,9 @@ export const getLicenciasEnRevision = async (req, res) => {
         lm.fecha_creacion, 
         lm.id_usuario, 
         u.nombre
-      FROM LicenciaMedica lm
+      FROM licenciamedica lm
       FORCE INDEX (idx_licencia_estado, idx_licencia_completo)
-      JOIN Usuario u FORCE INDEX (idx_usuario_nombre) ON lm.id_usuario = u.id_usuario
+      JOIN usuario u FORCE INDEX (idx_usuario_nombre) ON lm.id_usuario = u.id_usuario
       ${where}
       ORDER BY lm.fecha_creacion DESC, lm.id_licencia DESC
       LIMIT ? OFFSET ?
@@ -408,7 +408,7 @@ export const getLicenciasEnRevision = async (req, res) => {
 
     const [countRows] = await db.execute(`
       SELECT COUNT(*) as total
-      FROM LicenciaMedica lm
+      FROM licenciamedica lm
       ${where.includes('JOIN') ? where : `JOIN Usuario u ON lm.id_usuario = u.id_usuario ${where}`}
     `, params);
 
@@ -649,7 +649,7 @@ export const crearLicenciaLegacy = async (req, res) => {
       return res.status(400).json({ ok: false, mensaje: 'fecha_inicio no puede ser posterior a fecha_fin' });
     }
 
-    const [u] = await db.execute('SELECT id_usuario FROM Usuario WHERE id_usuario = ?', [id_usuario]);
+    const [u] = await db.execute('SELECT id_usuario FROM usuario WHERE id_usuario = ?', [id_usuario]);
     if (!u.length) return res.status(404).json({ ok: false, mensaje: 'Usuario no encontrado' });
 
     const folio = String(req.body?.folio ?? "").trim();
@@ -658,7 +658,7 @@ export const crearLicenciaLegacy = async (req, res) => {
     }
 
     const sql = `
-      INSERT INTO LicenciaMedica
+      INSERT INTO licenciamedica
         (folio, fecha_emision, fecha_inicio, fecha_fin, estado, motivo_rechazo, fecha_creacion, id_usuario)
       VALUES
         (?,     CURDATE(),     ?,            ?,          'pendiente', NULL,            CURDATE(),     ?)
@@ -667,7 +667,7 @@ export const crearLicenciaLegacy = async (req, res) => {
 
     // 🔎 AUDIT: emitir licencia (legacy)
     try {
-      await req.audit('emitir licencia', 'LicenciaMedica', {
+      await req.audit('emitir licencia', 'licenciamedica', {
         id_licencia: result.insertId,
         estado: 'pendiente',
         folio,
@@ -679,7 +679,7 @@ export const crearLicenciaLegacy = async (req, res) => {
     }
 
     const [row] = await db.execute(
-      'SELECT id_licencia, folio, fecha_emision, fecha_inicio, fecha_fin, estado, motivo_rechazo, fecha_creacion, id_usuario FROM LicenciaMedica WHERE id_licencia = ?',
+      'SELECT id_licencia, folio, fecha_emision, fecha_inicio, fecha_fin, estado, motivo_rechazo, fecha_creacion, id_usuario FROM licenciamedica WHERE id_licencia = ?',
       [result.insertId]
     );
 
@@ -713,7 +713,7 @@ export async function decidirLicencia(req, res) {
     }
     if (decisionRaw === 'aceptado') {
       const [archivos] = await db.execute(
-        `SELECT hash FROM ArchivoLicencia WHERE id_licencia = ? LIMIT 1`,
+        `SELECT hash FROM archivolicencia WHERE id_licencia = ? LIMIT 1`,
         [idLicencia]
       );
       if (!archivos.length || !archivos[0].hash) {
@@ -745,7 +745,7 @@ export async function decidirLicencia(req, res) {
       };
       if (decisionRaw === 'rechazado') pl.motivo_rechazo = motivo_rechazo;
 
-      await req.audit(accion, 'LicenciaMedica', pl, { userId: actorId });
+      await req.audit(accion, 'licenciamedica', pl, { userId: actorId });
     } catch (e) {
       console.warn('[audit] decidirLicencia:', e?.message || e);
     }
@@ -879,7 +879,7 @@ export async function cambiarEstado(req, res, next) {
       return res.status(403).json({ error: 'NO_AUTORIZADO' });
     }
 
-    const lic = await LicenciaMedica.findByPk(id);
+    const lic = await licenciamedica.findByPk(id);
     if (!lic) return res.status(404).json({ error: 'LICENCIA_NO_ENCONTRADA' });
 
     const anterior = lic.estado;
@@ -893,7 +893,7 @@ export async function cambiarEstado(req, res, next) {
     if (nuevo_estado === 'aceptado' || nuevo_estado === 'rechazado') {
       try {
         const accion = nuevo_estado === 'aceptado' ? 'aceptar licencia' : 'rechazar licencia';
-        await req.audit(accion, 'LicenciaMedica', {
+        await req.audit(accion, 'licenciamedica', {
           id_licencia: lic.id_licencia,
           estado_nuevo: nuevo_estado,
           ...(nuevo_estado === 'rechazado' ? { motivo_rechazo: lic.motivo_rechazo ?? motivo_rechazo ?? null } : {})
