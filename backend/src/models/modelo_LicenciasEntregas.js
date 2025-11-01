@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 // src/models/modelo_LicenciasEntregas.js
 import { DataTypes, Model } from 'sequelize';
 import sequelize from '../../db/sequelize.js';
@@ -31,10 +32,28 @@ LicenciasEntregas.init(
         model: Curso,
         key: 'id_curso',
       },
+=======
+// backend/src/models/LicenciasEntregas.js
+export default (sequelize, DataTypes) => {
+  const modeloLicenciasEntregas = sequelize.define('LicenciasEntregas', {
+    id_entrega: {
+      type: DataTypes.INTEGER,
+      primaryKey: true,
+      autoIncrement: true
+    },
+    id_licencia: {
+      type: DataTypes.INTEGER,
+      allowNull: false
+    },
+    id_curso: {
+      type: DataTypes.INTEGER,
+      allowNull: false
+>>>>>>> Stashed changes
     },
     fecha_creacion: {
       type: DataTypes.DATE,
       allowNull: false,
+<<<<<<< Updated upstream
       defaultValue: DataTypes.NOW,
       field: 'fecha_creacion',
     },
@@ -75,3 +94,14 @@ Curso.hasMany(LicenciasEntregas, {
 });
 
 export default LicenciasEntregas;
+=======
+      defaultValue: DataTypes.NOW
+    }
+  }, {
+    tableName: 'licencias_entregas',
+    timestamps: false
+  });
+
+  return modeloLicenciasEntregas;
+};
+>>>>>>> Stashed changes

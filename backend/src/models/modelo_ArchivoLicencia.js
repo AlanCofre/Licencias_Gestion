@@ -1,6 +1,6 @@
 // backend/src/models/modelo_ArchivoLicencia.js
 import { DataTypes } from 'sequelize';
-import sequelize from '../../db/sequelize.js'; // o donde tengas la instancia
+import { sequelize } from '../../db/sequelize.js'; 
 import LicenciaMedica from './modelo_LicenciaMedica.js';
 
 const ArchivoLicencia = sequelize.define('ArchivoLicencia', {

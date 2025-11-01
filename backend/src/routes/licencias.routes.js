@@ -28,6 +28,8 @@ import {
 import { decidirLicenciaSvc } from '../../services/servicio_Licencias.js';
 
 import LicenciaMedica from '../models/modelo_LicenciaMedica.js';
+import { LicenciasEntregas } from '../models/index.js';
+import { Matricula } from '../models/index.js';
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -81,18 +83,18 @@ router.put(
 );
 
 router.put('/licencias/:id/decidir', authRequired, requireRole(['secretario']), async (req, res, next) => {
+  console.log('🟢 Entrando a PUT /licencias/:id/decidir');
+
   const idLicencia = Number(req.params.id);
   if (!idLicencia) {
     return res.status(400).json({ ok: false, error: "El campo 'id' es obligatorio." });
   }
 
-  // Buscar licencia primero
   const licencia = await LicenciaMedica.findByPk(idLicencia);
   if (!licencia) {
     return res.status(404).json({ ok: false, error: "Licencia no encontrada" });
   }
 
-  // Validar campos obligatorios (ahora que tenemos la licencia)
   const { estado } = req.body;
   const campos = {
     id_licencia: idLicencia,
@@ -110,35 +112,63 @@ router.put('/licencias/:id/decidir', authRequired, requireRole(['secretario']), 
     }
   }
 
-  // Validar transición de estado
   if (licencia.estado !== 'pendiente') {
     return res.status(403).json({ ok: false, error: "Acción no permitida" });
   }
 
-  // Validar existencia del estudiante
   const estudiante = await Usuario.findByPk(licencia.id_usuario);
   if (!estudiante || estudiante.rol !== 'estudiante') {
     return res.status(404).json({ ok: false, error: "Estudiante no encontrado" });
   }
 
-  // Validar existencia del profesor
   const profesor = await Usuario.findByPk(licencia.id_profesor);
   if (!profesor || profesor.rol !== 'profesor') {
     return res.status(404).json({ ok: false, error: "Docente no encontrado" });
   }
 
-  // Normalizar estado
   if (req.body?.estado) {
     req.body.estado = normalizaEstado(req.body.estado);
   }
 
-  // Inyectar licencia en req para el controller
-  req.licencia = licencia;
+  // Actualizar estado de la licencia
+  licencia.estado = req.body.estado;
+  await licencia.save();
+  console.log('✅ Estado actualizado a:', licencia.estado);
 
-  // Continuar con el controller
+  // Solo si fue aceptada, insertar entregas
+  if (licencia.estado === 'aceptado') {
+    try {
+      const cursos = await Matricula.findAll({
+        where: { id_usuario: estudiante.id_usuario },
+        attributes: ['id_curso']
+      });
+      console.log('📦 Cursos encontrados:', cursos.map(c => c.id_curso));
+
+      for (const { id_curso } of cursos) {
+        try {
+          const entrega = await LicenciasEntregas.create({
+            id_licencia: idLicencia,
+            id_curso
+          });
+          console.log('✅ Entrega insertada:', entrega?.toJSON?.() ?? entrega);
+        } catch (error) {
+          if (error.name === 'SequelizeUniqueConstraintError') {
+            console.warn(`⚠️ Entrega duplicada ignorada: licencia ${idLicencia}, curso ${id_curso}`);
+            continue;
+          }
+          console.error(`❌ Error al insertar entrega: ${error.message}`);
+          return res.status(500).json({ ok: false, error: "Error al registrar entregas de licencia." });
+        }
+      }
+    } catch (error) {
+      console.error(`💥 Error al obtener cursos del estudiante: ${error.message}`);
+      return res.status(500).json({ ok: false, error: "No se pudieron obtener los cursos del estudiante." });
+    }
+  }
+
+  req.licencia = licencia;
   decidirLicencia(req, res, next);
 });
-
 
 
 router.put('/:id/notificar',

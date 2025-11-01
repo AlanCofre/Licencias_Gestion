@@ -1,6 +1,6 @@
 // src/models/modelo_HistorialLicencias.js
 import { DataTypes, Model } from 'sequelize';
-import sequelize from '../../db/sequelize.js';
+import { sequelize } from '../../db/sequelize.js';
 import LicenciaMedica from './modelo_LicenciaMedica.js';
 import Usuario from './modelo_Usuario.js';
 

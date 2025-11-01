@@ -1,5 +1,5 @@
 import { DataTypes, Model } from 'sequelize';
-import sequelize from '../../db/sequelize.js';
+import { sequelize }from '../../db/sequelize.js';
 
 class Notificacion extends Model {}
 

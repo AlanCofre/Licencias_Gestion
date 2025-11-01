@@ -1,4 +1,4 @@
-// backend/src/server.js  (ESM)
+// backend/src/server.js (ESM)
 
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
@@ -12,7 +12,6 @@ const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
 
 // === Imports de routers y db (ESM) ===
-// Asegúrate de que estos archivos usen extensión .js y export default / named de forma compatible.
 import detailsRouter from './detail/details.js';
 import insertRouter from './insert/insert.js';
 import notificationRouter from './notification/notificacion.js';
@@ -22,7 +21,6 @@ import archivoRoutes from './routes/archivo.routes.js';
 import usuarioRoutes from './routes/usuario.route.js';
 
 // Pool de mysql2/promise exportado desde ./db/db.js
-// (si tu módulo exporta `module.exports = pool`, esto sigue funcionando como default en ESM)
 import db from '../db/db.js';
 
 // === App + Config ===
@@ -32,19 +30,21 @@ const PORT = process.env.PORT || 3000;
 console.log('[env] JWT_SECRET set?', !!process.env.JWT_SECRET);
 
 /* === Middlewares globales === */
-app.use(cors());
+app.use(cors({
+  origin: 'http://127.0.0.1:5500', // Live Server frontend
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  credentials: true
+}));
 app.use(express.json());
 
 /* === Rutas === */
-// REST principal de licencias (endpoint nuevo: POST /api/licencias)
 app.use('/usuarios', usuarioRoutes);
 app.use('/api/licencias', licenciaRoutes);
-app.get('/', (req, res) => res.redirect('/usuarios/login'));
-// Rutas auxiliares que ya tenías
+app.use('/api/archivos', archivoRoutes);
 app.use('/licencias', detailsRouter);
 app.use('/archivos', insertRouter);
 app.use('/notificaciones', notificationRouter);
-app.use('/api/archivos', archivoRoutes);
+app.get('/', (req, res) => res.redirect('/usuarios/login'));
 
 /* === 404 (no encontrado) === */
 app.use((req, res) => {
@@ -69,7 +69,7 @@ app.listen(PORT, async () => {
     console.error('❌ Error conectando a MySQL al iniciar:', err.message);
   }
 
-  // Precarga de licencias (usa el nombre real de la tabla: LicenciaMedica)
+  // Precarga de licencias
   try {
     const [licencias] = await db.execute(
       'SELECT * FROM LicenciaMedica ORDER BY fecha_emision DESC LIMIT 5'

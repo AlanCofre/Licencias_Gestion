@@ -1,7 +1,11 @@
 // src/models/modelo_Curso.js
 import { DataTypes, Model } from 'sequelize';
+<<<<<<< Updated upstream
 import sequelize from '../../db/sequelize.js';
 import Usuario from './modelo_Usuario.js';
+=======
+import { sequelize }from '../../db/sequelize.js';
+>>>>>>> Stashed changes
 
 class Curso extends Model {}
 
