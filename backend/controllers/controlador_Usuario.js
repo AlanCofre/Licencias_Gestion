@@ -9,7 +9,7 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const PUBLIC_ROOT = path.join(__dirname, '..', '..', 'frontend', 'public')
 
-// Vistas simples (opcional)
+// ======== Vistas simples (opcional) ========
 export const mostrarLogin = (_req, res) => {
   res.sendFile(path.join(PUBLIC_ROOT, 'login.html'))
 }
@@ -22,7 +22,7 @@ export const mostrarIndex = (_req, res) => {
   res.sendFile(path.join(PUBLIC_ROOT, 'index.html'))
 }
 
-// ===== Registro =====
+// ======== Registro de usuario ========
 export async function registrar(req, res) {
   try {
     const b = req.body || {}
@@ -37,7 +37,7 @@ export async function registrar(req, res) {
     const contrasena =
       b.contrasena ?? b.password ?? b.pass ?? b.pwd ?? null
 
-    // Rol por defecto: estudiante (ID 2) – ajusta si tu BD usa otro ID
+    // Rol por defecto: estudiante (ID 2) – ajusta según tu BD
     const roleId = Number.isInteger(b.idRol) ? b.idRol : 2
 
     // Validación mínima
@@ -56,7 +56,7 @@ export async function registrar(req, res) {
       roleId
     )
 
-    // 🔎 AUDIT: crear cuenta (no romper respuesta si falla)
+    // 🔎 AUDITORÍA: crear cuenta
     try {
       await req.audit('crear cuenta', 'Usuario', {
         mensaje: `Estudiante ${correo_usuario} creó su cuenta`,
@@ -74,11 +74,12 @@ export async function registrar(req, res) {
   }
 }
 
-// ===== Login (emite JWT con { id, rol }) =====
+// ======== Login (emite JWT con { id, rol, nombre, correo_usuario }) ========
 export async function login(req, res) {
   try {
-    // Acepta varios nombres de campo por compatibilidad con distintos clientes
     const body = req.body || {}
+
+    // Acepta varios nombres de campo por compatibilidad
     const correoIn =
       body.correo_usuario ||
       body.correo ||
@@ -92,25 +93,22 @@ export async function login(req, res) {
       return res.status(400).json({ ok: false, msg: 'correo y contrasena son requeridos' })
     }
 
-    // UsuarioService.login espera (correo, contrasena)
+    // Autenticación
     const usuario = await UsuarioService.login(correoIn, contrasena)
-    // UsuarioService.login debe lanzar error o devolver null si credenciales inválidas
     if (!usuario) {
       return res.status(401).json({ ok: false, msg: 'Credenciales inválidas' })
     }
 
-    // Normalizar propiedades del usuario retornado (por si usa id_usuario / id_rol)
+    // Normalizar propiedades retornadas por el servicio
     const id = usuario.id ?? usuario.id_usuario ?? usuario.idUsuario ?? usuario.userId
     const rol =
       usuario.rol ?? usuario.id_rol ?? usuario.role ?? usuario.roleId ?? usuario.idRol
-    // opcionales
     const correo_usuario =
       usuario.correo_usuario ?? usuario.correo ?? usuario.email ?? usuario.username
     const nombre =
       usuario.nombre ?? usuario.nombre_completo ?? usuario.name ?? usuario.fullname
 
     if (!id) {
-      // Si el servicio no retorna id, es un problema: devolver error controlado
       console.error('[login] usuario retornado sin id:', usuario)
       return res.status(500).json({ ok: false, msg: 'Error interno: usuario inválido' })
     }
@@ -118,8 +116,9 @@ export async function login(req, res) {
     const secret = process.env.JWT_SECRET || 'DEV_SECRET_CHANGE_ME'
     const expiresIn = process.env.JWT_EXPIRES_IN || '1d'
 
-    // Firma el token con la forma que ya usabas: { id, rol }
-    const token = jwt.sign({ id, rol }, secret, { expiresIn })
+    // === 🔹 CAMBIO IMPORTANTE ===
+    // Incluimos nombre y correo_usuario en el token para que el frontend pueda mostrarlo en el NavBar.
+    const token = jwt.sign({ id, rol, nombre, correo_usuario }, secret, { expiresIn })
 
     const usuarioSafe = {
       id_usuario: id,
@@ -128,7 +127,7 @@ export async function login(req, res) {
       id_rol: rol
     }
 
-    // 🔎 AUDIT: iniciar sesión (no romper respuesta si falla)
+    // 🔎 AUDITORÍA: iniciar sesión
     try {
       await req.audit('iniciar sesion', 'Usuario', {
         mensaje: `Usuario ${id} inició sesión`,
@@ -139,6 +138,7 @@ export async function login(req, res) {
       console.warn('[audit] login:', e?.message || e)
     }
 
+    // Respuesta al frontend
     return res.json({
       ok: true,
       mensaje: 'Login exitoso',
@@ -147,13 +147,12 @@ export async function login(req, res) {
     })
   } catch (err) {
     console.error('[login] error:', err)
-    // Si el servicio lanzó un error con mensaje (p. ej. credenciales), devuélvelo como 401
     const msg = err?.message || 'Credenciales inválidas'
     return res.status(401).json({ ok: false, msg })
   }
 }
 
-// ===== Home simple (opcional; sin Sequelize) =====
+// ======== Página de ejemplo ========
 export const index = (_req, res) => {
   res.send(`
     <h1>Licencias — Demo JWT</h1>
@@ -167,7 +166,7 @@ export const index = (_req, res) => {
   `)
 }
 
-// ===== Logout básico (opcional) =====
+// ======== Logout (opcional) ========
 export const logout = (req, res) => {
   try {
     if (req.session) req.session.destroy(() => {})
