@@ -4,7 +4,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 const API_BASE =
-  import.meta.env.VITE_API_URL?.replace(/\/+$/, "") || "http://localhost:3000";
+  import.meta.env.VITE_API_BASE_URL?.replace(/\/+$/, "") ?? "http://localhost:3000";
 
 
 // ---------- utils ----------

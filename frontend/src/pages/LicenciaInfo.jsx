@@ -5,7 +5,7 @@ import Footer from "../components/Footer";
 import BannerSection from "../components/BannerSection";
 import { CheckCircle, XCircle, Clock, Calendar, User, GraduationCap, Search, Eye } from "lucide-react";
 
-const API_BASE = import.meta.env.VITE_API_URL?.replace(/\/+$/,"") || "http://localhost:3000";
+const API_BASE = import.meta.env.VITE_API_BASE_URL?.replace(/\/+$/,"") ?? "http://localhost:3000";
 
 // Probaremos estos endpoints en orden hasta que uno devuelva 200
 const LIST_PATH = "/api/licencias/resueltas";
