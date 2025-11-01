@@ -146,49 +146,63 @@ router.get('/en-revision', validarJWT, async (req, res) => {
 
 
 /* === Licencias del estudiante autenticado === */
-router.get('/mis-licencias', validarJWT, esEstudiante,cacheMiddleware(),listarMisLicencias, async (req, res) => {
-  try {
-    // Acepta todas las variantes posibles que puede dejar tu middleware:
+router.get(
+  '/mis-licencias',
+  validarJWT,
+  esEstudiante,
+  cacheMiddleware((req) => {
     const idUsuario =
       req.user?.id_usuario ??
       req.user?.id ??
       req.id ??
       req.user?.sub ??
       null;
+    return idUsuario ? `mis-licencias:${idUsuario}` : null;
+  }),
+  listarMisLicencias,
+  async (req, res) => {
+    try {
+      // Acepta todas las variantes posibles que puede dejar tu middleware:
+      const idUsuario =
+        req.user?.id_usuario ??
+        req.user?.id ??
+        req.id ??
+        req.user?.sub ??
+        null;
 
-    // Si no viene, es problema de autenticación → 401
-    if (!idUsuario) {
-      return res.status(401).json({ ok: false, error: 'No autenticado' });
+      // Si no viene, es problema de autenticación → 401
+      if (!idUsuario) {
+        return res.status(401).json({ ok: false, error: 'No autenticado' });
+      }
+
+      const [rows] = await db.execute(
+        `
+        SELECT
+          id_licencia           AS id,
+          folio,
+          DATE_FORMAT(fecha_emision, '%Y-%m-%d') AS fecha_emision,
+          DATE_FORMAT(fecha_inicio,  '%Y-%m-%d') AS fecha_inicio,
+          DATE_FORMAT(fecha_fin,     '%Y-%m-%d') AS fecha_fin,
+          estado,
+          motivo_rechazo,
+          DATE_FORMAT(fecha_creacion, '%Y-%m-%d %H:%i:%s') AS fecha_creacion
+        FROM LicenciaMedica
+        WHERE id_usuario = ?
+        ORDER BY fecha_creacion DESC
+        `,
+        [idUsuario]
+      );
+
+      // Devuelve OK con arreglo (aunque esté vacío)
+      return res.status(200).json({ ok: true, data: rows });
+    } catch (error) {
+      console.error('❌ Error en GET /mis-licencias:', error);
+      return res.status(500).json({
+        ok: false,
+        error: 'Error interno al obtener licencias del estudiante',
+      });
     }
-
-    const [rows] = await db.execute(
-      `
-      SELECT
-        id_licencia           AS id,
-        folio,
-        DATE_FORMAT(fecha_emision, '%Y-%m-%d') AS fecha_emision,
-        DATE_FORMAT(fecha_inicio,  '%Y-%m-%d') AS fecha_inicio,
-        DATE_FORMAT(fecha_fin,     '%Y-%m-%d') AS fecha_fin,
-        estado,
-        motivo_rechazo,
-        DATE_FORMAT(fecha_creacion, '%Y-%m-%d %H:%i:%s') AS fecha_creacion
-      FROM LicenciaMedica
-      WHERE id_usuario = ?
-      ORDER BY fecha_creacion DESC
-      `,
-      [idUsuario]
-    );
-
-    // Devuelve OK con arreglo (aunque esté vacío)
-    return res.status(200).json({ ok: true, data: rows });
-  } catch (error) {
-    console.error('❌ Error en GET /mis-licencias:', error);
-    return res.status(500).json({
-      ok: false,
-      error: 'Error interno al obtener licencias del estudiante',
-    });
-  }
-});
+  });
 
 /**
  * Detalle de licencia (shape compatible con el FE)
