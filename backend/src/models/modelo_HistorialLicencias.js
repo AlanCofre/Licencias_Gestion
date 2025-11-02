@@ -1,8 +1,7 @@
 // src/models/modelo_HistorialLicencias.js
 import { DataTypes, Model } from 'sequelize';
-import { sequelize } from '../../db/sequelize.js';
-import LicenciaMedica from './modelo_LicenciaMedica.js';
-import Usuario from './modelo_Usuario.js';
+import  sequelize  from '../../db/sequelize.js';
+
 
 class HistorialLicencias extends Model {}
 
@@ -50,8 +49,5 @@ HistorialLicencias.init(
   }
 );
 
-// Asociaciones (opcional pero recomendable)
-HistorialLicencias.belongsTo(LicenciaMedica, { foreignKey: 'id_licencia' });
-HistorialLicencias.belongsTo(Usuario, { foreignKey: 'id_usuario' });
 
 export default HistorialLicencias;

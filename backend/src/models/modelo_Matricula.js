@@ -80,25 +80,4 @@ Matricula.init(
   }
 );
 
-// Asociaciones
-Matricula.belongsTo(Usuario, { 
-  foreignKey: 'id_usuario',
-  as: 'estudiante'
-});
-
-Matricula.belongsTo(Curso, { 
-  foreignKey: 'id_curso',
-  as: 'curso'
-});
-
-Usuario.hasMany(Matricula, { 
-  foreignKey: 'id_usuario',
-  as: 'matriculas'
-});
-
-Curso.hasMany(Matricula, { 
-  foreignKey: 'id_curso',
-  as: 'estudiantesMatriculados'
-});
-
 export default Matricula;

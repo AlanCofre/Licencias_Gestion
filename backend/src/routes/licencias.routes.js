@@ -47,7 +47,8 @@ async function cargarLicencia(req, res, next) {
 }
 
 /* ===== Listados / creación ===== */
-router.get('/', validarJWT, listarLicencias);
+router.get('/mis-licencias', validarJWT, listarLicencias);
+
 router.get('/en-revision', validarJWT, getLicenciasEnRevision);
 router.get('/detalle/:id', validarJWT, detalleLicencia);
 router.get('/licencias/:id/archivo', validarJWT, descargarArchivoLicencia);
