@@ -3,7 +3,6 @@ import { Router } from 'express';
 import { registrar, index, logout } from '../../controllers/controlador_Usuario.js';
 import { login as loginNuevo } from '../../controllers/auth.controller.js';
 import { serveView } from '../../middlewares/static_Serve.js';
-import requireAuth from '../../middlewares/requireAuth.js';
 
 import {
   requestPasswordReset,
