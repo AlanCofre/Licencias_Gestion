@@ -198,6 +198,27 @@
       <button id="btnResueltas">Ver Licencias Resueltas</button>
       <div id="tablaResueltas"></div>
     </fieldset>
+
+    <fieldset>
+      <legend>Mis Cursos Matriculados (GET /usuarios/matriculas)</legend>
+      
+      <!-- Filtros -->
+      <div class="row-2col">
+        <label>Periodo específico
+          <input id="matriculas_periodo" type="text" placeholder="2025-1" />
+        </label>
+        <label>
+          <input id="matriculas_flat" type="checkbox" />
+          Formato plano (flat)
+        </label>
+      </div>
+      
+      <button id="btnObtenerMatriculas">Obtener Mis Cursos</button>
+      
+      <!-- Resultados -->
+      <div id="resultadoMatriculas" style="margin-top: 12px;"></div>
+    </fieldset>
+
   </div>
 </div>
 
@@ -288,6 +309,88 @@
       if (p[k] != null && !Number.isNaN(Number(p[k]))) return Number(p[k]);
     }
     return null;
+  }
+  // Función para renderizar tabla en formato plano
+  function renderTablaMatriculasPlana(matriculas) {
+    if (!matriculas.length) {
+      return '<div class="muted">No tienes cursos matriculados.</div>';
+    }
+
+    const head = `
+      <tr>
+        <th>ID Curso</th>
+        <th>Código</th>
+        <th>Nombre</th>
+        <th>Sección</th>
+        <th>Periodo</th>
+        <th>Profesor</th>
+        <th>Estado</th>
+        <th>Fecha Matrícula</th>
+      </tr>
+    `;
+
+    const rows = matriculas.map(matricula => `
+      <tr>
+        <td>${matricula.id_curso || ''}</td>
+        <td><strong>${matricula.codigo || ''}</strong></td>
+        <td>${matricula.nombre_curso || ''}</td>
+        <td>${matricula.seccion || ''}</td>
+        <td>${matricula.periodo || ''}</td>
+        <td>${matricula.profesor?.nombre || 'No asignado'}</td>
+        <td>${matricula.activo ? '<span style="color:green">● Activo</span>' : '<span style="color:red">● Inactivo</span>'}</td>
+        <td>${matricula.fecha_matricula ? new Date(matricula.fecha_matricula).toLocaleDateString() : ''}</td>
+      </tr>
+    `).join('');
+
+    return `
+      <div style="overflow-x: auto;">
+        <table>
+          ${head}
+          ${rows}
+        </table>
+      </div>
+    `;
+  }
+
+  // Función para renderizar en formato agrupado por periodo
+  function renderMatriculasAgrupadas(periodos) {
+    if (!periodos.length) {
+      return '<div class="muted">No tienes cursos matriculados.</div>';
+    }
+
+    return periodos.map(periodo => `
+      <div style="margin-bottom: 20px; padding: 12px; border: 2px solid ${periodo.es_periodo_actual ? '#4CAF50' : '#ccc'}; border-radius: 8px;">
+        <div style="display: flex; justify-content: between; align-items: center; margin-bottom: 12px;">
+          <h3 style="margin: 0; color: ${periodo.es_periodo_actual ? '#2E7D32' : '#666'};">
+            Periodo: ${periodo.periodo}
+            ${periodo.es_periodo_actual ? '<span style="background: #4CAF50; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px; margin-left: 8px;">ACTUAL</span>' : ''}
+          </h3>
+          <span style="color: #666; font-size: 14px;">${periodo.cursos.length} curso(s)</span>
+        </div>
+        
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px;">
+          ${periodo.cursos.map(curso => `
+            <div style="border: 1px solid #ddd; padding: 12px; border-radius: 6px; background: #f9f9f9;">
+              <div style="display: flex; justify-content: between; align-items: start; margin-bottom: 8px;">
+                <div>
+                  <strong style="color: #333;">${curso.codigo} - ${curso.nombre_curso}</strong>
+                  <div style="color: #666; font-size: 14px;">Sección ${curso.seccion}</div>
+                </div>
+                <span style="background: ${curso.activo ? '#E8F5E8' : '#FFEBEE'}; color: ${curso.activo ? '#2E7D32' : '#C62828'}; padding: 2px 6px; border-radius: 4px; font-size: 12px;">
+                  ${curso.activo ? 'Activo' : 'Inactivo'}
+                </span>
+              </div>
+              <div style="color: #666; font-size: 14px;">
+                <strong>Profesor:</strong> ${curso.profesor?.nombre || 'No asignado'}
+              </div>
+              <div style="color: #666; font-size: 14px;">
+                <strong>ID Curso:</strong> ${curso.id_curso}
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `).join('');
   }
 
   // ===== Registro =====
@@ -716,6 +819,56 @@
     }
     log(`Intentos finalizados.`);
   };
+
+  // ===== Obtener matrículas del estudiante =====
+  $('btnObtenerMatriculas').onclick = async () => {
+    try {
+      if (!JWT) {
+        log('Debes iniciar sesión como estudiante para ver tus cursos.', 'error');
+        return;
+      }
+
+      const periodo = $('matriculas_periodo').value.trim();
+      const flat = $('matriculas_flat').checked;
+
+      const params = new URLSearchParams();
+      if (periodo) params.append('periodo', periodo);
+      if (flat) params.append('flat', 'true');
+
+      const url = `${BASE_URL}/usuarios/matriculas${params.toString() ? '?' + params.toString() : ''}`;
+
+      const res = await fetch(url, {
+        headers: { 
+          'Accept': 'application/json', 
+          ...authHeaders() 
+        }
+      });
+
+      const data = await safeJson(res);
+      log(`GET /usuarios/matriculas → ${res.status}\n${JSON.stringify(data, null, 2)}`, res.ok ? 'ok' : 'error');
+
+      const contenedor = $('resultadoMatriculas');
+      
+      if (!res.ok) {
+        contenedor.innerHTML = `<div class="err">Error: ${data.error || 'No se pudieron obtener los cursos'}</div>`;
+        return;
+      }
+
+      if (flat) {
+        // Formato plano
+        contenedor.innerHTML = renderTablaMatriculasPlana(data.data || []);
+      } else {
+        // Formato agrupado por periodo
+        contenedor.innerHTML = renderMatriculasAgrupadas(data.data || []);
+      }
+
+    } catch (e) {
+      log(`Error al obtener matrículas: ${e.message}`, 'error');
+      $('resultadoMatriculas').innerHTML = `<div class="err">Error: ${e.message}</div>`;
+    }
+  };
+
+
 </script>
 </body>
 </html>

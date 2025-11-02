@@ -3,7 +3,6 @@ import { Router } from 'express';
 import { registrar, index, logout } from '../../controllers/controlador_Usuario.js';
 import { login as loginNuevo } from '../../controllers/auth.controller.js';
 import { serveView } from '../../middlewares/static_Serve.js';
-
 import {
   requestPasswordReset,
   confirmPasswordReset
@@ -11,6 +10,9 @@ import {
 import requireAuth from '../../middlewares/requireAuth.js';
 import { NotificacionesPassword } from '../../controllers/perfil.controller.js';
 import { NotificacionesPerfil } from '../../controllers/perfil.controller.js';
+import { obtenerMisMatriculas } from '../../controllers/matricula.controller.js';
+import { validarJWT, esEstudiante } from '../../middlewares/auth.js';
+
 const router = Router();
 
 // Vistas servidas como estáticos
@@ -32,5 +34,7 @@ router.post('/password-reset/confirm', confirmPasswordReset);
 // router.get('/notificaciones/password', requireAuth, NotificacionesPassword);
 // router.get('/notificaciones/perfil', requireAuth, NotificacionesPerfil);
 
+// === Matriculas del estudiante ===
+router.get('/matriculas', validarJWT, esEstudiante, obtenerMisMatriculas); // ← NUEVA RUTA
 
 export default router;
