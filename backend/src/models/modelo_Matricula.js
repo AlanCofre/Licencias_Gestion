@@ -1,4 +1,4 @@
-
+// backend/src/models/modelo_Matricula.js
 import { DataTypes, Model } from 'sequelize';
 import sequelize from '../../db/sequelize.js';
 import Usuario from './modelo_Usuario.js';
@@ -22,17 +22,6 @@ Matricula.init(
         model: Usuario,
         key: 'id_usuario',
       },
-      validate: {
-        // Validación para asegurar que el usuario tenga rol de estudiante
-        async esEstudiante(value) {
-          const usuario = await Usuario.findByPk(value, {
-            include: ['rol']
-          });
-          if (!usuario || usuario.rol.nombre_rol !== 'estudiante') {
-            throw new Error('Solo los estudiantes pueden matricularse en cursos');
-          }
-        }
-      }
     },
     id_curso: {
       type: DataTypes.INTEGER,
@@ -43,11 +32,23 @@ Matricula.init(
         key: 'id_curso',
       },
     },
+    // 👇 estos dos campos son los que agregamos en la BD
+    id_periodo: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      field: 'id_periodo',
+    },
     fecha_matricula: {
       type: DataTypes.DATE,
       allowNull: false,
       defaultValue: DataTypes.NOW,
       field: 'fecha_matricula',
+    },
+    estado: {
+      type: DataTypes.ENUM('activa', 'baja'),
+      allowNull: false,
+      defaultValue: 'activa',
+      field: 'estado',
     },
   },
   {
@@ -57,26 +58,23 @@ Matricula.init(
     indexes: [
       {
         unique: true,
-        fields: ['id_usuario', 'id_curso'],
-        name: 'uq_usuario_curso',
+        fields: ['id_usuario', 'id_curso', 'id_periodo'],
+        name: 'uq_usuario_curso_periodo',
       },
     ],
     hooks: {
+      // validación de que SEA estudiante
       beforeCreate: async (matricula) => {
-        // Verificar que el usuario sea estudiante
-        const usuario = await Usuario.findByPk(matricula.id_usuario, {
-          include: ['rol']
-        });
-        
+        const usuario = await Usuario.findByPk(matricula.id_usuario);
         if (!usuario) {
           throw new Error('Usuario no encontrado');
         }
-        
-        if (usuario.rol.nombre_rol !== 'estudiante') {
+        // en tu BD: 2 = estudiante
+        if (usuario.id_rol !== 2) {
           throw new Error('Solo los estudiantes pueden matricularse en cursos');
         }
-      }
-    }
+      },
+    },
   }
 );
 
