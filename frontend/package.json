@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --open",
     "dev:remote": "vite --mode remote",
     "build": "vite build",
     "preview": "vite preview"

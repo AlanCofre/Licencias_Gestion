@@ -27,7 +27,7 @@ r.post("/dev/mail-test", async (req, res) => {
     // Validación opcional: ver si existe en Usuario (no bloquea el envío).
     try {
       const [rows] = await db.execute(
-        `SELECT id_usuario, nombre FROM Usuario WHERE correo_usuario = ? LIMIT 1`,
+        `SELECT id_usuario, nombre FROM usuario WHERE correo_usuario = ? LIMIT 1`,
         [correo]
       );
       if (rows.length) {

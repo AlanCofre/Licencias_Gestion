@@ -34,25 +34,16 @@ export async function registrarArchivo(req, res) {
 
     // --- Verificar que la licencia existe ---
     const [lic] = await pool.execute(
-      'SELECT id_licencia FROM LicenciaMedica WHERE id_licencia = ?',
+      'SELECT id_licencia FROM licenciamedica WHERE id_licencia = ?',
       [licId]
     );
     if (!lic.length) {
       return res.status(404).json({ ok: false, mensaje: 'Licencia no encontrada' });
     }
 
-    // --- (Opcional) Pre-chequeo de duplicado por hash ---
-    // Si elegiste "único global por hash":
-    // const [dup] = await pool.execute('SELECT id_archivo FROM ArchivoLicencia WHERE hash = ? LIMIT 1', [hash]);
-    // Si elegiste "único por licencia":
-    // const [dup] = await pool.execute('SELECT id_archivo FROM ArchivoLicencia WHERE id_licencia = ? AND hash = ? LIMIT 1', [licId, hash]);
-    // if (dup.length) {
-    //   return res.status(400).json({ ok: false, mensaje: 'Archivo duplicado (hash ya existe)' });
-    // }
-
     // --- Insertar ---
     const sql = `
-      INSERT INTO ArchivoLicencia
+      INSERT INTO archivolicencia
         (ruta_url, tipo_mime, hash, tamano, fecha_subida, id_licencia)
       VALUES (?, ?, ?, ?, NOW(), ?)
     `;

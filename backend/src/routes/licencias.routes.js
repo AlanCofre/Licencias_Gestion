@@ -105,8 +105,8 @@ router.get('/en-revision', validarJWT, async (req, res) => {
         l.fecha_creacion,
         l.id_usuario,
         u.nombre as estudiante_nombre
-      FROM LicenciaMedica l
-      JOIN Usuario u ON l.id_usuario = u.id_usuario
+      FROM licenciamedica l
+      JOIN usuario u ON l.id_usuario = u.id_usuario
       ${where}
       ORDER BY l.fecha_creacion DESC
       LIMIT ? OFFSET ?`,
@@ -116,8 +116,8 @@ router.get('/en-revision', validarJWT, async (req, res) => {
     // Contar total
     const [countRows] = await db.execute(
       `SELECT COUNT(*) as total
-       FROM LicenciaMedica l
-       JOIN Usuario u ON l.id_usuario = u.id_usuario
+       FROM licenciamedica l
+       JOIN usuario u ON l.id_usuario = u.id_usuario
        ${where}`,
       params
     );
@@ -186,7 +186,7 @@ router.get(
           estado,
           motivo_rechazo,
           DATE_FORMAT(fecha_creacion, '%Y-%m-%d %H:%i:%s') AS fecha_creacion
-        FROM LicenciaMedica
+        FROM licenciamedica
         WHERE id_usuario = ?
         ORDER BY fecha_creacion DESC
         `,

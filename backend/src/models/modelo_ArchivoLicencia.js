@@ -12,7 +12,7 @@ const ArchivoLicencia = sequelize.define('ArchivoLicencia', {
   fecha_subida:   { type: DataTypes.DATE, allowNull: true },
   id_licencia:    { type: DataTypes.INTEGER, allowNull: false }
 }, {
-  tableName: 'ArchivoLicencia',   // <<--- nombre REAL en MySQL
+  tableName: 'archivolicencia',   // <<--- nombre REAL en MySQL
   freezeTableName: true,          // no pluraliza
   timestamps: false,
   underscored: false

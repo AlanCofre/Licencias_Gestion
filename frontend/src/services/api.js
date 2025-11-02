@@ -236,7 +236,7 @@ export async function fetchAttachment(path) {
 // Función para obtener detalles de una licencia específica
 export const getLicenseDetails = async (licenseId) => {
   try {
-    const response = await fetch(`${API_BASE_URL}/licenses/${licenseId}`, {
+    const response = await fetch(`${VITE_API_BASE_URL}/licenses/${licenseId}`, {
       headers: {
         'Authorization': `Bearer ${localStorage.getItem('token')}`,
         'Content-Type': 'application/json',
@@ -257,7 +257,7 @@ export const getLicenseDetails = async (licenseId) => {
 // Función para aceptar una licencia
 export const acceptLicense = async (licenseId, data) => {
   try {
-    const response = await fetch(`${API_BASE_URL}/licenses/${licenseId}/accept`, {
+    const response = await fetch(`${VITE_API_BASE_URL}/licenses/${licenseId}/accept`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${localStorage.getItem('token')}`,
@@ -280,7 +280,7 @@ export const acceptLicense = async (licenseId, data) => {
 // Función para rechazar una licencia
 export const rejectLicense = async (licenseId, data) => {
   try {
-    const response = await fetch(`${API_BASE_URL}/licenses/${licenseId}/reject`, {
+    const response = await fetch(`${VITE_API_BASE_URL}/licenses/${licenseId}/reject`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${localStorage.getItem('token')}`,

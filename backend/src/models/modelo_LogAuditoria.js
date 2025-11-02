@@ -15,7 +15,7 @@ LogAuditoria.init(
     ip: { type: DataTypes.STRING(50), allowNull: true },
     fecha: { type: DataTypes.DATE, defaultValue: DataTypes.NOW }
   },
-  { sequelize, tableName: 'log_auditoria', timestamps: false }
+  { sequelize, tableName: 'logauditoria', timestamps: false }
 );
 
 export default LogAuditoria;

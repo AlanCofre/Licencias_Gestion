@@ -68,9 +68,9 @@ export class BusquedaLicenciasService {
           lm.fecha_creacion,
           lm.id_usuario,
           u.nombre as estudiante_nombre
-        FROM LicenciaMedica lm
+        FROM licenciamedica lm
         FORCE INDEX (idx_licencia_completo)
-        JOIN Usuario u FORCE INDEX (idx_usuario_nombre) ON lm.id_usuario = u.id_usuario
+        JOIN usuario u FORCE INDEX (idx_usuario_nombre) ON lm.id_usuario = u.id_usuario
         ${whereClause}
         ORDER BY lm.fecha_creacion DESC
         LIMIT ? OFFSET ?
@@ -79,8 +79,8 @@ export class BusquedaLicenciasService {
       // Contar total (más eficiente que COUNT(*) con LIMIT)
       const [totalResult] = await db.execute(`
         SELECT COUNT(*) as total
-        FROM LicenciaMedica lm
-        JOIN Usuario u ON lm.id_usuario = u.id_usuario
+        FROM licenciamedica lm
+        JOIN usuario u ON lm.id_usuario = u.id_usuario
         ${whereClause}
       `, parametros);
 
@@ -112,9 +112,9 @@ export class BusquedaLicenciasService {
         lm.estado,
         lm.fecha_emision,
         u.nombre as estudiante_nombre
-      FROM LicenciaMedica lm
+      FROM licenciamedica lm
       FORCE INDEX (idx_licencia_folio, idx_licencia_completo)
-      JOIN Usuario u FORCE INDEX (idx_usuario_nombre) ON lm.id_usuario = u.id_usuario
+      JOIN usuario u FORCE INDEX (idx_usuario_nombre) ON lm.id_usuario = u.id_usuario
       WHERE lm.folio LIKE ? OR u.nombre LIKE ?
       ORDER BY 
         CASE 

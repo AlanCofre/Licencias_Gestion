@@ -48,7 +48,7 @@ LicenciaMedica.init(
   },
   {
     sequelize,
-    tableName: 'LicenciaMedica',
+    tableName: 'licenciamedica',
     timestamps: false, // Si tu tabla ya tiene createdAt/updatedAt, cambia a true y mapea underscored si aplica
     defaultScope: {
       order: [['fecha_creacion', 'DESC']],
