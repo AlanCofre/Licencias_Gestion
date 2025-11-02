@@ -203,7 +203,7 @@ export const crearLicencia = async (req, res) => {
       INSERT INTO LicenciaMedica
         (folio, fecha_emision, fecha_inicio, fecha_fin, estado, motivo_rechazo, fecha_creacion, id_usuario)
       VALUES
-        (?,     CURDATE(),     ?,            ?,          'pendiente', NULL,            CURDATE(),     ?)
+        (?,     CURDATE(),     ?,            ?,          'pendiente', NULL,            NOW(),     ?)
     `;
     const [result] = await db.execute(sqlInsert, [folio, fecha_inicio, fecha_fin, usuarioId]);
 
@@ -258,7 +258,7 @@ export const crearLicencia = async (req, res) => {
         fecha_fin,
         estado: 'pendiente',
         motivo_rechazo: null,
-        fecha_creacion: new Date().toISOString().slice(0, 10),
+        fecha_creacion: new Date().toISOString(),
         id_usuario: usuarioId,
         motivo // lo devolvemos en la respuesta si lo enviaste
       }
@@ -481,7 +481,7 @@ export const crearLicenciaLegacy = async (req, res) => {
       INSERT INTO LicenciaMedica
         (folio, fecha_emision, fecha_inicio, fecha_fin, estado, motivo_rechazo, fecha_creacion, id_usuario)
       VALUES
-        (?,     CURDATE(),     ?,            ?,          'pendiente', NULL,            CURDATE(),     ?)
+        (?,     CURDATE(),     ?,            ?,          'pendiente', NULL,            NOW(),     ?)
     `;
     const [result] = await db.execute(sql, [folio, fecha_inicio, fecha_fin, id_usuario]);
 
