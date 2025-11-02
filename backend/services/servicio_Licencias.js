@@ -8,7 +8,7 @@ import { Op, QueryTypes } from 'sequelize';
 import LicenciaMedica from '../src/models/modelo_LicenciaMedica.js';
 import HistorialLicencias from '../src/models/modelo_HistorialLicencias.js';
 import ArchivoLicencia from '../src/models/modelo_ArchivoLicencia.js';
-
+import { Matricula, LicenciasEntregas } from '../src/models/index.js';
 /* =======================================================
  * Utilidades
  * ======================================================= */
@@ -325,6 +325,29 @@ export async function decidirLicenciaSvc({
       lic.motivo_rechazo = null;
       await lic.save({ transaction: tx });
 
+      const cursos = await Matricula.findAll({
+        where: { id_usuario: lic.id_usuario },
+        attributes: ['id_curso'],
+        transaction: tx
+      });
+
+      if (!cursos.length) {
+        console.warn(`⚠️ Estudiante ${lic.id_usuario} no tiene cursos asociados.`);
+      }
+
+      for (const { id_curso } of cursos) {
+        try {
+          await LicenciasEntregas.findOrCreate({
+            where: { id_licencia: lic.id_licencia, id_curso },
+            transaction: tx
+          });
+          console.log(`✅ Entrega registrada: licencia ${lic.id_licencia}, curso ${id_curso}`);
+        } catch (error) {
+          console.error(`❌ Error al insertar entrega: ${error.message}`);
+        }
+      }
+
+
       await HistorialLicencias.create({
         id_licencia: lic.id_licencia,
         id_usuario: actorId,
@@ -385,5 +408,30 @@ export async function decidirLicenciaSvc({
   } catch (err) {
     await tx.rollback();
     throw err;
+  }
+}
+
+
+
+async function insertarEntregasSiAceptado(idLicencia, idUsuario) {
+  const cursos = await Matricula.findAll({
+    where: { id_usuario: idUsuario },
+    attributes: ['id_curso']
+  });
+
+  if (!cursos.length) {
+    console.warn(`⚠️ Estudiante ${idUsuario} no tiene cursos asociados.`);
+    return;
+  }
+
+  for (const { id_curso } of cursos) {
+    try {
+      await LicenciasEntregas.findOrCreate({
+        where: { id_licencia: idLicencia, id_curso }
+      });
+      console.log(`✅ Entrega registrada: licencia ${idLicencia}, curso ${id_curso}`);
+    } catch (error) {
+      console.error(`❌ Error al insertar entrega: ${error.message}`);
+    }
   }
 }

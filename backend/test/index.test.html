@@ -411,7 +411,7 @@
   }
 </style>
 
-<script>
+<!-- <script>
   const token = localStorage.getItem('jwt');
 
   document.addEventListener('DOMContentLoaded', async () => {
@@ -474,6 +474,68 @@
       }
     });
   });
+</script> -->
+
+<!-- ******************************************** Licencias del profesor ******************************************** -->
+
+<h2>Licencias Médicas Entregadas - Mis Cursos</h2>
+
+<label for="selectPeriodo">Periodo activo:</label>
+<select id="selectPeriodo">
+  <option value="2025-1">2025-1</option>
+  <option value="2025-2">2025-2</option>
+</select>
+
+<button id="btnCargarLicencias">Ver licencias entregadas</button>
+
+<ul id="listaLicencias"></ul>
+
+<script>
+  async function cargarLicenciasProfesor() {
+    const lista = document.getElementById('listaLicencias');
+    const periodo = document.getElementById('selectPeriodo').value;
+    lista.innerHTML = '';
+
+    const token = localStorage.getItem('jwt');
+    if (!token) {
+      lista.innerHTML = '<li>🔒 No has iniciado sesión.</li>';
+      return;
+    }
+
+    try {
+      const res = await fetch(`http://localhost:3000/api/licencias/mis-cursos?periodo=${periodo}`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+
+      const resultado = await res.json();
+      if (!res.ok || !resultado.ok) {
+        console.error('📦 Error recibido:', resultado);
+        throw new Error(resultado.error || resultado.msg || `Error HTTP ${res.status}`);
+      }
+
+      if (resultado.licencias.length === 0) {
+        lista.innerHTML = '<li>No hay licencias entregadas para este periodo.</li>';
+        return;
+      }
+
+      resultado.licencias.forEach(lic => {
+        const item = document.createElement('li');
+        item.textContent = `Folio: ${lic.folio} | Estudiante: ${lic.id_estudiante} | Estado: ${lic.estado} | Desde: ${lic.fecha_inicio} | Hasta: ${lic.fecha_fin}`;
+        lista.appendChild(item);
+      });
+
+      console.log('✅ Licencias entregadas cargadas:', resultado.licencias);
+    } catch (e) {
+      console.error('❌ Error en cargarLicenciasProfesor:', e);
+      lista.innerHTML = `<li>Error al cargar licencias del profesor: ${e.message}</li>`;
+    }
+
+
+  }
+
+  document.getElementById('btnCargarLicencias').addEventListener('click', cargarLicenciasProfesor);
 </script>
 
 

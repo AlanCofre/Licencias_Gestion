@@ -16,7 +16,7 @@ import detailsRouter from './detail/details.js';
 import insertRouter from './insert/insert.js';
 import notificationRouter from './notification/notificacion.js';
 import licenciaRoutes from './routes/licencias.routes.js';
-import notificarEstado from './routes/licencias.routes.js';
+// import notificarEstado from './routes/licencias.routes.js';
 import archivoRoutes from './routes/archivo.routes.js';
 import usuarioRoutes from './routes/usuario.route.js';
 

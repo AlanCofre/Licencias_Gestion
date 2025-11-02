@@ -2,7 +2,6 @@
 import { Router } from 'express';
 import multer from 'multer';
 import db from '../../db/db.js';
-
 import {
   crearLicencia,
   listarLicencias,
@@ -75,6 +74,50 @@ router.get('/revisar', [validarJWT, tieneRol('profesor', 'secretario')], (req, r
  *   pendiente → (aceptado|rechazado) ✅; otras ❌
  */
 import Usuario from '../models/modelo_Usuario.js';
+
+// === Endpoint: Licencias entregadas por el profesor en sus cursos ===
+router.get('/mis-cursos', validarJWT, tieneRol('profesor'), async (req, res) => {
+  console.log('🧪 Entró al endpoint /mis-cursos');
+  const { periodo } = req.query;
+  const idProfesor = req.user?.id_usuario;
+
+  console.log('🔍 req.user:', req.user);
+  console.log('🧪 Query params:', { idProfesor, periodo });
+
+  // Validaciones
+  if (!idProfesor) {
+    return res.status(401).json({ ok: false, error: "No se pudo identificar al profesor." });
+  }
+
+  if (!periodo || typeof periodo !== 'string') {
+    return res.status(400).json({ ok: false, error: "El campo 'periodo' es obligatorio y debe ser texto." });
+  }
+
+  try {
+    const [licencias] = await db.execute(`
+      SELECT lm.id_licencia,
+             lm.id_usuario AS id_estudiante,
+             lm.folio,
+             lm.fecha_emision,
+             lm.fecha_inicio,
+             lm.fecha_fin,
+             lm.estado
+      FROM licenciamedica lm
+      JOIN licencias_entregas le ON lm.id_licencia = le.id_licencia
+      JOIN curso c ON le.id_curso = c.id_curso
+      WHERE c.id_usuario = ?
+        AND c.periodo = ?
+      ORDER BY lm.fecha_emision DESC
+    `, [idProfesor, periodo]);
+
+    return res.status(200).json({ ok: true, licencias });
+  } catch (error) {
+    console.error('❌ Error al obtener licencias del profesor:', error);
+    return res.status(500).json({ ok: false, error: 'Error interno del servidor' });
+  }
+});
+
+
 
 router.put(
   '/:id/estado',
@@ -166,7 +209,6 @@ router.put('/licencias/:id/decidir', authRequired, requireRole(['secretario']), 
       return res.status(500).json({ ok: false, error: "No se pudieron obtener los cursos del estudiante." });
     }
   }
-
   req.licencia = licencia;
   decidirLicencia(req, res, next);
 });
@@ -244,7 +286,6 @@ router.post(
 router.get('/:id', validarJWT, detalleLicencia);
 router.get('/:id/archivo', validarJWT, descargarArchivoLicencia);
 
-
 router.post(
   '/:id/rechazar',
   validarJWT,
@@ -255,6 +296,5 @@ router.post(
   (req, res, next) => validarTransicionEstado(req.licencia.estado)(req, res, next),
   decidirLicencia
 );
-
 
 export default router;
