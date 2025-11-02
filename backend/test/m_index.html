@@ -423,7 +423,7 @@
     fd.delete('id_usuario'); fd.set('id_usuario', String(idUsuario));
 
     try {
-      const res = await fetch(`${BASE_URL}/api/licencias/medica`, {
+      const res = await fetch(`${BASE_URL}/api/licencias/crear`, {
         method: 'POST',
         headers: { ...authHeaders() }, // NO setear Content-Type con FormData
         body: fd
