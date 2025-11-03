@@ -233,23 +233,61 @@ export const bajaMatriculaAdmin = async (req, res) => {
 export const listarMatriculas = async (req, res) => {
   try {
     const { id_curso, id_periodo, solo_activas } = req.query;
+
     const where = {};
     if (id_curso) where.id_curso = id_curso;
     if (id_periodo) where.id_periodo = id_periodo;
     if (solo_activas === 'true') where.estado = 'activa';
 
-    const matriculas = await Matricula.findAll({
+    // 👇 primero traemos las matrículas "peladas"
+    const mats = await Matricula.findAll({
       where,
-      include: [
-        { model: Usuario, as: 'estudiante', attributes: ['id_usuario', 'nombre', 'apellido'] },
-        { model: Curso, as: 'curso', attributes: ['id_curso', 'codigo', 'nombre_curso', 'seccion'] },
-      ],
       order: [['fecha_matricula', 'DESC']],
     });
 
-    return res.json({ ok: true, data: matriculas });
+    // si no hay, devolvemos vacío nomás
+    if (!mats.length) {
+      return res.json({ ok: true, data: [] });
+    }
+
+    // 👇 obtenemos ids únicos para no pegar mil consultas
+    const idsUsuarios = [...new Set(mats.map(m => m.id_usuario))];
+    const idsCursos = [...new Set(mats.map(m => m.id_curso))];
+
+    // traemos usuarios y cursos por separado
+    const usuarios = await Usuario.findAll({
+      where: { id_usuario: idsUsuarios },
+      attributes: ['id_usuario', 'nombre', 'correo_usuario', 'id_rol'],
+    });
+
+    const cursos = await Curso.findAll({
+      where: { id_curso: idsCursos },
+      attributes: ['id_curso', 'codigo', 'nombre_curso', 'seccion', 'periodo', 'activo'],
+    });
+
+    // los pasamos a mapas para armar rápido
+    const mapaUsuarios = Object.fromEntries(
+      usuarios.map(u => [u.id_usuario, u.toJSON()])
+    );
+    const mapaCursos = Object.fromEntries(
+      cursos.map(c => [c.id_curso, c.toJSON()])
+    );
+
+    // armamos la respuesta final
+    const data = mats.map(m => ({
+      id_matricula: m.id_matricula,
+      id_usuario: m.id_usuario,
+      id_curso: m.id_curso,
+      id_periodo: m.id_periodo,
+      estado: m.estado,
+      fecha_matricula: m.fecha_matricula,
+      estudiante: mapaUsuarios[m.id_usuario] ?? null,
+      curso: mapaCursos[m.id_curso] ?? null,
+    }));
+
+    return res.json({ ok: true, data });
   } catch (error) {
-    console.error('[matriculas] listar admin', error);
+    console.error('[matriculas] listar error:', error);
     return res.status(500).json({ ok: false, mensaje: 'Error interno al listar' });
   }
 };

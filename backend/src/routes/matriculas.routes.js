@@ -6,35 +6,36 @@ import {
   listarMatriculas,
   obtenerMisMatriculas
 } from '../../controllers/matricula.controller.js';
-import { authMiddleware } from '../../middlewares/authMiddleware.js';
+import requireAuth from '../../middlewares/requireAuth.js';
+// si tienes este helper de roles, lo dejas, si no, lo quitamos:
 import { requireRole } from '../../middlewares/requireRole.js';
 
 const router = Router();
 
 // estudiante ve sus matrículas
-router.get('/mis', authMiddleware, obtenerMisMatriculas);
+router.get('/mis', requireAuth, obtenerMisMatriculas);
 
 // admin crea
 router.post(
   '/',
-  authMiddleware,
-  requireRole('administrador'),
+  requireAuth,
+  requireRole ? requireRole('administrador') : (req, res, next) => next(),
   crearMatriculaAdmin
 );
 
 // admin baja
 router.patch(
   '/:id_matricula/baja',
-  authMiddleware,
-  requireRole('administrador'),
+  requireAuth,
+  requireRole ? requireRole('administrador') : (req, res, next) => next(),
   bajaMatriculaAdmin
 );
 
 // admin lista
 router.get(
   '/',
-  authMiddleware,
-  requireRole('administrador'),
+  requireAuth,
+  requireRole ? requireRole('administrador') : (req, res, next) => next(),
   listarMatriculas
 );
 

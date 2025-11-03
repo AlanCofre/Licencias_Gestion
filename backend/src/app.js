@@ -9,6 +9,7 @@ import usuarioRoutes from './routes/usuario.route.js';
 import perfilRouter from './routes/perfil.routes.js';
 import archivoRoutes from './routes/archivo.routes.js';
 import cursoRoutes from './routes/curso.route.js';
+import matriculasRoutes from './routes/matriculas.routes.js';
 
 import db from './../config/db.js';
 
@@ -57,6 +58,7 @@ app.use('/notificaciones', notificationRouter);
 app.use('/usuarios', usuarioRoutes);
 app.use('/api', perfilRouter);
 app.use('/cursos', cursoRoutes);
+app.use('/matriculas', matriculasRoutes);
 
 // Home (debe ir antes del 404)
 app.get('/', (req, res) => res.redirect('/usuarios/login'));
