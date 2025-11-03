@@ -26,9 +26,8 @@ import {
 } from '../../middlewares/validarLicenciaMedica.js';
 import { decidirLicenciaSvc } from '../../services/servicio_Licencias.js';
 
-import LicenciaMedica from '../models/modelo_LicenciaMedica.js';
-import { LicenciasEntregas } from '../models/index.js';
-import { Matricula } from '../models/index.js';
+// import LicenciaMedica from '../models/modelo_LicenciaMedica.js';
+import { LicenciasEntregas, Curso, Usuario, LicenciaMedica, Matricula } from '../models/index.js';
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -73,7 +72,7 @@ router.get('/revisar', [validarJWT, tieneRol('profesor', 'secretario')], (req, r
  * - validarTransicionEstado: aplica la regla de transición usando el estado actual
  *   pendiente → (aceptado|rechazado) ✅; otras ❌
  */
-import Usuario from '../models/modelo_Usuario.js';
+
 
 // === Endpoint: Licencias entregadas por el profesor en sus cursos ===
 router.get('/mis-cursos', validarJWT, tieneRol('profesor'), async (req, res) => {

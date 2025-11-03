@@ -538,6 +538,76 @@
   document.getElementById('btnCargarLicencias').addEventListener('click', cargarLicenciasProfesor);
 </script>
 
+<!-- ******************************************** Consulta individual de entrega ******************************************** -->
+
+<h2>📦 Consulta de Entrega por ID</h2>
+
+<label for="inputEntrega">🔍 ID de entrega:</label>
+<input type="number" id="inputEntrega" placeholder="Ej: 12" />
+
+<button id="btnBuscarEntrega">Ver entrega</button>
+
+<div id="resultadoEntrega"></div>
+
+<script>
+  async function buscarEntregaPorId() {
+    const idEntrega = document.getElementById('inputEntrega').value;
+    const resultado = document.getElementById('resultadoEntrega');
+    resultado.innerHTML = '';
+
+    const token = localStorage.getItem('jwt');
+    if (!token) {
+      resultado.innerHTML = '<p>🔒 No has iniciado sesión.</p>';
+      return;
+    }
+
+    if (!idEntrega) {
+      resultado.innerHTML = '<p>⚠️ Debes ingresar un ID de entrega.</p>';
+      return;
+    }
+
+    try {
+      const res = await fetch(`http://localhost:3000/api/entregas/${idEntrega}`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        console.error('📦 Error recibido:', data);
+        throw new Error(data.error || data.msg || `Error HTTP ${res.status}`);
+      }
+
+      const { curso, profesor, licencia, estudiante, fecha_creacion } = data;
+
+      resultado.innerHTML = `
+        <h3>📄 Detalles de la entrega</h3>
+        <ul>
+          <li><strong>Curso:</strong> ${curso.nombre_curso} (${curso.codigo})</li>
+          <li><strong>Periodo:</strong> ${curso.periodo}</li>
+          <li><strong>Profesor:</strong> ${profesor?.nombre} (${profesor?.correo_usuario})</li>
+          <li><strong>Estudiante:</strong> ${estudiante?.nombre || 'N/A'} (${estudiante?.correo_usuario || 'N/A'})</li>
+          <li><strong>Folio licencia:</strong> ${licencia?.folio || 'N/A'}</li>
+          <li><strong>Estado:</strong> ${licencia?.estado || 'N/A'}</li>
+          <li><strong>Desde:</strong> ${licencia?.fecha_emision || 'N/A'}</li>
+          <li><strong>Hasta:</strong> ${licencia?.fecha_fin || 'N/A'}</li>
+          <li><strong>Fecha de entrega:</strong> ${fecha_creacion}</li>
+        </ul>
+      `;
+
+      console.log('✅ Entrega cargada:', data);
+    } catch (e) {
+      console.error('❌ Error en buscarEntregaPorId:', e);
+      resultado.innerHTML = `<p>⚠️ Error al buscar entrega: ${e.message}</p>`;
+    }
+  }
+
+  document.getElementById('btnBuscarEntrega').addEventListener('click', buscarEntregaPorId);
+</script>
+
+
+
 
 </body>
 </html>

@@ -20,6 +20,8 @@ import licenciaRoutes from './routes/licencias.routes.js';
 import archivoRoutes from './routes/archivo.routes.js';
 import usuarioRoutes from './routes/usuario.route.js';
 
+import entregasRoutes from '../src/routes/entregas.routes.js';
+
 // Pool de mysql2/promise exportado desde ./db/db.js
 import db from '../db/db.js';
 
@@ -44,6 +46,7 @@ app.use('/api/archivos', archivoRoutes);
 app.use('/licencias', detailsRouter);
 app.use('/archivos', insertRouter);
 app.use('/notificaciones', notificationRouter);
+app.use('/api/entregas', entregasRoutes);
 app.get('/', (req, res) => res.redirect('/usuarios/login'));
 
 /* === 404 (no encontrado) === */
@@ -80,4 +83,5 @@ app.listen(PORT, async () => {
   }
 });
 
+ 
 export default app;
