@@ -303,7 +303,7 @@ function EditarPerfil() {
             <div className="py-5">
               <button
                 type="button"
-                onClick={() => navigate("/reset-password")}
+                onClick={() => navigate("/forgot-password")}
                 className="w-full p-5 bg-gradient-to-r from-blue-500 to-blue-400 text-white font-semibold rounded-lg shadow-md hover:shadow-lg transition-all"
               >
                 Cambiar / Recuperar contraseña
