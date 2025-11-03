@@ -8,8 +8,13 @@ import path from 'path';
 import http from 'http';
 import https from 'https';
 
-// ✉️ Servicio de correos (solo para "nueva licencia")
-import { notificarNuevaLicencia } from '../services/servicio_Correo.js';
+// Servicio de correos (asegúrate que la ruta coincide con el archivo real)
+import {
+  notificarNuevaLicencia,
+  notificarEstudianteLicenciaEnviada,
+  notificarEstudianteLicenciaAceptada,
+  notificarEstudianteLicenciaRechazada,
+} from '../services/servicio_Correo.js';
 
 // === Utilidad: hash SHA-256 de un Buffer/String → hex 64
 function sha256FromBuffer(bufOrStr) {
@@ -41,7 +46,6 @@ function _safeJoin(baseDir, relative) {
   return abs;
 }
 
-// funcionario → todo; estudiante → solo dueño
 function _puedeVerArchivo(user, idPropietario) {
   if (!user) return false;
   const rol = String(user.rol || '').toLowerCase();
@@ -51,7 +55,7 @@ function _puedeVerArchivo(user, idPropietario) {
 }
 
 // =======================================================
-// ✅ NUEVO CONTROLADOR: GET /api/licencias/mis-licencias
+// listarMisLicencias
 // =======================================================
 export async function listarMisLicencias(req, res) {
   try {
@@ -89,8 +93,8 @@ export async function listarMisLicencias(req, res) {
       [idUsuario]
     );
 
-    return res.status(200).json({ 
-      ok: true, 
+    return res.status(200).json({
+      ok: true,
       data: rows,
       pagination: {
         page,
@@ -101,17 +105,12 @@ export async function listarMisLicencias(req, res) {
     });
   } catch (error) {
     console.error('❌ [listarMisLicencias] error:', error);
-    return res.status(500).json({
-      ok: false,
-      error: 'Error interno al obtener licencias del estudiante',
-    });
+    return res.status(500).json({ ok: false, error: 'Error interno al obtener licencias del estudiante' });
   }
 }
 
-// ==
-
 // =======================================================
-// GET: listar licencias del usuario autenticado
+// listarLicencias
 // =======================================================
 export async function listarLicencias(req, res) {
   try {
@@ -149,7 +148,7 @@ export async function listarLicencias(req, res) {
 }
 
 // =======================================================
-// POST: crear licencia (con validaciones reales)
+// crearLicencia
 // =======================================================
 function validarCampoFecha(fechaStr, campo = 'fecha') {
   const normalizada = String(fechaStr ?? '').trim();
@@ -164,7 +163,6 @@ export const crearLicencia = async (req, res) => {
     const usuarioId = req.user?.id_usuario ?? req.id ?? null;
     const rol = (req.user?.rol ?? req.rol ?? '').toString().toLowerCase();
 
-    // ✉️ obtener también correo para el mail
     const [userRow] = await db.execute(
       'SELECT nombre, correo_usuario AS correo FROM Usuario WHERE id_usuario = ?',
       [usuarioId]
@@ -195,7 +193,7 @@ export const crearLicencia = async (req, res) => {
       return res.status(400).json({ msg: 'La fecha de inicio no puede ser posterior a la fecha fin' });
     }
 
-    // Superposición de fechas
+    // Superposición
     const [solape] = await db.execute(
       `SELECT id_licencia, fecha_inicio, fecha_fin, estado
        FROM LicenciaMedica
@@ -214,7 +212,7 @@ export const crearLicencia = async (req, res) => {
       });
     }
 
-    // Duplicado por hash
+    // Hash duplicado
     const archivo = req.file ?? null;
     let hashEntrada = req.body?.hash ?? null;
     if (!hashEntrada && archivo?.buffer) {
@@ -252,7 +250,7 @@ export const crearLicencia = async (req, res) => {
       [folio, fecha_inicio, fecha_fin, usuarioId]
     );
 
-    // 🔎 AUDIT: emitir licencia
+    // Audit
     try {
       await req.audit('emitir licencia', 'LicenciaMedica', {
         id_licencia: result.insertId,
@@ -265,7 +263,7 @@ export const crearLicencia = async (req, res) => {
       console.warn('[audit] crearLicencia:', e?.message || e);
     }
 
-    // Notificaciones (best-effort en BD)
+    // Notificación BD
     try {
       const asunto = 'creacion de licencia';
       const contenido = `Se ha creado la licencia ${folio} con fecha de inicio ${fecha_inicio} y fin ${fecha_fin}.`;
@@ -274,7 +272,7 @@ export const crearLicencia = async (req, res) => {
          VALUES (?, ?, 0, NOW(), ?)`,
         [asunto, contenido, usuarioId]
       );
-    } catch {}
+    } catch (e) { console.warn('[notificacion] crearLicencia:', e?.message || e); }
 
     // Archivo (opcional)
     try {
@@ -293,7 +291,7 @@ export const crearLicencia = async (req, res) => {
       console.error('❌ Error al registrar archivo:', archivoError.message);
     }
 
-    // ✉️ Enviar correo (best-effort)
+    // Correo a funcionarios (nueva licencia) - best effort
     try {
       const idLicencia = result.insertId;
       const [destRows] = await db.execute(
@@ -345,7 +343,7 @@ export const crearLicencia = async (req, res) => {
 };
 
 // =====================================================
-// GET: Licencias en revisión (funcionario/secretaría)
+// getLicenciasEnRevision
 // =====================================================
 export const getLicenciasEnRevision = async (req, res) => {
   try {
@@ -354,7 +352,6 @@ export const getLicenciasEnRevision = async (req, res) => {
     if (!usuarioId) return res.status(401).json({ error: 'No autenticado' });
 
     const { nombre, folio, desde, hasta, page = 1, limit = 10 } = req.query;
-    
     const pageNum = Math.max(1, parseInt(page));
     const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
     const offset = (pageNum - 1) * limitNum;
@@ -363,22 +360,10 @@ export const getLicenciasEnRevision = async (req, res) => {
     let params = [];
 
     if (['funcionario', 'secretario'].includes(rol)) {
-      if (nombre) { 
-        condiciones.push(`u.nombre LIKE ?`); 
-        params.push(`%${nombre}%`); 
-      }
-      if (folio) { 
-        condiciones.push(`lm.folio LIKE ?`); 
-        params.push(`%${folio}%`); 
-      }
-      if (desde) { 
-        condiciones.push(`lm.fecha_emision >= ?`); 
-        params.push(desde); 
-      }
-      if (hasta) { 
-        condiciones.push(`lm.fecha_emision <= ?`); 
-        params.push(hasta); 
-      }
+      if (nombre) { condiciones.push(`u.nombre LIKE ?`); params.push(`%${nombre}%`); }
+      if (folio) { condiciones.push(`lm.folio LIKE ?`); params.push(`%${folio}%`); }
+      if (desde) { condiciones.push(`lm.fecha_emision >= ?`); params.push(desde); }
+      if (hasta) { condiciones.push(`lm.fecha_emision <= ?`); params.push(hasta); }
     } else {
       condiciones.push(`lm.id_usuario = ?`);
       params.push(usuarioId);
@@ -414,25 +399,15 @@ export const getLicenciasEnRevision = async (req, res) => {
 
     const total = countRows[0]?.total || 0;
 
-    return res.status(200).json({ 
-      ok: true, 
-      data: rows, 
-      meta: { 
-        page: pageNum, 
-        limit: limitNum,
-        total: parseInt(total),
-        totalPages: Math.ceil(total / limitNum)
-      } 
-    });
+    return res.status(200).json({ ok: true, data: rows, meta: { page: pageNum, limit: limitNum, total: parseInt(total), totalPages: Math.ceil(total / limitNum) } });
   } catch (error) {
     console.error('[licencias:getLicenciasEnRevision] error:', error);
     return res.status(500).json({ ok: false, error: 'Error al obtener licencias en revisión' });
   }
 };
 
-
 // =======================================================
-// ✅ Licencias Resueltas (FUNCIONARIO)
+// licenciasResueltas
 // =======================================================
 export const licenciasResueltas = async (req, res) => {
   try {
@@ -442,7 +417,6 @@ export const licenciasResueltas = async (req, res) => {
     }
 
     const { estado, desde, hasta, nombre, folio, page = 1, limit = 20 } = req.query;
-    
     const pageNum = Math.max(1, parseInt(page));
     const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
     const offset = (pageNum - 1) * limitNum;
@@ -450,26 +424,11 @@ export const licenciasResueltas = async (req, res) => {
     let condiciones = [`lm.estado IN ('aceptado', 'rechazado')`];
     let valores = [];
 
-    if (estado && ['aceptado', 'rechazado'].includes(estado)) { 
-      condiciones.push(`lm.estado = ?`); 
-      valores.push(estado); 
-    }
-    if (nombre) { 
-      condiciones.push(`u.nombre LIKE ?`); 
-      valores.push(`%${nombre}%`); 
-    }
-    if (folio) { 
-      condiciones.push(`lm.folio LIKE ?`); 
-      valores.push(`%${folio}%`); 
-    }
-    if (desde) { 
-      condiciones.push(`lm.fecha_emision >= ?`); 
-      valores.push(desde); 
-    }
-    if (hasta) { 
-      condiciones.push(`lm.fecha_emision <= ?`); 
-      valores.push(hasta); 
-    }
+    if (estado && ['aceptado', 'rechazado'].includes(estado)) { condiciones.push(`lm.estado = ?`); valores.push(estado); }
+    if (nombre) { condiciones.push(`u.nombre LIKE ?`); valores.push(`%${nombre}%`); }
+    if (folio) { condiciones.push(`lm.folio LIKE ?`); valores.push(`%${folio}%`); }
+    if (desde) { condiciones.push(`lm.fecha_emision >= ?`); valores.push(desde); }
+    if (hasta) { condiciones.push(`lm.fecha_emision <= ?`); valores.push(hasta); }
 
     const where = condiciones.length ? `WHERE ${condiciones.join(' AND ')}` : '';
 
@@ -502,16 +461,7 @@ export const licenciasResueltas = async (req, res) => {
 
     const total = countRows[0]?.total || 0;
 
-    return res.status(200).json({ 
-      ok: true, 
-      data: rows, 
-      meta: { 
-        page: pageNum, 
-        limit: limitNum,
-        total: parseInt(total),
-        totalPages: Math.ceil(total / limitNum)
-      } 
-    });
+    return res.status(200).json({ ok: true, data: rows, meta: { page: pageNum, limit: limitNum, total: parseInt(total), totalPages: Math.ceil(total / limitNum) } });
   } catch (error) {
     console.error('❌ Error al obtener licencias resueltas:', error);
     return res.status(500).json({ ok: false, error: 'Error interno del servidor' });
@@ -519,8 +469,7 @@ export const licenciasResueltas = async (req, res) => {
 };
 
 // =====================================================
-// ✅ FIX: Detalle de licencia con shape que espera el FE
-// GET /api/licencias/:id
+// detalleLicencia
 // =====================================================
 export const detalleLicencia = async (req, res) => {
   try {
@@ -543,7 +492,6 @@ export const detalleLicencia = async (req, res) => {
         l.motivo_rechazo,
         l.fecha_creacion,
         l.id_usuario,
-
         u.id_usuario      AS usuario_id,
         u.nombre          AS usuario_nombre,
         u.correo_usuario  AS usuario_email
@@ -575,13 +523,7 @@ export const detalleLicencia = async (req, res) => {
       motivo_rechazo: r.motivo_rechazo,
       fecha_creacion: r.fecha_creacion,
       id_usuario: r.id_usuario,
-      usuario: r.usuario_id
-        ? {
-            id_usuario: r.usuario_id,
-            nombre: r.usuario_nombre,
-            email: r.usuario_email,
-          }
-        : null,
+      usuario: r.usuario_id ? { id_usuario: r.usuario_id, nombre: r.usuario_nombre, email: r.usuario_email } : null,
       archivo: null,
     };
 
@@ -626,14 +568,12 @@ export const detalleLicencia = async (req, res) => {
 };
 
 // =====================================================
-// POST (legacy)
+// crearLicenciaLegacy
 // =====================================================
 export const crearLicenciaLegacy = async (req, res) => {
   try {
     const { id_usuario, rol } = req.user || {};
-    if (!id_usuario) {
-      return res.status(401).json({ ok: false, mensaje: 'No autenticado' });
-    }
+    if (!id_usuario) return res.status(401).json({ ok: false, mensaje: 'No autenticado' });
     const rolLower = (rol || '').toString().toLowerCase();
     if (!['estudiante', 'alumno'].includes(rolLower)) {
       return res.status(403).json({ ok: false, mensaje: 'Solo estudiantes pueden crear licencias' });
@@ -641,21 +581,14 @@ export const crearLicenciaLegacy = async (req, res) => {
 
     const { fecha_inicio, fecha_fin } = req.body || {};
     const isISO = (d) => /^\d{4}-\d{2}-\d{2}$/.test(d);
-
-    if (!isISO(fecha_inicio) || !isISO(fecha_fin)) {
-      return res.status(400).json({ ok: false, mensaje: 'fecha_inicio/fecha_fin deben ser YYYY-MM-DD' });
-    }
-    if (new Date(fecha_inicio) > new Date(fecha_fin)) {
-      return res.status(400).json({ ok: false, mensaje: 'fecha_inicio no puede ser posterior a fecha_fin' });
-    }
+    if (!isISO(fecha_inicio) || !isISO(fecha_fin)) return res.status(400).json({ ok: false, mensaje: 'fecha_inicio/fecha_fin deben ser YYYY-MM-DD' });
+    if (new Date(fecha_inicio) > new Date(fecha_fin)) return res.status(400).json({ ok: false, mensaje: 'fecha_inicio no puede ser posterior a fecha_fin' });
 
     const [u] = await db.execute('SELECT id_usuario FROM Usuario WHERE id_usuario = ?', [id_usuario]);
     if (!u.length) return res.status(404).json({ ok: false, mensaje: 'Usuario no encontrado' });
 
     const folio = String(req.body?.folio ?? "").trim();
-    if (!folio) {
-      return res.status(400).json({ ok: false, mensaje: "El folio es obligatorio" });
-    }
+    if (!folio) return res.status(400).json({ ok: false, mensaje: "El folio es obligatorio" });
 
     const sql = `
       INSERT INTO LicenciaMedica
@@ -665,7 +598,6 @@ export const crearLicenciaLegacy = async (req, res) => {
     `;
     const [result] = await db.execute(sql, [folio, fecha_inicio, fecha_fin, id_usuario]);
 
-    // 🔎 AUDIT: emitir licencia (legacy)
     try {
       await req.audit('emitir licencia', 'LicenciaMedica', {
         id_licencia: result.insertId,
@@ -674,9 +606,7 @@ export const crearLicenciaLegacy = async (req, res) => {
         fecha_inicio,
         fecha_fin
       });
-    } catch (e) {
-      console.warn('[audit] crearLicenciaLegacy:', e?.message || e);
-    }
+    } catch (e) { console.warn('[audit] crearLicenciaLegacy:', e?.message || e); }
 
     const [row] = await db.execute(
       'SELECT id_licencia, folio, fecha_emision, fecha_inicio, fecha_fin, estado, motivo_rechazo, fecha_creacion, id_usuario FROM LicenciaMedica WHERE id_licencia = ?',
@@ -690,37 +620,29 @@ export const crearLicenciaLegacy = async (req, res) => {
   }
 };
 
-// === Controller: decidirLicencia (sin correos)
+// =====================================================
+// decidirLicencia (ahora con notificación + correo al estudiante)
 export async function decidirLicencia(req, res) {
   try {
-    const idLicencia   = Number(req.params.id);
+    const idLicencia = Number(req.params.id);
     const actorId = req.user?.id_usuario ?? null;
 
     if (!actorId) return res.status(401).json({ ok: false, error: 'No autenticado' });
     if (!idLicencia) return res.status(400).json({ ok: false, error: 'ID de licencia inválido' });
 
     const decisionRaw = String(req.body.decision ?? req.body.estado ?? '').toLowerCase();
-    if (!['aceptado', 'rechazado'].includes(decisionRaw)) {
-      return res.status(422).json({ ok: false, error: 'Decision inválida' });
-    }
+    if (!['aceptado', 'rechazado'].includes(decisionRaw)) return res.status(422).json({ ok: false, error: 'Decision inválida' });
 
     const motivo_rechazo = req.body.motivo_rechazo ?? null;
     if (decisionRaw === 'rechazado') {
       const motivoOk = typeof motivo_rechazo === 'string' && motivo_rechazo.trim().length >= 10;
-      if (!motivoOk) {
-        return res.status(400).json({ ok: false, error: 'motivo_rechazo es obligatorio (≥10 caracteres)' });
-      }
+      if (!motivoOk) return res.status(400).json({ ok: false, error: 'motivo_rechazo es obligatorio (≥10 caracteres)' });
     }
     if (decisionRaw === 'aceptado') {
-      const [archivos] = await db.execute(
-        `SELECT hash FROM ArchivoLicencia WHERE id_licencia = ? LIMIT 1`,
-        [idLicencia]
-      );
-      if (!archivos.length || !archivos[0].hash) {
-        return res.status(422).json({ ok: false, error: 'No se puede aceptar sin archivo válido (hash)' });
-      }
+      const [archivos] = await db.execute(`SELECT hash FROM ArchivoLicencia WHERE id_licencia = ? LIMIT 1`, [idLicencia]);
+      if (!archivos.length || !archivos[0].hash) return res.status(422).json({ ok: false, error: 'No se puede aceptar sin archivo válido (hash)' });
     }
-    
+
     const payload = {
       idLicencia,
       decision: decisionRaw,
@@ -736,18 +658,82 @@ export async function decidirLicencia(req, res) {
 
     const out = await decidirLicenciaSvc(payload);
 
-    // 🔎 AUDITORÍA — aceptar / rechazar (servicio decidirLicencia)
     try {
       const accion = (decisionRaw === 'aceptado') ? 'aceptar licencia' : 'rechazar licencia';
-      const pl = {
-        id_licencia: idLicencia,
-        estado_nuevo: decisionRaw
-      };
+      const pl = { id_licencia: idLicencia, estado_nuevo: decisionRaw };
       if (decisionRaw === 'rechazado') pl.motivo_rechazo = motivo_rechazo;
-
       await req.audit(accion, 'LicenciaMedica', pl, { userId: actorId });
+    } catch (e) { console.warn('[audit] decidirLicencia:', e?.message || e); }
+
+    // — NOTIFICACIÓN + CORREO AL ESTUDIANTE — //
+    try {
+      console.log("[DEBUG] Entró a bloque de notificación → idLicencia:", idLicencia, "decision:", decisionRaw);
+
+      const [rows] = await db.query(
+        `SELECT 
+           l.id_licencia, l.folio, l.estado,
+           l.motivo_rechazo AS observacion,
+           l.id_usuario,
+           u.correo_usuario AS email,
+           u.nombre,
+         FROM licenciamedica l
+         JOIN usuario u ON u.id_usuario = l.id_usuario
+         WHERE l.id_licencia = ?
+         LIMIT 1`,
+        [idLicencia]
+      );
+      const est = rows?.[0];
+      console.log("[DEBUG] fila estudiante:", est);
+
+      if (est?.id_usuario) {
+        const asunto = 'cambio de estado de licencia';
+        const msg = decisionRaw === 'aceptado' ? `Tu licencia ${est.folio ?? est.id_licencia} fue aceptada` : `Tu licencia ${est.folio ?? est.id_licencia} fue rechazada`;
+        try {
+          await db.execute(
+            `INSERT INTO notificacion (asunto, contenido, leido, fecha_envio, id_usuario) VALUES (?, ?, 0, NOW(), ?)`,
+            [asunto, msg, est.id_usuario]
+          );
+          console.log("[DEBUG] notificación BD insertada para id_usuario:", est.id_usuario);
+        } catch (e) {
+          console.warn('[notificacion] no se pudo insertar:', e?.message || e);
+        }
+      }
+
+      const correoDestino = (est?.email || '').trim();
+      console.log("[DEBUG] correoDestino ->", correoDestino);
+
+      if (correoDestino) {
+        const payloadCorreo = {
+          to: correoDestino,
+          nombre: (est?.nombre || 'Estudiante').trim(),
+
+          licencia: {
+            id_licencia: est?.id_licencia,
+            folio: est?.folio,
+            estado: decisionRaw,
+            observacion: est?.observacion ?? (req.body?.observacion ?? null),
+          },
+        };
+
+        try {
+          if (decisionRaw === 'aceptado') {
+            const r = await notificarEstudianteLicenciaAceptada(payloadCorreo);
+            console.log("[DEBUG] resp correo aceptada:", r);
+          } else if (decisionRaw === 'rechazado') {
+            const r = await notificarEstudianteLicenciaRechazada(payloadCorreo);
+            console.log("[DEBUG] resp correo rechazada:", r);
+          } else {
+            const r = await notificarEstudianteLicenciaEnviada(payloadCorreo);
+            console.log("[DEBUG] resp correo enviada:", r);
+          }
+        } catch (e) {
+          console.error("[ERROR] envío correo estudiante:", e?.message || e);
+        }
+      } else {
+        console.warn('[correo] estudiante sin email, no se envía correo');
+      }
     } catch (e) {
-      console.warn('[audit] decidirLicencia:', e?.message || e);
+      console.warn('[decidirLicencia] notificación/correo omitido:', e?.message || e);
     }
 
     return res.status(200).json({
@@ -782,17 +768,16 @@ export async function decidirLicencia(req, res) {
   }
 }
 
-// ========================
-// GET /api/licencias/:id/archivo
-// ========================
+// =====================================================
+// descargarArchivoLicencia
+// =====================================================
 export const descargarArchivoLicencia = async (req, res) => {
   try {
     const idLicencia = Number(req.params.id || 0);
     const usuario = req.user || null;
 
     if (!usuario) return res.status(403).json({ ok: false, error: 'Token requerido o inválido' });
-    if (!Number.isInteger(idLicencia) || idLicencia <= 0)
-      return res.status(400).json({ ok: false, error: 'ID de licencia inválido' });
+    if (!Number.isInteger(idLicencia) || idLicencia <= 0) return res.status(400).json({ ok: false, error: 'ID de licencia inválido' });
 
     const [rows] = await db.execute(`
       SELECT a.id_archivo, a.ruta_url, a.tipo_mime, a.tamano, a.fecha_subida,
@@ -804,20 +789,11 @@ export const descargarArchivoLicencia = async (req, res) => {
        LIMIT 1
     `, [idLicencia]);
 
-    if (!rows.length) {
-      return res.status(404).json({
-        error: true,
-        code: "ARCHIVO_NO_ENCONTRADO",
-        message: "No se encontró ningún archivo para la licencia especificada.",
-        hint: "Verifica que el ID de licencia exista y tenga archivos asociados.",
-        timestamp: new Date().toISOString()
-      });
-    }
+    if (!rows.length) return res.status(404).json({ error: true, code: "ARCHIVO_NO_ENCONTRADO", message: "No se encontró ningún archivo para la licencia especificada.", hint: "Verifica que el ID de licencia exista y tenga archivos asociados.", timestamp: new Date().toISOString() });
 
     const archivo = rows[0];
 
-    if (!_puedeVerArchivo(usuario, archivo.id_usuario))
-      return res.status(403).json({ ok: false, error: 'No autorizado' });
+    if (!_puedeVerArchivo(usuario, archivo.id_usuario)) return res.status(403).json({ ok: false, error: 'No autorizado' });
 
     const filename = _filenameFromRuta(archivo.ruta_url);
     const contentType = archivo.tipo_mime || 'application/octet-stream';
@@ -850,43 +826,34 @@ export const descargarArchivoLicencia = async (req, res) => {
       return res.status(400).json({ ok: false, error: 'Esquema de ruta no soportado' });
     }
 
-    if (!fs.existsSync(absPath))
-      return res.status(404).json({ ok: false, error: 'Archivo físico no existe' });
+    if (!fs.existsSync(absPath)) return res.status(404).json({ ok: false, error: 'Archivo físico no existe' });
 
     fs.createReadStream(absPath).pipe(res);
   } catch (e) {
-    if (e.code === 'E_PATH_TRAVERSAL')
-      return res.status(400).json({ ok: false, error: 'Ruta inválida' });
+    if (e.code === 'E_PATH_TRAVERSAL') return res.status(400).json({ ok: false, error: 'Ruta inválida' });
     console.error('❌ [licencias:descargarArchivoLicencia] error:', e);
     return res.status(500).json({ ok: false, error: 'Error interno' });
   }
 };
 
 // =====================================================
-// ⬅️ Restaurado: cambiarEstado (named export)
+// cambiarEstado (named export)
 // =====================================================
 export async function cambiarEstado(req, res, next) {
   try {
     const { id } = req.params;
     const { nuevo_estado, motivo_rechazo } = req.body;
 
-    if (!['aceptado','rechazado','pendiente'].includes(nuevo_estado)) {
-      return res.status(400).json({ error: 'ESTADO_INVALIDO' });
-    }
+    if (!['aceptado','rechazado','pendiente'].includes(nuevo_estado)) return res.status(400).json({ error: 'ESTADO_INVALIDO' });
 
-    // ✅ permitir funcionario y secretario
-    if (!['funcionario','secretario'].includes(String(req.user?.rol || '').toLowerCase())) {
-      return res.status(403).json({ error: 'NO_AUTORIZADO' });
-    }
+    if (!['funcionario','secretario'].includes(String(req.user?.rol || '').toLowerCase())) return res.status(403).json({ error: 'NO_AUTORIZADO' });
 
     const lic = await LicenciaMedica.findByPk(id);
     if (!lic) return res.status(404).json({ error: 'LICENCIA_NO_ENCONTRADA' });
 
     const anterior = lic.estado;
     lic.estado = nuevo_estado;
-    if (nuevo_estado === 'rechazado') {
-      lic.motivo_rechazo = motivo_rechazo ?? lic.motivo_rechazo;
-    }
+    if (nuevo_estado === 'rechazado') lic.motivo_rechazo = motivo_rechazo ?? lic.motivo_rechazo;
 
     await lic.save({ userId: req.user?.id_usuario ?? req.user?.id ?? null });
 
@@ -898,11 +865,74 @@ export async function cambiarEstado(req, res, next) {
           estado_nuevo: nuevo_estado,
           ...(nuevo_estado === 'rechazado' ? { motivo_rechazo: lic.motivo_rechazo ?? motivo_rechazo ?? null } : {})
         });
-      } catch (e) {
-        console.warn('[audit] cambiarEstado:', e?.message || e);
-      }
+      } catch (e) { console.warn('[audit] cambiarEstado:', e?.message || e); }
     }
 
+    // Notificación + correo (endpoint cambiarEstado)
+    try {
+      console.log("[DEBUG][cambiarEstado] Entró a bloque de notificación → id:", lic.id_licencia, "nuevo_estado:", nuevo_estado);
+
+      const [rows] = await db.query(
+        `SELECT 
+           l.id_licencia, l.folio, l.estado,
+           l.motivo_rechazo AS observacion,
+           l.id_usuario,
+           u.correo_usuario AS email,
+           u.nombre,
+         FROM licenciamedica l
+         JOIN usuario u ON u.id_usuario = l.id_usuario
+         WHERE l.id_licencia = ?
+         LIMIT 1`,
+        [lic.id_licencia]
+      );
+      const est = rows?.[0];
+      console.log("[DEBUG][cambiarEstado] fila estudiante:", est);
+
+      if (est?.id_usuario) {
+        const asunto = 'cambio de estado de licencia';
+        const msg = nuevo_estado === 'aceptado' ? `Tu licencia ${est.folio ?? est.id_licencia} fue aceptada` : (nuevo_estado === 'rechazado' ? `Tu licencia ${est.folio ?? est.id_licencia} fue rechazada` : `Tu licencia ${est.folio ?? est.id_licencia} cambió de estado`);
+        try {
+          await db.execute(`INSERT INTO notificacion (asunto, contenido, leido, fecha_envio, id_usuario) VALUES (?, ?, 0, NOW(), ?)`, [asunto, msg, est.id_usuario]);
+          console.log("[DEBUG] notificación BD insertada para id_usuario:", est.id_usuario);
+        } catch (e) { console.warn('[notificacion] no se pudo insertar:', e?.message || e); }
+      }
+
+      const correoDestino = (est?.email || '').trim();
+      console.log("[DEBUG][cambiarEstado] correoDestino ->", correoDestino);
+
+      if (correoDestino) {
+        const payloadCorreo = {
+          to: correoDestino,
+          nombre: (est?.nombre || 'Estudiante').trim(),
+
+          licencia: {
+            id_licencia: est?.id_licencia,
+            folio: est?.folio,
+            estado: nuevo_estado,
+            observacion: est?.observacion ?? lic?.motivo_rechazo ?? null,
+          },
+        };
+
+        try {
+          if (nuevo_estado === 'aceptado') {
+            const r = await notificarEstudianteLicenciaAceptada(payloadCorreo);
+            console.log("[DEBUG] resp correo aceptada:", r);
+          } else if (nuevo_estado === 'rechazado') {
+            const r = await notificarEstudianteLicenciaRechazada(payloadCorreo);
+            console.log("[DEBUG] resp correo rechazada:", r);
+          } else {
+            const r = await notificarEstudianteLicenciaEnviada(payloadCorreo);
+            console.log("[DEBUG] resp correo enviada:", r);
+          }
+        } catch (e) {
+          console.error("[ERROR] envío correo estudiante (cambiarEstado):", e?.message || e);
+        }
+      } else {
+        console.warn('[correo] estudiante sin email, no se envía correo');
+      }
+    } catch (e) {
+      console.warn('[cambiarEstado] notificación/correo omitido:', e?.message || e);
+    }
 
     return res.json({ ok: true, data: { id: lic.id_licencia, estado: lic.estado } });
   } catch (err) { next(err); }
@@ -918,5 +948,5 @@ export default {
   decidirLicencia,
   descargarArchivoLicencia,
   licenciasResueltas,
-  cambiarEstado, // ← también en el default por si acaso
+  cambiarEstado,
 };

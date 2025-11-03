@@ -1,59 +1,67 @@
-// backend/services/Servicio_Correo.js
+// backend/services/servicio_Correo.js
 import nodemailer from "nodemailer";
 import dotenv from "dotenv";
 dotenv.config();
 
-/* =======================
-   Configuración SMTP Brevo
-   ======================= */
-const host = (process.env.BREVO_HOST || "").trim() || "smtp-relay.brevo.com";
+/* ================================
+   📡 CONFIGURACIÓN SMTP BREVO
+   ================================ */
+const host = (process.env.BREVO_HOST || "smtp-relay.brevo.com").trim();
 const port = Number((process.env.BREVO_PORT || "587").trim());
-const user = (process.env.BREVO_USER || "").trim(); // debe ser "apikey" en Brevo
-const pass = (process.env.BREVO_PASS || "").trim(); // xsmtpsib-...
-const fromDom = (process.env.BREVO_DOM || "").trim(); // remitente (verificado en Brevo)
+const user = (process.env.BREVO_USER || "apikey").trim();
+const pass = (process.env.BREVO_PASS || "").trim();
+const fromDom = (process.env.BREVO_DOM || "no-reply@medleave.com").trim();
+const appBaseUrl = (process.env.APP_BASE_URL || "").trim();
 
-// secure: true solo si usamos 465 (TLS directo)
-// requireTLS: true para 587 (STARTTLS)
+// ✅ Configuración segura (STARTTLS)
 const transporter = nodemailer.createTransport({
   host,
   port,
-  secure: port === 465,
+  secure: port === 465,       // true solo si 465
+  requireTLS: port !== 465,   // para STARTTLS (587)
   auth: { user, pass },
   authMethod: "PLAIN",
-  requireTLS: port !== 465,
   pool: true,
   maxConnections: 5,
   maxMessages: 50,
-  tls: { rejectUnauthorized: false }, // útil en desarrollo; puedes quitarlo en prod
+  tls: { rejectUnauthorized: false }, // puedes desactivar en prod si tu CA es válida
 });
 
-/* ==============
-   Healthcheck SMTP
-   ============== */
+/* ================================
+   🩺 VERIFICACIÓN SMTP
+   ================================ */
 export async function verificarSMTP() {
   try {
     await transporter.verify();
+    console.log("✅ SMTP listo y autenticado correctamente");
     return { ok: true };
   } catch (err) {
-    console.error("SMTP verify error:", err?.message || err);
+    console.error("❌ Error verificando SMTP:", err?.message || err);
     return { ok: false, error: String(err?.message || err) };
   }
 }
 
-/* ==============
-   Envío genérico
-   ============== */
+/* ================================
+   ✉️ ENVÍO GENÉRICO
+   ================================ */
 export async function enviarCorreo({ to, subject, html, text, headers }) {
-  const from = `"MedLeave Notificaciones" <${process.env.BREVO_DOM}>`;
+  const from = `"MedLeave Notificaciones" <${fromDom}>`;
 
-  // si 'to' es array, usamos el primero como TO y el resto como BCC
   let toField = to, bccField;
   if (Array.isArray(to) && to.length > 1) {
     [toField, ...bccField] = to;
   }
 
   try {
-    const info = await transporter.sendMail({ from, to: toField, bcc: bccField, subject, html, text, headers });
+    const info = await transporter.sendMail({
+      from,
+      to: toField,
+      bcc: bccField,
+      subject,
+      html,
+      text,
+      headers,
+    });
     console.log("📨 Correo enviado:", info.messageId, "→", Array.isArray(to) ? to.join(", ") : to);
     return { ok: true, id: info.messageId };
   } catch (error) {
@@ -62,17 +70,17 @@ export async function enviarCorreo({ to, subject, html, text, headers }) {
   }
 }
 
-/* ==========================================================
-   Utilidades de destinatarios (fallback por variables de entorno)
-   ========================================================== */
+/* ================================
+   📧 LISTA DE SECRETARÍAS (fallback)
+   ================================ */
 export function getSecretariaToList() {
   const raw = process.env.SECRETARIA_EMAILS || "";
   return raw.split(",").map(s => s.trim()).filter(Boolean);
 }
 
-/* ==========================================
-   Plantilla: recuperación de contraseña (opcional)
-   ========================================== */
+/* ================================
+   🔐 RECUPERAR CONTRASEÑA
+   ================================ */
 export async function enviarCodigoRecuperacion(to, code) {
   const subject = "Código para restablecer tu contraseña";
   const html = `
@@ -86,72 +94,104 @@ export async function enviarCodigoRecuperacion(to, code) {
   return enviarCorreo({ to, subject, html, text });
 }
 
-/* ==========================================================
-   NUEVA LICENCIA: correo a secretaría/funcionarios
-   - Soporta `to` (array o string). Si no viene, usa SECRETARIA_EMAILS.
-   ========================================================== */
+/* ================================
+   📬 NUEVA LICENCIA (Secretaría)
+   ================================ */
 export async function notificarNuevaLicencia({
   folio,
   estudiante,
   fechaCreacionISO,
   enlaceDetalle,
-  to, // ← opcional: lista dinámica desde el controlador
+  to,
 }) {
-  const toList = Array.isArray(to) && to.length
-    ? to
-    : getSecretariaToList();
-
-  if (!toList.length) {
-    return { ok: false, error: "No hay destinatarios configurados (ni to[] ni SECRETARIA_EMAILS)" };
-  }
+  const toList = Array.isArray(to) && to.length ? to : getSecretariaToList();
+  if (!toList.length) return { ok: false, error: "No hay destinatarios (SECRETARIA_EMAILS vacío)" };
 
   const subject = `Nueva licencia recibida · Folio ${folio}`;
   const fechaFmt = new Date(fechaCreacionISO).toLocaleString("es-CL", { hour12: false });
+
   const html = `
-    <div style="font-family:Inter,Arial,sans-serif;line-height:1.5">
-      <h2 style="margin:0 0 8px">Nueva licencia pendiente</h2>
-      <p style="margin:0 0 12px">Se ha recibido una nueva licencia para revisión.</p>
-      <ul style="padding-left:16px">
+    <div style="font-family:Inter,Arial,sans-serif">
+      <h2>Nueva licencia pendiente</h2>
+      <p>Se ha recibido una nueva licencia para revisión.</p>
+      <ul>
         <li><b>Folio:</b> ${folio}</li>
         <li><b>Estudiante:</b> ${estudiante?.nombre || "—"}</li>
         <li><b>Correo:</b> ${estudiante?.correo || "—"}</li>
         <li><b>Fecha creación:</b> ${fechaFmt}</li>
       </ul>
-      <p><a href="${enlaceDetalle}" target="_blank" rel="noopener" 
-        style="display:inline-block;padding:10px 14px;background:#1a73e8;color:#fff;
-        text-decoration:none;border-radius:8px">Abrir en MedLeave</a></p>
-      <p style="color:#6b7280;font-size:12px">Este es un correo automático. No responder.</p>
+      <p><a href="${enlaceDetalle}" style="display:inline-block;padding:10px 14px;background:#1a73e8;color:#fff;text-decoration:none;border-radius:6px">Abrir en MedLeave</a></p>
+      <p style="color:#6b7280;font-size:12px">Correo automático, no responder.</p>
     </div>`;
   const text = `Nueva licencia pendiente.
 Folio: ${folio}
 Estudiante: ${estudiante?.nombre || "—"} (${estudiante?.correo || "—"})
-Fecha creación: ${fechaFmt}
+Fecha: ${fechaFmt}
 Ver: ${enlaceDetalle}`;
 
   return enviarCorreo({ to: toList, subject, html, text });
 }
 
-/* ==========================================================
-   (Opcional) Cambio de estado — se deja disponible por si luego se requiere.
-   No se usa actualmente, pero no estorba tenerlo listo.
-   ========================================================== */
-export async function notificarCambioEstado({ folio, estado, observacion, enlaceDetalle, to }) {
-  const toList = Array.isArray(to) && to.length ? to : getSecretariaToList();
-  if (!toList.length) return { ok: false, error: "No hay destinatarios configurados (ni to[] ni SECRETARIA_EMAILS)" };
+/* ================================
+   🧍‍♀️ NOTIFICACIONES AL ESTUDIANTE
+   ================================ */
+function renderDetalleLicencia(licencia = {}) {
+  return `
+    <ul style="padding-left:16px">
+      <li><b>Folio:</b> ${licencia.folio || licencia.id_licencia || "—"}</li>
+      ${licencia.estado ? `<li><b>Estado:</b> ${licencia.estado}</li>` : ""}
+      ${licencia.observacion ? `<li><b>Observación:</b> ${licencia.observacion}</li>` : ""}
+    </ul>`;
+}
 
-  const subject = `Licencia ${folio} · Estado actualizado a ${estado}`;
+/* === Enviada === */
+export async function notificarEstudianteLicenciaEnviada({ to, nombre, licencia = {} }) {
+  if (!to) return { ok: false, error: "Correo del estudiante vacío" };
+  const subject = "Hemos recibido tu licencia médica";
+  const enlace = appBaseUrl ? `${appBaseUrl}/licencias/mis-licencias` : "#";
   const html = `
-    <div style="font-family:Inter,Arial,sans-serif;line-height:1.5">
-      <h2 style="margin:0 0 8px">Estado actualizado</h2>
-      <p style="margin:0 0 12px">La licencia con folio <b>${folio}</b> cambió a <b>${estado}</b>.</p>
-      ${observacion ? `<p><b>Observación:</b> ${observacion}</p>` : ""}
-      <p><a href="${enlaceDetalle}" target="_blank" rel="noopener"
-        style="display:inline-block;padding:10px 14px;background:#1a73e8;color:#fff;
-        text-decoration:none;border-radius:8px">Ver detalle</a></p>
-      <p style="color:#6b7280;font-size:12px">Este es un correo automático. No responder.</p>
+    <div style="font-family:Inter,Arial,sans-serif">
+      <h2>Licencia recibida ✅</h2>
+      <p>Hola ${nombre || "estudiante"}, tu licencia fue <b>recibida</b> y está en proceso de revisión.</p>
+      ${renderDetalleLicencia(licencia)}
+      <p><a href="${enlace}" style="display:inline-block;padding:10px 14px;background:#1a73e8;color:#fff;text-decoration:none;border-radius:6px">Ver mis licencias</a></p>
+      <p style="color:#6b7280;font-size:12px">Correo automático, no responder.</p>
     </div>`;
-  const text = `Licencia ${folio} actualizada a ${estado}.
-${observacion ? `Observación: ${observacion}\n` : ""}Ver: ${enlaceDetalle}`;
+  const text = `Tu licencia fue recibida. Estado: ${licencia.estado || "pendiente"}.`;
+  return enviarCorreo({ to, subject, html, text });
+}
 
-  return enviarCorreo({ to: toList, subject, html, text });
+/* === Aceptada === */
+export async function notificarEstudianteLicenciaAceptada({ to, nombre, licencia = {} }) {
+  if (!to) return { ok: false, error: "Correo del estudiante vacío" };
+  const subject = "Tu licencia médica fue ACEPTADA";
+  const enlace = appBaseUrl ? `${appBaseUrl}/licencias/mis-licencias` : "#";
+  const html = `
+    <div style="font-family:Inter,Arial,sans-serif">
+      <h2>Licencia ACEPTADA 🎉</h2>
+      <p>Hola ${nombre || "estudiante"}, te informamos que tu licencia médica fue <b>aceptada</b>.</p>
+      ${renderDetalleLicencia(licencia)}
+      <p><a href="${enlace}" style="display:inline-block;padding:10px 14px;background:#22c55e;color:#fff;text-decoration:none;border-radius:6px">Ver en plataforma</a></p>
+      <p style="color:#6b7280;font-size:12px">Correo automático, no responder.</p>
+    </div>`;
+  const text = `Tu licencia fue aceptada. Folio: ${licencia.folio || licencia.id_licencia || "—"}.`;
+  return enviarCorreo({ to, subject, html, text });
+}
+
+/* === Rechazada === */
+export async function notificarEstudianteLicenciaRechazada({ to, nombre, licencia = {} }) {
+  if (!to) return { ok: false, error: "Correo del estudiante vacío" };
+  const subject = "Tu licencia médica fue RECHAZADA";
+  const enlace = appBaseUrl ? `${appBaseUrl}/licencias/mis-licencias` : "#";
+  const html = `
+    <div style="font-family:Inter,Arial,sans-serif">
+      <h2>Licencia RECHAZADA ❗</h2>
+      <p>Hola ${nombre || "estudiante"}, lamentamos informarte que tu licencia fue <b>rechazada</b>.</p>
+      ${renderDetalleLicencia(licencia)}
+      <p>Si corresponde, comunícate con Secretaría.</p>
+      <p><a href="${enlace}" style="display:inline-block;padding:10px 14px;background:#ef4444;color:#fff;text-decoration:none;border-radius:6px">Ir a mis licencias</a></p>
+      <p style="color:#6b7280;font-size:12px">Correo automático, no responder.</p>
+    </div>`;
+  const text = `Tu licencia fue rechazada.${licencia.observacion ? " Motivo: " + licencia.observacion : ""}`;
+  return enviarCorreo({ to, subject, html, text });
 }
