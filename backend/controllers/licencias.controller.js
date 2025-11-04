@@ -248,7 +248,7 @@ export const crearLicencia = async (req, res) => {
     const [result] = await db.execute(
       `INSERT INTO LicenciaMedica
        (folio, fecha_emision, fecha_inicio, fecha_fin, estado, motivo_rechazo, fecha_creacion, id_usuario)
-       VALUES (?, CURDATE(), ?, ?, 'pendiente', NULL, CURDATE(), ?)`,
+       VALUES (?, CURDATE(), ?, ?, 'pendiente', NULL, NOW(), ?)`,
       [folio, fecha_inicio, fecha_fin, usuarioId]
     );
 
