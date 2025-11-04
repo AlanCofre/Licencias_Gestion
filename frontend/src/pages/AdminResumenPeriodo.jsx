@@ -115,10 +115,16 @@ export default function AdminResumenPeriodo() {
             >
               {periodos.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.nombre} {p.activo ? "(Activo)" : ""}
+                  {p.nombre}
                 </option>
               ))}
             </select>
+            {/* Badge fuera del select */}
+            {periodos.find((p) => p.id === periodoSel && p.activo) && (
+              <span className="inline-block bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300 rounded-full px-3 py-1 text-xs font-semibold">
+                Activo
+              </span>
+            )}
             <button
               onClick={exportarCSV}
               className="ml-auto px-4 py-2 bg-blue-600 text-white rounded shadow hover:bg-blue-700 transition"

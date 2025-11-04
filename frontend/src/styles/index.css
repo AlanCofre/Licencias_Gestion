@@ -367,3 +367,10 @@ body {
   color: var(--text) !important;
 }
 
+/* Forzar color de texto y fondo en select y option en modo oscuro */
+.dark select,
+.dark select option {
+  color: #222 !important;      /* texto oscuro */
+  background-color: #e5e7eb !important; /* fondo gris claro */
+}
+
