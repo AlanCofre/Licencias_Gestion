@@ -249,7 +249,6 @@ export const crearLicencia = async (req, res) => {
       VALUES
         (?,     CURDATE(),     ?,            ?,          'pendiente', NULL,            NOW(),     ?)
     `;
-    const [result] = await db.execute(sqlInsert, [folio, fecha_inicio, fecha_fin, usuarioId]);
 
     const [result] = await db.execute(
       `INSERT INTO LicenciaMedica

@@ -1,9 +1,7 @@
 // backend/src/routes/usuario.route.js
 import { Router } from 'express';
 import requireAuth from '../../middlewares/requireAuth.js';
-import { NotificacionesPassword
-, NotificacionesPerfil
- } from '../../controllers/perfil.controller.js';
+
 import { registrar, index, logout } from '../../controllers/controlador_Usuario.js';
 import { login as loginNuevo } from '../../controllers/auth.controller.js';
 import { serveView } from '../../middlewares/static_Serve.js';
@@ -11,7 +9,6 @@ import {
   requestPasswordReset,
   confirmPasswordReset
 } from '../../controllers/passwordResetController.js';
-import requireAuth from '../../middlewares/requireAuth.js';
 import { NotificacionesPassword } from '../../controllers/perfil.controller.js';
 import { NotificacionesPerfil } from '../../controllers/perfil.controller.js';
 import { obtenerMisMatriculas } from '../../controllers/matricula.controller.js';

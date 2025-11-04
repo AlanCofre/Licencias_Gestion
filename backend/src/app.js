@@ -14,7 +14,6 @@ import archivoRoutes from './routes/archivo.routes.js';
 import cursoRoutes from './routes/curso.route.js';
 import matriculasRoutes from './routes/matriculas.routes.js';
 import devMailRoutes from './routes/dev.mail.routes.js';
-import archivoRoutes from './routes/archivo.routes.js';
 
 import { attachAudit } from '../middlewares/audit.middleware.js';
 import db from '../config/db.js';

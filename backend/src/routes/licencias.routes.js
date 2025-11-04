@@ -26,8 +26,8 @@ import {
 } from '../../middlewares/validarLicenciaMedica.js';
 import { decidirLicenciaSvc } from '../../services/servicio_Licencias.js';
 
-import LicenciaMedica from '../models/modelo_LicenciaMedica.js';
-import Usuario from '../models/modelo_Usuario.js';
+import { LicenciasEntregas, Curso, Usuario, LicenciaMedica, Matricula } from '../models/index.js';
+
 import { cacheMiddleware } from '../../middlewares/cacheMiddleware.js';
 
 const router = Router();
@@ -308,9 +308,56 @@ router.get('/revisar', [validarJWT, tieneRol('profesor', 'funcionario', 'secreta
 });
 
 /**
- * Decidir licencia (SECRETARIO / FUNCIONARIO):
- * FIX: inyectamos id_usuario desde el token ANTES de validateDecision
+ * Decidir licencia (SECRETARIO):
+ * - validateDecision: valida body (ej. { estado, motivo_rechazo })
+ * - cargarLicencia: trae la licencia y la deja en req.licencia
+ * - validarTransicionEstado: aplica la regla de transición usando el estado actual
+ *   pendiente → (aceptado|rechazado) ✅; otras ❌
  */
+
+
+// === Endpoint: Licencias entregadas por el profesor en sus cursos ===
+router.get('/mis-cursos', validarJWT, tieneRol('profesor'), async (req, res) => {
+  console.log('🧪 Entró al endpoint /mis-cursos');
+  const { periodo } = req.query;
+  const idProfesor = req.user?.id_usuario;
+
+  console.log('🔍 req.user:', req.user);
+  console.log('🧪 Query params:', { idProfesor, periodo });
+
+  // Validaciones
+  if (!idProfesor) {
+    return res.status(401).json({ ok: false, error: "No se pudo identificar al profesor." });
+  }
+
+  if (!periodo || typeof periodo !== 'string') {
+    return res.status(400).json({ ok: false, error: "El campo 'periodo' es obligatorio y debe ser texto." });
+  }
+
+  try {
+    const [licencias] = await db.execute(`
+      SELECT lm.id_licencia,
+             lm.id_usuario AS id_estudiante,
+             lm.folio,
+             lm.fecha_emision,
+             lm.fecha_inicio,
+             lm.fecha_fin,
+             lm.estado
+      FROM licenciamedica lm
+      JOIN licencias_entregas le ON lm.id_licencia = le.id_licencia
+      JOIN curso c ON le.id_curso = c.id_curso
+      WHERE c.id_usuario = ?
+        AND c.periodo = ?
+      ORDER BY lm.fecha_emision DESC
+    `, [idProfesor, periodo]);
+
+    return res.status(200).json({ ok: true, licencias });
+  } catch (error) {
+    console.error('❌ Error al obtener licencias del profesor:', error);
+    return res.status(500).json({ ok: false, error: 'Error interno del servidor' });
+  }
+});
+
 router.put(
   '/:id/estado',
   authRequired,
@@ -493,5 +540,16 @@ router.post(
   (req, res, next) => validarTransicionEstado(req.licencia.estado)(req, res, next),
   decidirLicencia
 );
+
+router.post(
+  '/',
+  validarJWT,
+  esEstudiante,
+  upload.single('archivo'),
+  validarArchivoAdjunto,
+  validateLicenciaBody,
+  crearLicencia
+);
+
 
 export default router;
