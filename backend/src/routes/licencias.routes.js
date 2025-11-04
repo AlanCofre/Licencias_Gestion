@@ -2,7 +2,6 @@
 import { Router } from 'express';
 import multer from 'multer';
 import db from '../../db/db.js';
-
 import {
   crearLicencia,
   listarLicencias,

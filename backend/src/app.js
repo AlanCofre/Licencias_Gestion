@@ -10,6 +10,9 @@ import licenciasRouter from './routes/licencias.routes.js';
 import healthRouter from './routes/health.route.js';
 import usuarioRoutes from './routes/usuario.route.js';
 import perfilRouter from './routes/perfil.routes.js';
+import archivoRoutes from './routes/archivo.routes.js';
+import cursoRoutes from './routes/curso.route.js';
+import matriculasRoutes from './routes/matriculas.routes.js';
 import devMailRoutes from './routes/dev.mail.routes.js';
 import archivoRoutes from './routes/archivo.routes.js';
 
@@ -36,7 +39,7 @@ const corsOptions = {
     'http://localhost:5173',
   ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'x-token'],
   credentials: true,
   optionsSuccessStatus: 200,
 };
@@ -70,6 +73,8 @@ app.use('/archivos', insertRouter);
 app.use('/api/notificaciones', notificacionesRouter);
 app.use('/usuarios', usuarioRoutes);
 app.use('/api', perfilRouter);
+app.use('/cursos', cursoRoutes);
+app.use('/matriculas', matriculasRoutes);
 
 // Home
 app.get('/', (req, res) => res.redirect('/usuarios/login'));

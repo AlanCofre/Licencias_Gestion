@@ -242,8 +242,14 @@ export const crearLicencia = async (req, res) => {
     const [u] = await db.execute('SELECT id_usuario FROM Usuario WHERE id_usuario = ?', [usuarioId]);
     if (!u.length) return res.status(404).json({ msg: 'Usuario no encontrado' });
 
-    const folio = String(req.body?.folio ?? '').trim();
-    if (!folio) return res.status(400).json({ msg: 'El folio es obligatorio' });
+    const folio = await generarFolio();
+    const sqlInsert = `
+      INSERT INTO LicenciaMedica
+        (folio, fecha_emision, fecha_inicio, fecha_fin, estado, motivo_rechazo, fecha_creacion, id_usuario)
+      VALUES
+        (?,     CURDATE(),     ?,            ?,          'pendiente', NULL,            NOW(),     ?)
+    `;
+    const [result] = await db.execute(sqlInsert, [folio, fecha_inicio, fecha_fin, usuarioId]);
 
     const [result] = await db.execute(
       `INSERT INTO LicenciaMedica
@@ -333,7 +339,7 @@ export const crearLicencia = async (req, res) => {
         fecha_fin,
         estado: 'pendiente',
         motivo_rechazo: null,
-        fecha_creacion: new Date().toISOString().slice(0, 10),
+        fecha_creacion: new Date().toISOString(),
         id_usuario: usuarioId,
         motivo
       }
@@ -661,7 +667,7 @@ export const crearLicenciaLegacy = async (req, res) => {
       INSERT INTO LicenciaMedica
         (folio, fecha_emision, fecha_inicio, fecha_fin, estado, motivo_rechazo, fecha_creacion, id_usuario)
       VALUES
-        (?,     CURDATE(),     ?,            ?,          'pendiente', NULL,            CURDATE(),     ?)
+        (?,     CURDATE(),     ?,            ?,          'pendiente', NULL,            NOW(),     ?)
     `;
     const [result] = await db.execute(sql, [folio, fecha_inicio, fecha_fin, id_usuario]);
 

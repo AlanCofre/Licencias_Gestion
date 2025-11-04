@@ -1,7 +1,7 @@
 import jwt from 'jsonwebtoken';
 
 export const generarJWT = (id, rolInput) => {
-  const alias = { profesor: 'funcionario', secretario: 'funcionario', secretaria: 'funcionario', alumno: 'estudiante' };
+  const alias = {secretario: 'funcionario', secretaria: 'funcionario', alumno: 'estudiante' };
   const rol =
     typeof rolInput === 'number'
       ? (rolInput === 1 ? 'funcionario' : rolInput === 2 ? 'estudiante' : 'estudiante')

@@ -48,7 +48,7 @@ LicenciaMedica.init(
   },
   {
     sequelize,
-    tableName: 'LicenciaMedica',
+    tableName: 'licenciamedica',
     timestamps: false, // Si tu tabla ya tiene createdAt/updatedAt, cambia a true y mapea underscored si aplica
     defaultScope: {
       order: [['fecha_creacion', 'DESC']],
@@ -116,8 +116,6 @@ hooks: {
   }
 );
 
-// Asociación (FK ya definida arriba)
-LicenciaMedica.belongsTo(Usuario, { foreignKey: 'id_usuario' });
 
 // Índices útiles (solo si usas sync; si ya tienes migraciones, crea el índice vía migration)
 try {
