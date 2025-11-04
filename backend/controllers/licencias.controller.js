@@ -242,13 +242,8 @@ export const crearLicencia = async (req, res) => {
     const [u] = await db.execute('SELECT id_usuario FROM Usuario WHERE id_usuario = ?', [usuarioId]);
     if (!u.length) return res.status(404).json({ msg: 'Usuario no encontrado' });
 
-    const folio = await generarFolio();
-    const sqlInsert = `
-      INSERT INTO LicenciaMedica
-        (folio, fecha_emision, fecha_inicio, fecha_fin, estado, motivo_rechazo, fecha_creacion, id_usuario)
-      VALUES
-        (?,     CURDATE(),     ?,            ?,          'pendiente', NULL,            NOW(),     ?)
-    `;
+    const folio = String(req.body?.folio ?? '').trim();
+    if (!folio) return res.status(400).json({ msg: 'El folio es obligatorio' });
 
     const [result] = await db.execute(
       `INSERT INTO LicenciaMedica
