@@ -272,7 +272,7 @@ export async function decidirLicenciaSvc({
 
       if (!archivo) {
         const rows = await LicenciaMedica.sequelize.query(
-          'SELECT 1 AS ok FROM ArchivoLicencia WHERE id_licencia = ? AND hash IS NOT NULL LIMIT 1',
+          'SELECT 1 AS ok FROM archivolicencia WHERE id_licencia = ? AND hash IS NOT NULL LIMIT 1',
           {
             replacements: [lic.id_licencia],
             type: QueryTypes.SELECT,

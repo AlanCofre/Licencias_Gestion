@@ -38,7 +38,7 @@ router.post('/licencias/:id/archivo', upload.single('file'), async (req, res) =>
 
     // Inserción en la base de datos
     await db.execute(`
-      INSERT INTO ArchivoLicencia
+      INSERT INTO archivolicencia
         (id_licencia, ruta_url, tipo_mime, hash, tamano, fecha_subida)
       VALUES (?, ?, ?, ?, ?, CURDATE())
     `, [idLicencia, ruta_url, tipo_mime, hash, tamano]);

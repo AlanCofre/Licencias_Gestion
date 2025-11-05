@@ -16,7 +16,7 @@ function AttachmentView({ archivo, idLicencia }) {
     return <div className="text-sm text-gray-500">Sin archivo adjunto</div>;
   }
 
-  const API = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
+  const API = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
   const token = localStorage.getItem("token") || "";
   const isPDF =
     archivo.mimetype === "application/pdf" || /\.pdf$/i.test(archivo.ruta_url);
@@ -88,7 +88,7 @@ export default function EvaluarLicencia() {
       try {
         setLoading(true);
         setMensaje("");
-        const API = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
+        const API = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
         const token = localStorage.getItem("token") || "";
 
         const res = await fetch(`${API}/api/licencias/${id}`, {
@@ -125,7 +125,7 @@ export default function EvaluarLicencia() {
   const decidirLicencia = async (decision) => {
     if (!licencia) return;
 
-    const API = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
+    const API = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
     const token = localStorage.getItem("token") || "";
 
     const bodyDecidir =

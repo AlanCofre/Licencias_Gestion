@@ -96,7 +96,11 @@ export default function GenerarRevision() {
         localStorage.getItem("accessToken") ||
         "";
 
-      const apiBase = (import.meta.env.VITE_API_URL || "http://localhost:3000").replace(/\/$/, "");
+      const apiBase = (import.meta.env.VITE_API_BASE_URL).replace(
+        /\/$/,
+        ""
+      );
+
       const res = await fetch(`${apiBase}/api/licencias/crear`, {
         method: "POST",
         headers: {
