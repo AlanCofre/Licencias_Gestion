@@ -4,13 +4,13 @@ import dotenv from "dotenv";
 dotenv.config();
 
 /* =======================
-   Configuración SMTP Brevo
+   Configuración SMTP MAIL
    ======================= */
-const host = (process.env.BREVO_HOST || "").trim() || "smtp-relay.brevo.com";
-const port = Number((process.env.BREVO_PORT || "587").trim());
-const user = (process.env.BREVO_USER || "").trim(); // debe ser "apikey" en Brevo
-const pass = (process.env.BREVO_PASS || "").trim(); // xsmtpsib-...
-const fromDom = (process.env.BREVO_DOM || "").trim(); // remitente (verificado en Brevo)
+const host = (process.env.MAIL_HOST || "").trim();
+const port = Number((process.env.MAIL_PORT || "587").trim());
+const user = (process.env.MAIL_USER || "").trim(); // debe ser "apikey" en Brevo
+const pass = (process.env.MAIL_PASS || "").trim(); // xsmtpsib-...
+const fromDom = (process.env.MAIL_DOM || "").trim(); // remitente (verificado en Brevo)
 
 // secure: true solo si usamos 465 (TLS directo)
 // requireTLS: true para 587 (STARTTLS)
@@ -44,7 +44,7 @@ export async function verificarSMTP() {
    Envío genérico
    ============== */
 export async function enviarCorreo({ to, subject, html, text, headers }) {
-  const from = `"MedLeave Notificaciones" <${process.env.BREVO_DOM}>`;
+  const from = `"MedLeave Notificaciones" <${process.env.MAIL_DOM}>`;
 
   // si 'to' es array, usamos el primero como TO y el resto como BCC
   let toField = to, bccField;

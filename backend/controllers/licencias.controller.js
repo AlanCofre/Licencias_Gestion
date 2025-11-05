@@ -45,7 +45,7 @@ function _safeJoin(baseDir, relative) {
 function _puedeVerArchivo(user, idPropietario) {
   if (!user) return false;
   const rol = String(user.rol || '').toLowerCase();
-  if (rol === 'funcionario') return true;
+  if (rol === 'funcionario' || rol === 'secretario') return true;
   if (rol === 'estudiante' && Number(user.id_usuario) === Number(idPropietario)) return true;
   return false;
 }
@@ -60,7 +60,6 @@ export async function listarMisLicencias(req, res) {
       return res.status(401).json({ ok: false, error: 'Usuario no autenticado' });
     }
 
-    // Usar parámetros de paginación para limitar resultados
     const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
     const offset = (page - 1) * limit;
@@ -77,7 +76,7 @@ export async function listarMisLicencias(req, res) {
         motivo_rechazo,
         DATE_FORMAT(fecha_creacion, '%Y-%m-%d %H:%i:%s') AS fecha_creacion,
         id_usuario
-      FROM LicenciaMedica
+      FROM licenciamedica
       WHERE id_usuario = ?
       ORDER BY fecha_creacion DESC
       LIMIT ? OFFSET ?
@@ -85,9 +84,8 @@ export async function listarMisLicencias(req, res) {
       [idUsuario, limit, offset]
     );
 
-    // Obtener total para paginación
     const [[{ total }]] = await db.execute(
-      'SELECT COUNT(*) as total FROM LicenciaMedica WHERE id_usuario = ?',
+      'SELECT COUNT(*) as total FROM licenciamedica WHERE id_usuario = ?',
       [idUsuario]
     );
 
@@ -135,7 +133,7 @@ export async function listarLicencias(req, res) {
         DATE_FORMAT(fecha_inicio, '%Y-%m-%d') AS fecha_inicio,
         DATE_FORMAT(fecha_fin, '%Y-%m-%d') AS fecha_fin,
         estado
-      FROM LicenciaMedica
+      FROM licenciamedica
       WHERE id_usuario = ?
       ORDER BY fecha_creacion DESC
       LIMIT ? OFFSET ?
@@ -168,7 +166,7 @@ export const crearLicencia = async (req, res) => {
 
     // ✉️ obtener también correo para el mail
     const [userRow] = await db.execute(
-      'SELECT nombre, correo_usuario AS correo FROM Usuario WHERE id_usuario = ?',
+      'SELECT nombre, correo_usuario AS correo FROM usuario WHERE id_usuario = ?',
       [usuarioId]
     );
     const nombreEstudiante = userRow[0]?.nombre || usuarioId;
@@ -200,7 +198,7 @@ export const crearLicencia = async (req, res) => {
     // Superposición de fechas
     const [solape] = await db.execute(
       `SELECT id_licencia, fecha_inicio, fecha_fin, estado
-       FROM LicenciaMedica
+       FROM licenciamedica
        WHERE id_usuario = ?
          AND estado IN ('pendiente','aceptado')
          AND (? <= fecha_fin AND ? >= fecha_inicio)
@@ -225,8 +223,8 @@ export const crearLicencia = async (req, res) => {
     if (hashEntrada) {
       const [dup] = await db.execute(
         `SELECT al.id_archivo, lm.id_licencia
-           FROM ArchivoLicencia al
-           JOIN LicenciaMedica lm ON lm.id_licencia = al.id_licencia
+           FROM archivolicencia al
+           JOIN licenciamedica lm ON lm.id_licencia = al.id_licencia
           WHERE lm.id_usuario = ? AND al.hash = ?
           LIMIT 1`,
         [usuarioId, hashEntrada]
@@ -241,18 +239,31 @@ export const crearLicencia = async (req, res) => {
     }
 
     // Insert
-    const [u] = await db.execute('SELECT id_usuario FROM Usuario WHERE id_usuario = ?', [usuarioId]);
+    const [u] = await db.execute('SELECT id_usuario FROM usuario WHERE id_usuario = ?', [usuarioId]);
     if (!u.length) return res.status(404).json({ msg: 'Usuario no encontrado' });
 
     const folio = String(req.body?.folio ?? '').trim();
     if (!folio) return res.status(400).json({ msg: 'El folio es obligatorio' });
 
     const [result] = await db.execute(
-      `INSERT INTO LicenciaMedica
+      `INSERT INTO licenciamedica
        (folio, fecha_emision, fecha_inicio, fecha_fin, estado, motivo_rechazo, fecha_creacion, id_usuario)
-       VALUES (?, CURDATE(), ?, ?, 'pendiente', NULL, CURDATE(), ?)`,
+       VALUES (?, CURDATE(), ?, ?, 'pendiente', NULL, NOW(), ?)`,
       [folio, fecha_inicio, fecha_fin, usuarioId]
     );
+
+    // 🔎 AUDIT: emitir licencia
+    try {
+      await req.audit('emitir licencia', 'LicenciaMedica', {
+        id_licencia: result.insertId,
+        estado: 'pendiente',
+        folio,
+        fecha_inicio,
+        fecha_fin
+      });
+    } catch (e) {
+      console.warn('[audit] crearLicencia:', e?.message || e);
+    }
 
     // Notificaciones (best-effort en BD)
     try {
@@ -273,7 +284,7 @@ export const crearLicencia = async (req, res) => {
       const tamano = Number(req.body?.tamano ?? (archivo?.size ?? 0));
       if ((hashEntrada || ruta_url || tipo_mime || tamano) && ruta_url) {
         await db.execute(
-          `INSERT INTO ArchivoLicencia (ruta_url, tipo_mime, hash, tamano, fecha_subida, id_licencia)
+          `INSERT INTO archivolicencia (ruta_url, tipo_mime, hash, tamano, fecha_subida, id_licencia)
            VALUES (?, ?, ?, ?, NOW(), ?)`,
           [ruta_url, tipo_mime ?? 'application/octet-stream', hashEntrada ?? null, tamano, idLicencia]
         );
@@ -282,37 +293,30 @@ export const crearLicencia = async (req, res) => {
       console.error('❌ Error al registrar archivo:', archivoError.message);
     }
 
-    // ✉️ Enviar correo a TODOS los funcionarios (id_rol=3, activos) — SIN usar SECRETARIA_EMAILS
+    // ✉️ Enviar correo (best-effort)
     try {
       const idLicencia = result.insertId;
-
-      // 1) Leer correos de funcionarios activos
       const [destRows] = await db.execute(
         `SELECT correo_usuario AS correo
-           FROM Usuario
+           FROM usuario
           WHERE id_rol = 3 AND activo = 1 AND correo_usuario IS NOT NULL`
       );
-
       const destinatarios = Array.isArray(destRows)
         ? [...new Set(destRows.map(r => (r.correo || '').trim()).filter(Boolean))]
         : [];
-
-      console.log('✉️ Funcionarios destino:', destinatarios);
-
-      if (!destinatarios.length) {
-        console.warn('✉️ [crearLicencia] No hay funcionarios (id_rol=3) activos con correo; correo omitido.');
-      } else {
+      if (destinatarios.length) {
         const enlaceDetalle = `${process.env.APP_BASE_URL || 'http://localhost:5173'}/licencias/${idLicencia}`;
-
         await notificarNuevaLicencia({
           folio,
           estudiante: { nombre: nombreEstudiante, correo: correoEstudiante },
           fechaCreacionISO: new Date().toISOString(),
           enlaceDetalle,
-          to: destinatarios, // ← lista dinámica, evita fallback
+          to: destinatarios,
         }).then(r => {
           if (!r?.ok) console.error('✉️ Email nueva licencia falló:', r?.error);
         });
+      } else {
+        console.warn('✉️ [crearLicencia] No hay funcionarios (id_rol=3) activos con correo; correo omitido.');
       }
     } catch (e) {
       console.warn('✉️ [crearLicencia] envío correo omitido:', e?.message || e);
@@ -329,7 +333,7 @@ export const crearLicencia = async (req, res) => {
         fecha_fin,
         estado: 'pendiente',
         motivo_rechazo: null,
-        fecha_creacion: new Date().toISOString().slice(0, 10),
+        fecha_creacion: new Date().toISOString(),
         id_usuario: usuarioId,
         motivo
       }
@@ -351,7 +355,6 @@ export const getLicenciasEnRevision = async (req, res) => {
 
     const { nombre, folio, desde, hasta, page = 1, limit = 10 } = req.query;
     
-    // Validar y normalizar parámetros
     const pageNum = Math.max(1, parseInt(page));
     const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
     const offset = (pageNum - 1) * limitNum;
@@ -359,7 +362,6 @@ export const getLicenciasEnRevision = async (req, res) => {
     let condiciones = [`lm.estado = 'pendiente'`];
     let params = [];
 
-    // Solo funcionarios pueden usar filtros amplios
     if (['funcionario', 'secretario'].includes(rol)) {
       if (nombre) { 
         condiciones.push(`u.nombre LIKE ?`); 
@@ -384,7 +386,6 @@ export const getLicenciasEnRevision = async (req, res) => {
 
     const where = condiciones.length ? `WHERE ${condiciones.join(' AND ')}` : '';
 
-    // Consulta principal con LIMIT optimizado
     const [rows] = await db.execute(`
       SELECT 
         lm.id_licencia, 
@@ -397,19 +398,18 @@ export const getLicenciasEnRevision = async (req, res) => {
         lm.fecha_creacion, 
         lm.id_usuario, 
         u.nombre
-      FROM LicenciaMedica lm
+      FROM licenciamedica lm
       FORCE INDEX (idx_licencia_estado, idx_licencia_completo)
-      JOIN Usuario u FORCE INDEX (idx_usuario_nombre) ON lm.id_usuario = u.id_usuario
+      JOIN usuario u FORCE INDEX (idx_usuario_nombre) ON lm.id_usuario = u.id_usuario
       ${where}
       ORDER BY lm.fecha_creacion DESC, lm.id_licencia DESC
       LIMIT ? OFFSET ?
     `, [...params, limitNum, offset]);
 
-    // Contar total (separado para mejor performance)
     const [countRows] = await db.execute(`
       SELECT COUNT(*) as total
-      FROM LicenciaMedica lm
-      ${where.includes('JOIN') ? where : `JOIN Usuario u ON lm.id_usuario = u.id_usuario ${where}`}
+      FROM licenciamedica lm
+      ${where.includes('JOIN') ? where : `JOIN usuario u ON lm.id_usuario = u.id_usuario ${where}`}
     `, params);
 
     const total = countRows[0]?.total || 0;
@@ -443,7 +443,6 @@ export const licenciasResueltas = async (req, res) => {
 
     const { estado, desde, hasta, nombre, folio, page = 1, limit = 20 } = req.query;
     
-    // Validar parámetros
     const pageNum = Math.max(1, parseInt(page));
     const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
     const offset = (pageNum - 1) * limitNum;
@@ -494,7 +493,6 @@ export const licenciasResueltas = async (req, res) => {
       LIMIT ? OFFSET ?
     `, [...valores, limitNum, offset]);
 
-    // Contar total
     const [countRows] = await db.execute(`
       SELECT COUNT(*) as total
       FROM licenciamedica lm
@@ -563,7 +561,7 @@ export const detalleLicencia = async (req, res) => {
 
     const r = rows[0];
 
-    if (rol !== 'funcionario' && Number(r.id_usuario) !== Number(usuarioId)) {
+    if (!['funcionario','secretario'].includes(rol) && Number(r.id_usuario) !== Number(usuarioId)) {
       return res.status(403).json({ error: 'No autorizado' });
     }
 
@@ -651,7 +649,7 @@ export const crearLicenciaLegacy = async (req, res) => {
       return res.status(400).json({ ok: false, mensaje: 'fecha_inicio no puede ser posterior a fecha_fin' });
     }
 
-    const [u] = await db.execute('SELECT id_usuario FROM Usuario WHERE id_usuario = ?', [id_usuario]);
+    const [u] = await db.execute('SELECT id_usuario FROM usuario WHERE id_usuario = ?', [id_usuario]);
     if (!u.length) return res.status(404).json({ ok: false, mensaje: 'Usuario no encontrado' });
 
     const folio = String(req.body?.folio ?? "").trim();
@@ -660,15 +658,28 @@ export const crearLicenciaLegacy = async (req, res) => {
     }
 
     const sql = `
-      INSERT INTO LicenciaMedica
+      INSERT INTO licenciamedica
         (folio, fecha_emision, fecha_inicio, fecha_fin, estado, motivo_rechazo, fecha_creacion, id_usuario)
       VALUES
-        (?,     CURDATE(),     ?,            ?,          'pendiente', NULL,            CURDATE(),     ?)
+        (?,     CURDATE(),     ?,            ?,          'pendiente', NULL,            NOW(),     ?)
     `;
     const [result] = await db.execute(sql, [folio, fecha_inicio, fecha_fin, id_usuario]);
 
+    // 🔎 AUDIT: emitir licencia (legacy)
+    try {
+      await req.audit('emitir licencia', 'LicenciaMedica', {
+        id_licencia: result.insertId,
+        estado: 'pendiente',
+        folio,
+        fecha_inicio,
+        fecha_fin
+      });
+    } catch (e) {
+      console.warn('[audit] crearLicenciaLegacy:', e?.message || e);
+    }
+
     const [row] = await db.execute(
-      'SELECT id_licencia, folio, fecha_emision, fecha_inicio, fecha_fin, estado, motivo_rechazo, fecha_creacion, id_usuario FROM LicenciaMedica WHERE id_licencia = ?',
+      'SELECT id_licencia, folio, fecha_emision, fecha_inicio, fecha_fin, estado, motivo_rechazo, fecha_creacion, id_usuario FROM licenciamedica WHERE id_licencia = ?',
       [result.insertId]
     );
 
@@ -702,7 +713,7 @@ export async function decidirLicencia(req, res) {
     }
     if (decisionRaw === 'aceptado') {
       const [archivos] = await db.execute(
-        `SELECT hash FROM ArchivoLicencia WHERE id_licencia = ? LIMIT 1`,
+        `SELECT hash FROM archivolicencia WHERE id_licencia = ? LIMIT 1`,
         [idLicencia]
       );
       if (!archivos.length || !archivos[0].hash) {
@@ -724,6 +735,20 @@ export async function decidirLicencia(req, res) {
     };
 
     const out = await decidirLicenciaSvc(payload);
+
+    // 🔎 AUDITORÍA — aceptar / rechazar (servicio decidirLicencia)
+    try {
+      const accion = (decisionRaw === 'aceptado') ? 'aceptar licencia' : 'rechazar licencia';
+      const pl = {
+        id_licencia: idLicencia,
+        estado_nuevo: decisionRaw
+      };
+      if (decisionRaw === 'rechazado') pl.motivo_rechazo = motivo_rechazo;
+
+      await req.audit(accion, 'LicenciaMedica', pl, { userId: actorId });
+    } catch (e) {
+      console.warn('[audit] decidirLicencia:', e?.message || e);
+    }
 
     return res.status(200).json({
       ok: true,
@@ -758,7 +783,7 @@ export async function decidirLicencia(req, res) {
 }
 
 // ========================
-// GET /api/licencias/:id/archivo  
+// GET /api/licencias/:id/archivo
 // ========================
 export const descargarArchivoLicencia = async (req, res) => {
   try {
@@ -848,19 +873,37 @@ export async function cambiarEstado(req, res, next) {
     if (!['aceptado','rechazado','pendiente'].includes(nuevo_estado)) {
       return res.status(400).json({ error: 'ESTADO_INVALIDO' });
     }
-    if (req.user?.rol !== 'funcionario') {
+
+    // ✅ permitir funcionario y secretario
+    if (!['funcionario','secretario'].includes(String(req.user?.rol || '').toLowerCase())) {
       return res.status(403).json({ error: 'NO_AUTORIZADO' });
     }
 
     const lic = await LicenciaMedica.findByPk(id);
     if (!lic) return res.status(404).json({ error: 'LICENCIA_NO_ENCONTRADA' });
 
+    const anterior = lic.estado;
     lic.estado = nuevo_estado;
     if (nuevo_estado === 'rechazado') {
       lic.motivo_rechazo = motivo_rechazo ?? lic.motivo_rechazo;
     }
 
-    await lic.save({ userId: req.user.id });
+    await lic.save({ userId: req.user?.id_usuario ?? req.user?.id ?? null });
+
+    if (nuevo_estado === 'aceptado' || nuevo_estado === 'rechazado') {
+      try {
+        const accion = nuevo_estado === 'aceptado' ? 'aceptar licencia' : 'rechazar licencia';
+        await req.audit(accion, 'LicenciaMedica', {
+          id_licencia: lic.id_licencia,
+          estado_nuevo: nuevo_estado,
+          ...(nuevo_estado === 'rechazado' ? { motivo_rechazo: lic.motivo_rechazo ?? motivo_rechazo ?? null } : {})
+        });
+      } catch (e) {
+        console.warn('[audit] cambiarEstado:', e?.message || e);
+      }
+    }
+
+
     return res.json({ ok: true, data: { id: lic.id_licencia, estado: lic.estado } });
   } catch (err) { next(err); }
 }

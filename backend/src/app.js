@@ -1,6 +1,8 @@
 // backend/src/app.js
+import '../config/env.js';                  // Carga variables .env (tu wrapper)
 import express from 'express';
 import cors from 'cors';
+
 import detailsRouter from './detail/details.js';
 import insertRouter from './insert/insert.js';
 import notificacionesRouter from './routes/notificaciones.route.js';
@@ -8,12 +10,15 @@ import licenciasRouter from './routes/licencias.routes.js';
 import healthRouter from './routes/health.route.js';
 import usuarioRoutes from './routes/usuario.route.js';
 import perfilRouter from './routes/perfil.routes.js';
+import archivoRoutes from './routes/archivo.routes.js';
+import cursoRoutes from './routes/curso.route.js';
+import matriculasRoutes from './routes/matriculas.routes.js';
 import devMailRoutes from './routes/dev.mail.routes.js';
-import archivoRoutes from './routes/archivo.routes.js'; // ✅ Asegúrate de importar esto
 
-import db from './../config/db.js';
+import { attachAudit } from '../middlewares/audit.middleware.js';
+import db from '../config/db.js';
 
-const app = express();                // ← declara app ANTES de usarla
+const app = express();
 const PORT = process.env.PORT || 3000;
 
 console.log('[env] JWT_SECRET set?', !!process.env.JWT_SECRET);
@@ -21,53 +26,59 @@ console.log('[DB CONFIG]', {
   host: process.env.DB_HOST,
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME
+  database: process.env.DB_NAME,
 });
 
-/* === Configuración CORS mejorada === */
+/* === CORS === */
 const corsOptions = {
-  origin: ['http://127.0.0.1:5500', 'http://localhost:5500', 'http://localhost:3000', 'http://localhost:5173'],
+  origin: [
+    'http://127.0.0.1:5500',
+    'http://localhost:5500',
+    'http://localhost:3000',
+    'http://localhost:5173',
+  ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'x-token'],
   credentials: true,
-  optionsSuccessStatus: 200
+  optionsSuccessStatus: 200,
 };
-
 app.use(cors(corsOptions));
-
-// Middleware para manejar preflight requests
 app.options('*', cors(corsOptions));
 
 /* === Middlewares globales === */
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-/* === Rutas de DEV (solo en desarrollo) === */
-if (process.env.NODE_ENV !== "production") {
-  app.use(express.json());
-  app.use(devMailRoutes); // aquí ya existe app
+/* === Rutas de DEV (solo fuera de producción) === */
+if (process.env.NODE_ENV !== 'production') {
+  app.use(attachAudit());
+  app.use(devMailRoutes);
 }
 
 /* === Rutas === */
 app.use(healthRouter);
 
-// ✅ Montar rutas de archivos
+// Archivos
 app.use('/api/archivos', archivoRoutes);
 
-// ⚠️ Montar licencias SOLO una vez con prefijo fijo
+// Licencias (solo una vez con prefijo fijo)
 app.use('/api/licencias', licenciasRouter);
 
-// Resto de rutas existentes
-app.use('/licencias', detailsRouter);        // legacy / vistas
+// Rutas legacy / auxiliares
+app.use('/licencias', detailsRouter);
 app.use('/archivos', insertRouter);
+
+// Notificaciones y usuarios / perfil
 app.use('/api/notificaciones', notificacionesRouter);
 app.use('/usuarios', usuarioRoutes);
 app.use('/api', perfilRouter);
+app.use('/cursos', cursoRoutes);
+app.use('/matriculas', matriculasRoutes);
 
-// Home (debe ir antes del 404)
+// Home
 app.get('/', (req, res) => res.redirect('/usuarios/login'));
 
-/* === 404 (no encontrado) === */
+/* === 404 === */
 app.use((req, res) => {
   res.status(404).json({ ok: false, mensaje: 'Ruta no encontrada' });
 });
@@ -78,10 +89,9 @@ app.use((err, req, res, next) => {
   res.status(500).json({ ok: false, mensaje: 'Error interno del servidor' });
 });
 
-/* === Arranque del servidor === */
+/* === Arranque === */
 app.listen(PORT, async () => {
   console.log(`✅ Servidor corriendo en http://localhost:${PORT}`);
-
   try {
     const [rows] = await db.query('SELECT 1 + 1 AS ok');
     console.log('📡 Conexión a MySQL OK:', rows[0]);

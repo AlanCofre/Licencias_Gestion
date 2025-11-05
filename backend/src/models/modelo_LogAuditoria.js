@@ -1,6 +1,5 @@
 import { DataTypes, Model } from 'sequelize';
-import sequelize from '../../db/sequelize.js';
-
+import  sequelize from '../../db/sequelize.js';
 class LogAuditoria extends Model {}
 
 LogAuditoria.init(
@@ -15,7 +14,7 @@ LogAuditoria.init(
     ip: { type: DataTypes.STRING(50), allowNull: true },
     fecha: { type: DataTypes.DATE, defaultValue: DataTypes.NOW }
   },
-  { sequelize, tableName: 'log_auditoria', timestamps: false }
+  { sequelize, tableName: 'logauditoria', timestamps: false }
 );
 
 export default LogAuditoria;

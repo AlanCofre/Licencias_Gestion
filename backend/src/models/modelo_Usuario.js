@@ -1,5 +1,5 @@
 import { DataTypes, Model } from 'sequelize';
-import sequelize from '../../db/sequelize.js';
+import  sequelize  from '../../db/sequelize.js'; 
 import Perfil from './modelo_Perfil.js'; // Import de la relación 1:1
 
 class Usuario extends Model {}

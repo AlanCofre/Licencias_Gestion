@@ -16,7 +16,7 @@ const ArchivoLicencia = sequelize.define('ArchivoLicencia', {
   nombre_archivo: { type: DataTypes.STRING(255), allowNull: false },
   url: { type: DataTypes.TEXT, allowNull: false },
 }, {
-  tableName: 'archivo_licencias',
+  tableName: 'archivolicencia',
   underscored: true,
 });
 

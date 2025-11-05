@@ -17,7 +17,7 @@ router.get('/licencia/:id', requireAuth, async (req, res) => {
   try {
     const idLicencia = req.params.id;
     const [rows] = await pool.execute(
-      'SELECT * FROM ArchivoLicencia WHERE id_licencia = ?',
+      'SELECT * FROM archivolicencia WHERE id_licencia = ?',
       [idLicencia]
     );
     return res.json({ ok: true, data: rows });
