@@ -76,7 +76,7 @@ export async function listarMisLicencias(req, res) {
         motivo_rechazo,
         DATE_FORMAT(fecha_creacion, '%Y-%m-%d %H:%i:%s') AS fecha_creacion,
         id_usuario
-      FROM LicenciaMedica
+      FROM licenciamedica
       WHERE id_usuario = ?
       ORDER BY fecha_creacion DESC
       LIMIT ? OFFSET ?
@@ -85,7 +85,7 @@ export async function listarMisLicencias(req, res) {
     );
 
     const [[{ total }]] = await db.execute(
-      'SELECT COUNT(*) as total FROM LicenciaMedica WHERE id_usuario = ?',
+      'SELECT COUNT(*) as total FROM licenciamedica WHERE id_usuario = ?',
       [idUsuario]
     );
 
@@ -133,7 +133,7 @@ export async function listarLicencias(req, res) {
         DATE_FORMAT(fecha_inicio, '%Y-%m-%d') AS fecha_inicio,
         DATE_FORMAT(fecha_fin, '%Y-%m-%d') AS fecha_fin,
         estado
-      FROM LicenciaMedica
+      FROM licenciamedica
       WHERE id_usuario = ?
       ORDER BY fecha_creacion DESC
       LIMIT ? OFFSET ?
@@ -217,7 +217,7 @@ export const crearLicencia = async (req, res) => {
 
     // Superposición
     const [solape] = await db.execute(
-      `SELECT id_licencia FROM LicenciaMedica
+      `SELECT id_licencia FROM licenciamedica
        WHERE id_usuario = ? AND estado IN ('pendiente','aceptado')
          AND (? <= fecha_fin AND ? >= fecha_inicio) LIMIT 1`,
       [usuarioId, fecha_inicio, fecha_fin]
@@ -243,7 +243,7 @@ export const crearLicencia = async (req, res) => {
     const [dup] = await db.execute(
       `SELECT al.id_archivo, lm.id_licencia
          FROM ArchivoLicencia al
-         JOIN LicenciaMedica lm ON lm.id_licencia = al.id_licencia
+         JOIN licenciamedica lm ON lm.id_licencia = al.id_licencia
         WHERE lm.id_usuario = ? AND al.hash = ? LIMIT 1`,
       [usuarioId, sha]
     );
@@ -253,7 +253,7 @@ export const crearLicencia = async (req, res) => {
 
     // 1) Insertar licencia (forzar NULLs donde corresponda)
     const [result] = await db.execute(
-      `INSERT INTO LicenciaMedica
+      `INSERT INTO licenciamedica
        (folio, fecha_emision, fecha_inicio, fecha_fin, estado, motivo_rechazo, fecha_creacion, id_usuario)
        VALUES (?, CURDATE(), ?, ?, 'pendiente', NULL, NOW(), ?)`,
       [
@@ -377,7 +377,7 @@ export const getLicenciasEnRevision = async (req, res) => {
         lm.fecha_creacion, 
         lm.id_usuario, 
         u.nombre
-      FROM LicenciaMedica lm
+      FROM licenciamedica lm
       FORCE INDEX (idx_licencia_estado, idx_licencia_completo)
       JOIN Usuario u FORCE INDEX (idx_usuario_nombre) ON lm.id_usuario = u.id_usuario
       ${where}
@@ -387,7 +387,7 @@ export const getLicenciasEnRevision = async (req, res) => {
 
     const [countRows] = await db.execute(`
       SELECT COUNT(*) as total
-      FROM LicenciaMedica lm
+      FROM licenciamedica lm
       ${where.includes('JOIN') ? where : `JOIN Usuario u ON lm.id_usuario = u.id_usuario ${where}`}
     `, params);
 
@@ -637,7 +637,7 @@ export const crearLicenciaLegacy = async (req, res) => {
     }
 
     const sql = `
-      INSERT INTO LicenciaMedica
+      INSERT INTO licenciamedica
         (folio, fecha_emision, fecha_inicio, fecha_fin, estado, motivo_rechazo, fecha_creacion, id_usuario)
       VALUES
         (?,     CURDATE(),     ?,            ?,          'pendiente', NULL,            NOW(),     ?)
@@ -646,7 +646,7 @@ export const crearLicenciaLegacy = async (req, res) => {
 
     // 🔎 AUDIT: emitir licencia (legacy)
     try {
-      await req.audit('emitir licencia', 'LicenciaMedica', {
+      await req.audit('emitir licencia', 'licenciamedica', {
         id_licencia: result.insertId,
         estado: 'pendiente',
         folio,
@@ -658,7 +658,7 @@ export const crearLicenciaLegacy = async (req, res) => {
     }
 
     const [row] = await db.execute(
-      'SELECT id_licencia, folio, fecha_emision, fecha_inicio, fecha_fin, estado, motivo_rechazo, fecha_creacion, id_usuario FROM LicenciaMedica WHERE id_licencia = ?',
+      'SELECT id_licencia, folio, fecha_emision, fecha_inicio, fecha_fin, estado, motivo_rechazo, fecha_creacion, id_usuario FROM licenciamedica WHERE id_licencia = ?',
       [result.insertId]
     );
 
@@ -724,7 +724,7 @@ export async function decidirLicencia(req, res) {
       };
       if (decisionRaw === 'rechazado') pl.motivo_rechazo = motivo_rechazo;
 
-      await req.audit(accion, 'LicenciaMedica', pl, { userId: actorId });
+      await req.audit(accion, 'licenciamedica', pl, { userId: actorId });
     } catch (e) {
       console.warn('[audit] decidirLicencia:', e?.message || e);
     }
@@ -863,7 +863,7 @@ export async function cambiarEstado(req, res, next) {
     if (nuevo_estado === 'aceptado' || nuevo_estado === 'rechazado') {
       try {
         const accion = nuevo_estado === 'aceptado' ? 'aceptar licencia' : 'rechazar licencia';
-        await req.audit(accion, 'LicenciaMedica', {
+        await req.audit(accion, 'licenciamedica', {
           id_licencia: lic.id_licencia,
           estado_nuevo: nuevo_estado,
           ...(nuevo_estado === 'rechazado' ? { motivo_rechazo: lic.motivo_rechazo ?? motivo_rechazo ?? null } : {})
