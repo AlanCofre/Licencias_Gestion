@@ -205,6 +205,24 @@ export const crearLicencia = async (req, res) => {
     const fecha_fin    = _str(req.body?.fecha_fin);
     const motivo       = _str(req.body?.motivo);
 
+    // Cursos: puede venir como array o como JSON-string desde el frontend
+    let cursos = [];
+    const cursosRaw = req.body?.cursos ?? null;
+    if (cursosRaw) {
+      try {
+        cursos = typeof cursosRaw === 'string' ? JSON.parse(cursosRaw) : cursosRaw;
+      } catch (e) {
+        cursos = [];
+      }
+    }
+    // Validación de seguridad: al menos un curso debe estar seleccionado
+    if (!Array.isArray(cursos) || cursos.length === 0) {
+      return res.status(400).json({
+        ok: false,
+        error: 'Debe seleccionar al menos un curso afectado antes de enviar la licencia.'
+      });
+    }
+
     // Validaciones mínimas
     if (!folio) return res.status(400).json({ msg: 'El folio es obligatorio' });
     const isISO = (d) => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d);
