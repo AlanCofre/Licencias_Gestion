@@ -11,6 +11,7 @@ export default function GenerarRevision() {
     fechaEmision: "",
     fechaInicioReposo: "",
     fechaFinalReposo: "",
+    motivoMedico: "", // <-- NUEVO
   };
 
   const [formData, setFormData] = useState(initialForm);
@@ -22,6 +23,9 @@ export default function GenerarRevision() {
   const [errorCursos, setErrorCursos] = useState(false);
   const cursosSelectorRef = useRef(null);
 
+  // Validación motivo (tocado para mostrar errores)
+  const [motivoTouched, setMotivoTouched] = useState(false);
+
   // Step: form | preview
   const [step, setStep] = useState("form");
   const [sending, setSending] = useState(false);
@@ -32,12 +36,25 @@ export default function GenerarRevision() {
     { codigo: "MAT-201", nombre: "Matemáticas II", seccion: "B" },
   ];
 
+  // --- Helpers de validación ---
+  const regexMotivo = /^[\p{L}\p{N}\s,-]{3,}$/u; // letras (con acentos), números, espacio, coma, guion; 3+ chars
+  const isMotivoValid = (str) => regexMotivo.test((str || "").trim());
+
   // Manejo de inputs
   const handleChange = (e) => {
     const { name, value } = e.target;
+
     if (name === "folio" && !/^\d*$/.test(value)) {
       return;
     }
+    // Para el motivo, solo filtramos hard-fails en tiempo real (opcional)
+    if (name === "motivoMedico") {
+      // Permitimos escribir libremente pero guardamos tal cual;
+      // La validación final la hace isMotivoValid
+      setFormData((prev) => ({ ...prev, [name]: value }));
+      return;
+    }
+
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
@@ -71,6 +88,7 @@ export default function GenerarRevision() {
     formData.fechaEmision.trim() !== "" &&
     formData.fechaInicioReposo.trim() !== "" &&
     formData.fechaFinalReposo.trim() !== "" &&
+    isMotivoValid(formData.motivoMedico) && // <-- incluir motivo
     file !== null &&
     selectedCursos.length > 0;
 
@@ -78,6 +96,10 @@ export default function GenerarRevision() {
   const sendData = async ({ form = formData, cursos = selectedCursos, archivo = file } = {}) => {
     if (!form || !archivo || cursos.length === 0) {
       throw new Error("Faltan datos obligatorios para el envío.");
+    }
+    // Validación extra de FE por seguridad
+    if (!isMotivoValid(form.motivoMedico)) {
+      throw new Error("El motivo médico no es válido (mín. 3 caracteres; sin caracteres especiales).");
     }
 
     setSending(true);
@@ -89,6 +111,7 @@ export default function GenerarRevision() {
       fd.append("fecha_inicio", form.fechaInicioReposo);
       fd.append("fecha_fin", form.fechaFinalReposo);
       fd.append("cursos", JSON.stringify(cursos));
+      fd.append("motivo_medico", form.motivoMedico.trim()); // <-- NUEVO: se envía al BE
 
       const token =
         localStorage.getItem("token") ||
@@ -117,13 +140,13 @@ export default function GenerarRevision() {
       setFile(null);
       setSelectedCursos([]);
       setErrorCursos(false);
+      setMotivoTouched(false);
       setStep("form");
       return { ok: true };
     } catch (err) {
       console.error("Error enviando licencia:", err);
       throw err;
     } finally {
-      // Mantener spinner breve para UX
       setTimeout(() => setSending(false), 600);
     }
   };
@@ -137,6 +160,13 @@ export default function GenerarRevision() {
       return;
     }
     if (!isFormValid) {
+      // Ayuda específica si el motivo no es válido
+      if (!isMotivoValid(formData.motivoMedico)) {
+        alert(
+          "Motivo médico inválido. Debe tener al menos 3 caracteres y solo letras (incluye acentos), números, espacios, comas y guiones."
+        );
+        return;
+      }
       alert("Completa todos los campos obligatorios antes de continuar.");
       return;
     }
@@ -209,6 +239,36 @@ export default function GenerarRevision() {
                 />
               </div>
 
+              {/* NUEVO: Motivo médico */}
+              <div>
+                <label className="block text-gray-600 mb-1">
+                  Motivo médico o patología (resumen)
+                </label>
+                <input
+                  type="text"
+                  name="motivoMedico"
+                  value={formData.motivoMedico}
+                  onChange={handleChange}
+                  onBlur={() => setMotivoTouched(true)}
+                  placeholder="Ej: Bronquitis, COVID-19, Migraña"
+                  aria-invalid={motivoTouched && !isMotivoValid(formData.motivoMedico)}
+                  aria-describedby="motivoHelp motivoError"
+                  className={`w-full p-3 border rounded focus:outline-none focus:ring-2 ${
+                    motivoTouched && !isMotivoValid(formData.motivoMedico)
+                      ? "border-red-500 focus:ring-red-400"
+                      : "focus:ring-blue-400"
+                  }`}
+                />
+                <div id="motivoHelp" className="text-xs text-gray-500 mt-1">
+                  Requerido. Mínimo 3 caracteres. Sólo letras (incluye acentos), números, espacios, comas y guiones.
+                </div>
+                {motivoTouched && !isMotivoValid(formData.motivoMedico) && (
+                  <div id="motivoError" className="mt-1 text-red-600 text-sm" role="alert">
+                    El motivo no es válido. Revisa el formato.
+                  </div>
+                )}
+              </div>
+
               {/* Selector de cursos */}
               <div
                 ref={cursosSelectorRef}
@@ -274,6 +334,7 @@ export default function GenerarRevision() {
                     setFile(null);
                     setSelectedCursos([]);
                     setErrorCursos(false);
+                    setMotivoTouched(false);
                   }}
                   className="px-6 py-3 rounded border text-sm"
                 >
@@ -323,9 +384,7 @@ export default function GenerarRevision() {
               selectedCursos={selectedCursos}
               file={file}
               onEdit={(section) => {
-                // Volver a la sección correspondiente en el formulario
                 setStep("form");
-                // opcional: focus en cursos o file; aquí solo se vuelve al form
                 if (section === "cursos") {
                   setTimeout(() => cursosSelectorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }), 100);
                 }
