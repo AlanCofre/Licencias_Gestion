@@ -2,11 +2,13 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
+import Toast from "../components/toast";
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState("");
   const [timer, setTimer] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [toast, setToast] = useState(null); // { message, type }
   const navigate = useNavigate();
 
   // Temporizador para bloquear reenvío
@@ -23,7 +25,7 @@ export default function ForgotPassword() {
 
   const handleRequestCode = () => {
     if (!isValidEmail(email)) {
-      alert("Por favor ingresa un correo válido");
+      setToast({ message: "Por favor ingresa un correo válido", type: "error" });
       return;
     }
 
@@ -33,10 +35,10 @@ export default function ForgotPassword() {
     setTimeout(() => {
       setLoading(false);
       setTimer(60);
-      alert("Se envió un código a tu correo.");
+      setToast({ message: "Se envió un código a tu correo.", type: "success" });
 
-      // Navega a ResetPassword
-      navigate("/reset-password");
+      // Navega a ResetPassword después de un breve delay para que se vea el toast
+      setTimeout(() => navigate("/reset-password"), 700);
     }, 1500);
   };
 
@@ -78,6 +80,15 @@ export default function ForgotPassword() {
       </main>
 
       <Footer />
+
+      {/* Toast global */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
     </div>
   );
 }

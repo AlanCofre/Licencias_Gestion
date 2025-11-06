@@ -2,16 +2,18 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom"; // ✅ importar hook
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
+import Toast from "../components/toast";
 
 export default function ResetPassword() {
   const [code, setCode] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [toast, setToast] = useState(null); // { message, type }
   const navigate = useNavigate(); // ✅ inicializar navigate
 
   const handleReset = () => {
     if (!code || !password) {
-      alert("Completa todos los campos.");
+      setToast({ message: "Completa todos los campos.", type: "error" });
       return;
     }
 
@@ -19,10 +21,10 @@ export default function ResetPassword() {
 
     setTimeout(() => {
       setLoading(false);
-      alert("Tu contraseña fue restablecida correctamente.");
+      setToast({ message: "Tu contraseña fue restablecida correctamente.", type: "success" });
 
-      // ✅ redirigir al login
-      navigate("/login");
+      // ✅ redirigir al login después de mostrar toast (breve delay)
+      setTimeout(() => navigate("/login"), 700);
     }, 1500);
   };
 
@@ -70,6 +72,15 @@ export default function ResetPassword() {
       </main>
 
       <Footer />
+
+      {/* Toast global */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
     </div>
   );
 }
