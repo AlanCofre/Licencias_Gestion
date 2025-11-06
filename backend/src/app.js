@@ -50,8 +50,10 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 /* === Rutas de DEV (solo fuera de producción) === */
+// Attach audit middleware always so req.audit exists en todos los entornos.
+app.use(attachAudit());
+// Rutas/funcionalidades solo para desarrollo
 if (process.env.NODE_ENV !== 'production') {
-  app.use(attachAudit());
   app.use(devMailRoutes);
 }
 

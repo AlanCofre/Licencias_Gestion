@@ -160,6 +160,35 @@ function validarCampoFecha(fechaStr, campo = 'fecha') {
 }
 
 export const crearLicencia = async (req, res) => {
+  console.log('[crearLicencia] entrada - content-type=', req.headers['content-type']);
+  console.log('[crearLicencia] body keys=', Object.keys(req.body || {}));
+  console.log('[crearLicencia] file present=', !!req.file, ' files=', !!req.files);
+
+  // Seguridad: ignorar campos enviados desde el cliente que no deben afectar la lógica del servidor
+  try {
+    if (req && req.body) {
+      delete req.body.id_usuario;
+      delete req.body.estado;
+    }
+
+    // Si multer usó diskStorage, intentar cargar buffer desde path para compatibilidad
+    if (req.file && !req.file.buffer && req.file.path) {
+      try {
+        req.file.buffer = fs.readFileSync(req.file.path);
+        req.file.size = req.file.size ?? req.file.buffer.length;
+        console.log('[crearLicencia] archivo leído desde disco, size=', req.file.size);
+      } catch (readErr) {
+        console.error('[crearLicencia] error leyendo archivo desde path:', readErr);
+        // no fallamos aquí: se validará más adelante y se dará error al cliente si corresponde
+      }
+    }
+
+    // Nota: el resto de las validaciones (tipo PDF, existencia de archivo, etc.)
+    // se realizan más abajo en la función; aquí nos aseguramos compatibilidad y seguridad.
+  } catch (e) {
+    console.warn('[crearLicencia] advertencia pre-checks:', e?.message || e);
+  }
+
   try {
     const usuarioId = req.user?.id_usuario ?? req.id ?? null;
     const rol = (req.user?.rol ?? req.rol ?? '').toString().toLowerCase();
@@ -198,7 +227,12 @@ export const crearLicencia = async (req, res) => {
     }
 
     // Archivo
-    const archivo = req.file ?? null;
+    let archivo = req.file;
+    if (!archivo) archivo = (req.files && (req.files.archivo || req.files.file)) ?? null;
+    if (archivo && !archivo.buffer && archivo.path) {
+      archivo.buffer = fs.readFileSync(archivo.path);
+      archivo.size = archivo.size ?? archivo.buffer.length;
+    }
     if (!archivo) return res.status(400).json({ ok:false, error:'Falta archivo (PDF)' });
     if (archivo.mimetype !== 'application/pdf') {
       return res.status(415).json({ ok:false, error:'Solo se acepta PDF' });

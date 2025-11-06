@@ -21,6 +21,10 @@ export default function GenerarRevision() {
   const [errorCursos, setErrorCursos] = useState(false);
   const cursosSelectorRef = useRef(null);
 
+  // Confirmación antes de enviar
+  const [showConfirm, setShowConfirm] = useState(false);
+  const pendingFormRef = useRef(null);
+
   // Simulación de cursos activos (reemplaza por tu fuente real)
   const cursosActivos = [
     { codigo: "INF-101", nombre: "Programación I", seccion: "A" },
@@ -69,26 +73,53 @@ export default function GenerarRevision() {
     file !== null &&
     selectedCursos.length > 0;
 
-  // Envío al backend
-  const handleSubmit = async (e) => {
+  // Envío al backend -> abre modal de confirmación en vez de enviar directamente
+  const handleSubmit = (e) => {
     e.preventDefault();
+
     if (selectedCursos.length === 0) {
       setErrorCursos(true);
       cursosSelectorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
     setErrorCursos(false);
-    if (!isFormValid) return;
+
+    if (!isFormValid) {
+      toast.error("Completa todos los campos requeridos antes de enviar.");
+      return;
+    }
+
+    // Guardar datos pendientes y abrir modal
+    pendingFormRef.current = {
+      folio: formData.folio,
+      fecha_emision: formData.fechaEmision,
+      fecha_inicio: formData.fechaInicioReposo,
+      fecha_fin: formData.fechaFinalReposo,
+      motivo: formData.razon,
+      cursos: selectedCursos,
+      file,
+    };
+    setShowConfirm(true);
+  };
+
+  // Confirmar envío (envía los datos)
+  const confirmSend = async () => {
+    setShowConfirm(false);
+    const pending = pendingFormRef.current;
+    if (!pending) {
+      toast.error("No hay datos para enviar.");
+      return;
+    }
 
     try {
       const fd = new FormData();
-      fd.append("archivo", file);
-      fd.append("folio", formData.folio);
-      fd.append("fecha_emision", formData.fechaEmision);
-      fd.append("fecha_inicio", formData.fechaInicioReposo);
-      fd.append("fecha_fin", formData.fechaFinalReposo);
-      fd.append("cursos", JSON.stringify(selectedCursos));
-      fd.append("motivo", formData.razon);
+      fd.append("archivo", pending.file);
+      fd.append("folio", pending.folio);
+      fd.append("fecha_emision", pending.fecha_emision);
+      fd.append("fecha_inicio", pending.fecha_inicio);
+      fd.append("fecha_fin", pending.fecha_fin);
+      fd.append("cursos", JSON.stringify(pending.cursos));
+      fd.append("motivo", pending.motivo || "");
 
       const token =
         localStorage.getItem("token") ||
@@ -96,11 +127,7 @@ export default function GenerarRevision() {
         localStorage.getItem("accessToken") ||
         "";
 
-      const apiBase = (import.meta.env.VITE_API_BASE_URL).replace(
-        /\/$/,
-        ""
-      );
-
+      const apiBase = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
       const res = await fetch(`${apiBase}/api/licencias/crear`, {
         method: "POST",
         headers: {
@@ -109,11 +136,16 @@ export default function GenerarRevision() {
         body: fd,
       });
 
-      const json = await res.json().catch(() => ({}));
+      let json;
+      try {
+        json = await res.json();
+      } catch {
+        const text = await res.text().catch(() => null);
+        json = { mensaje: text ?? "Respuesta no JSON" };
+      }
 
       if (res.ok) {
         toast.success("Licencia enviada correctamente.");
-        console.log("Respuesta BE:", json);
         setFormData({
           folio: "",
           fechaEmision: "",
@@ -123,6 +155,7 @@ export default function GenerarRevision() {
         });
         setFile(null);
         setSelectedCursos([]);
+        pendingFormRef.current = null;
       } else {
         const msg = json?.mensaje || json?.error || JSON.stringify(json);
         toast.error("Error enviando licencia: " + msg);
@@ -130,8 +163,12 @@ export default function GenerarRevision() {
       }
     } catch (err) {
       console.error("Catch error enviar licencia:", err);
-      toast.error("Error al enviar la licencia. Revisa la consola.");
+      toast.error("Error al enviar la licencia. Revisa la consola y la pestaña Network.");
     }
+  };
+
+  const cancelSend = () => {
+    setShowConfirm(false);
   };
 
   const hoy = new Date().toISOString().split("T")[0];
@@ -292,6 +329,49 @@ export default function GenerarRevision() {
           </div>
         </div>
       </main>
+
+      {/* Modal de confirmación */}
+      {showConfirm && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "rgba(0,0,0,0.4)",
+            zIndex: 9999,
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            style={{
+              width: 380,
+              maxWidth: "90%",
+              background: "#fff",
+              padding: 20,
+              borderRadius: 8,
+              boxShadow: "0 6px 18px rgba(0,0,0,0.2)",
+            }}
+          >
+            <h3 style={{ marginTop: 0 }}>¿Estás seguro de enviar la licencia?</h3>
+            <p>Al confirmar, los datos serán considerados definitivos y se enviarán al sistema.</p>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
+              <button type="button" onClick={cancelSend} style={{ padding: "8px 12px" }}>
+                No, volver
+              </button>
+              <button
+                type="button"
+                onClick={confirmSend}
+                style={{ padding: "8px 12px", background: "#007bff", color: "#fff", border: "none", borderRadius: 4 }}
+              >
+                Sí, confirmar y enviar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <Footer />
     </div>
