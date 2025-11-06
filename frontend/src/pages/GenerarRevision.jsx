@@ -4,6 +4,7 @@ import Footer from "../components/Footer";
 import BannerSection from "../components/BannerSection";
 import { Upload } from "lucide-react";
 import PreviewEnvio from "../components/PreviewEnvio";
+import Toast from "../components/toast"; // <-- import del Toast
 
 export default function GenerarRevision() {
   const initialForm = {
@@ -26,6 +27,9 @@ export default function GenerarRevision() {
   const [step, setStep] = useState("form");
   const [sending, setSending] = useState(false);
 
+  // Toast state
+  const [toast, setToast] = useState(null); // { message, type }
+
   // Simulación de cursos activos (reemplaza por tu fuente real)
   const cursosActivos = [
     { codigo: "INF-101", nombre: "Programación I", seccion: "A" },
@@ -47,7 +51,7 @@ export default function GenerarRevision() {
     if (selectedFile && selectedFile.type === "application/pdf") {
       setFile(selectedFile);
     } else {
-      alert("Por favor sube un archivo PDF válido.");
+      setToast({ message: "Por favor sube un archivo PDF válido.", type: "error" });
     }
   };
 
@@ -57,7 +61,7 @@ export default function GenerarRevision() {
     if (droppedFile && droppedFile.type === "application/pdf") {
       setFile(droppedFile);
     } else {
-      alert("Solo se permiten archivos PDF.");
+      setToast({ message: "Solo se permiten archivos PDF.", type: "error" });
     }
   };
 
@@ -137,7 +141,7 @@ export default function GenerarRevision() {
       return;
     }
     if (!isFormValid) {
-      alert("Completa todos los campos obligatorios antes de continuar.");
+      setToast({ message: "Completa todos los campos obligatorios antes de continuar.", type: "error" });
       return;
     }
     setErrorCursos(false);
@@ -336,10 +340,10 @@ export default function GenerarRevision() {
               onSubmit={async ({ formData: f, selectedCursos: sc, file: fl }) => {
                 try {
                   await sendData({ form: f, cursos: sc, archivo: fl });
-                  alert("Licencia enviada correctamente.");
+                  // usar toast en vez de alert
+                  setToast({ message: "Licencia enviada correctamente.", type: "success" });
                 } catch (err) {
-                  alert("Error al enviar: " + (err?.message || err));
-                  throw err;
+                  setToast({ message: "Error al enviar: " + (err?.message || err), type: "error" });
                 }
               }}
               apiBase={(import.meta.env.VITE_API_URL || "http://localhost:3000").replace(/\/$/, "")}
@@ -349,6 +353,15 @@ export default function GenerarRevision() {
       </main>
 
       <Footer />
+
+      {/* Toast global */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
     </div>
   );
 }

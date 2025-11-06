@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 
-export default function PreviewRevision({
+export default function PreviewEnvio({
   formData = {},
   selectedCursos = [],
   file = null,
@@ -9,7 +9,6 @@ export default function PreviewRevision({
   apiBase = (import.meta.env.VITE_API_URL || "http://localhost:3000").replace(/\/$/, ""),
 }) {
   const [sending, setSending] = useState(false);
-  const [resultMsg, setResultMsg] = useState(null);
 
   // Validaciones obligatorias
   const missing = useMemo(() => {
@@ -34,12 +33,11 @@ export default function PreviewRevision({
   const handleSend = async () => {
     if (!canSend) return;
     setSending(true);
-    setResultMsg(null);
     try {
       if (typeof onSubmit === "function") {
         await onSubmit({ formData, selectedCursos, file });
       } else {
-        // simulación de envío similar al flujo real
+        // fallback: simulate a post to the API (no UI message here, parent should handle toast)
         const fd = new FormData();
         fd.append("archivo", file);
         fd.append("folio", formData.folio);
@@ -65,14 +63,9 @@ export default function PreviewRevision({
         const json = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(json?.mensaje || json?.error || `HTTP ${res.status}`);
       }
-
-      // Éxito: mensaje breve
-      setResultMsg({ type: "success", text: "Licencia enviada correctamente." });
-    } catch (err) {
-      console.error("Error enviando licencia:", err);
-      setResultMsg({ type: "error", text: `Error al enviar: ${err?.message || err}` });
+      // no internal message rendering — parent (GenerarRevision) must show toast
     } finally {
-      // Mantener spinner breve para UX
+      // mantener spinner breve para UX
       setTimeout(() => setSending(false), 600);
     }
   };
@@ -84,8 +77,7 @@ export default function PreviewRevision({
       {/* Estado de validación */}
       {missing.length > 0 ? (
         <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded">
-          Faltan campos obligatorios:{" "}
-          <strong>{missing.join(", ")}</strong>. Usa "Editar" para completar antes de enviar.
+          Faltan campos obligatorios: <strong>{missing.join(", ")}</strong>. Usa "Editar" para completar antes de enviar.
         </div>
       ) : (
         <div className="mb-4 p-3 bg-green-50 border border-green-200 text-green-700 rounded">
@@ -189,17 +181,6 @@ export default function PreviewRevision({
           <div className="text-sm text-gray-500">No hay archivo seleccionado.</div>
         )}
       </section>
-
-      {/* Result message */}
-      {resultMsg && (
-        <div
-          className={`mb-4 p-3 rounded ${
-            resultMsg.type === "success" ? "bg-green-50 border-green-200 text-green-700" : "bg-red-50 border-red-200 text-red-700"
-          }`}
-        >
-          {resultMsg.text}
-        </div>
-      )}
 
       {/* Acciones */}
       <div className="flex items-center justify-end gap-3">

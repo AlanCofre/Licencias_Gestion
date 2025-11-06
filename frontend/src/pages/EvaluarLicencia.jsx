@@ -1,9 +1,11 @@
+// ...existing code...
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import ConfirmModal from "../components/ConfirmModal";
 import samplePDF from "../assets/sample.pdf";
+import Toast from "../components/toast"; // añadido
 
 // Mock data con diferentes estudiantes
 const mockDatabase = {
@@ -159,6 +161,7 @@ export default function EvaluarLicencia() {
   const [license, setLicense] = useState(null);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState({ open: false, type: null });
+  const [toast, setToast] = useState(null); // estado para Toast
 
   useEffect(() => {
     const loadLicense = async () => {
@@ -189,14 +192,24 @@ export default function EvaluarLicencia() {
   const closeModal = () => setModal({ open: false, type: null });
   
   const handleConfirm = (data) => {
+    // Validación: impedir rechazo sin motivo
+    if (modal.type === "reject") {
+      const motivo = data?.note ?? "";
+      if (!motivo || !motivo.trim()) {
+        setToast({ message: "Debes indicar un motivo para rechazar", type: "error" });
+        return; // no cerrar modal ni proceder
+      }
+    }
+
     const action = modal.type === "accept" ? "aceptada" : "rechazada";
     console.log(`Licencia ${license.id} ${action}:`, data);
-    
-    // Mostrar confirmación
-    alert(`Licencia ${action} exitosamente${data?.note ? `\nNota: ${data.note}` : ''}`);
-    
+
+    // Mostrar toast de éxito en lugar de alert
+    setToast({ message: `Licencia ${action} exitosamente.`, type: "success" });
+
     closeModal();
-    goBackToBandeja();
+    // esperar un poco antes de volver para que el toast se vea
+    setTimeout(() => goBackToBandeja(), 700);
   };
 
   if (loading) {
@@ -330,6 +343,15 @@ export default function EvaluarLicencia() {
         onClose={closeModal}
         onConfirm={handleConfirm}
       />
+
+      {/* Toast global */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
     </div>
   );
 }
