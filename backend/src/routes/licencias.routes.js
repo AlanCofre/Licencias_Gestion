@@ -304,17 +304,7 @@ router.get('/detalle/:id', validarJWT, async (req, res) => {
   }
 });
 
-router.get('/licencias/:id/archivo', validarJWT, descargarArchivoLicencia);
-
-// SOLO Estudiante (creación con validaciones de negocio)
-router.post(
-  '/crear',
-  [validarJWT, esEstudiante],
-  upload.single('archivo'),
-  validarArchivoAdjunto,
-  validateLicenciaBody,
-  crearLicencia
-);
+// (ruta duplicada eliminada: use router.get('/:id/archivo') más abajo)
 
 // Profesor o Secretario (demo simple)
 router.get('/revisar', [validarJWT, tieneRol('profesor', 'funcionario', 'secretario')], (req, res) => {
