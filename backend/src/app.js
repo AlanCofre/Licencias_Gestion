@@ -14,6 +14,7 @@ import archivoRoutes from './routes/archivo.routes.js';
 import cursoRoutes from './routes/curso.route.js';
 import matriculasRoutes from './routes/matriculas.routes.js';
 import devMailRoutes from './routes/dev.mail.routes.js';
+import adminRoutes from "./routes/admin.route.js";
 
 import { attachAudit } from '../middlewares/audit.middleware.js';
 import db from '../config/db.js';
@@ -76,6 +77,8 @@ app.use('/usuarios', usuarioRoutes);
 app.use('/api', perfilRouter);
 app.use('/cursos', cursoRoutes);
 app.use('/matriculas', matriculasRoutes);
+
+app.use("/admin", adminRoutes);
 
 // Home
 app.get('/', (req, res) => res.redirect('/usuarios/login'));
