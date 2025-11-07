@@ -546,7 +546,7 @@ router.post(
 );
 
 router.post(
-  '/',
+  '/crear',
   validarJWT,
   esEstudiante,
   upload.single('archivo'),
