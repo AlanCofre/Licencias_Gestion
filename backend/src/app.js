@@ -14,7 +14,8 @@ import archivoRoutes from './routes/archivo.routes.js';
 import cursoRoutes from './routes/curso.route.js';
 import matriculasRoutes from './routes/matriculas.routes.js';
 import devMailRoutes from './routes/dev.mail.routes.js';
-import adminRoutes from "./routes/admin.route.js";
+import adminRoutes from './routes/admin.route.js';
+import reportesRouter from './routes/reportes.route.js';
 
 import { attachAudit } from '../middlewares/audit.middleware.js';
 import db from '../config/db.js';
@@ -50,10 +51,10 @@ app.options('*', cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+/* === Audit === */
+app.use(attachAudit()); // deja req.audit disponible en todos los entornos
+
 /* === Rutas de DEV (solo fuera de producción) === */
-// Attach audit middleware always so req.audit exists en todos los entornos.
-app.use(attachAudit());
-// Rutas/funcionalidades solo para desarrollo
 if (process.env.NODE_ENV !== 'production') {
   app.use(devMailRoutes);
 }
@@ -64,7 +65,7 @@ app.use(healthRouter);
 // Archivos
 app.use('/api/archivos', archivoRoutes);
 
-// Licencias (solo una vez con prefijo fijo)
+// Licencias (prefijo fijo)
 app.use('/api/licencias', licenciasRouter);
 
 // Rutas legacy / auxiliares
@@ -78,7 +79,11 @@ app.use('/api', perfilRouter);
 app.use('/cursos', cursoRoutes);
 app.use('/matriculas', matriculasRoutes);
 
-app.use("/admin", adminRoutes);
+// Admin
+app.use('/admin', adminRoutes);
+
+// Reportes (SIN prefijo → /reportes/licencias/exceso)
+app.use(reportesRouter);
 
 // Home
 app.get('/', (req, res) => res.redirect('/usuarios/login'));
