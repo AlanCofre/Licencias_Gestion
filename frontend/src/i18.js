@@ -60,9 +60,12 @@ const resources = {
         userFallback: "Usuario",
         secretaryTitle: "Bienvenida, {{name}}",
         secretaryParagraph1:
-          "Este es tu panel de trabajo. Desde aquí puedes revisar las licencias pendientes, generar revisiones cuando falte documentación y consultar el historial de acciones.",
+          "Este es tu panel de trabajo. Desde aquí puede revisar las licencias pendientes, generar revisiones cuando falte documentación y consultar el historial de acciones.",
         secretaryParagraph2:
           'Accede rápidamente a "Pendientes" para atender nuevos casos o a "Historial" para revisar gestiones anteriores. Usa "Generar Revisión" para solicitar información adicional.',
+        teachTitle: "Bienvenido, Prof. {{name}}",
+        teachParagraph1: "Aquí puede revisar las licencias médicas asignadas a tus estudiantes y consultar el historial de acciones realizadas.",
+        teachParagraph2: 'Para mas informacion, entra a la pestaña "Como usar". Aqui se explica a detalle el funcionamiento del sistema.',
         userTitleLine1: "La nueva manera de verificar",
         userTitleLine2: "tus licencias médicas.",
         userParagraph1:
@@ -70,6 +73,7 @@ const resources = {
         userParagraph2:
           "Para más información, solo basta con darle click a este anuncio.",
         altText: "Verificación",
+
       },
 
       // 🧩 BannerSection
@@ -199,6 +203,9 @@ const resources = {
           "This is your workspace. From here you can review pending licenses, generate reviews when documentation is missing, and consult the action history.",
         secretaryParagraph2:
           'Quickly access "Pending" to handle new cases or "History" to review previous actions. Use "Generate Review" to request additional information.',
+        teachTitle: "Welcome Prof. {{name}}",
+        teachParagraph1: "Here you can review the medical licenses assigned to your students and consult the history of actions taken.",
+        teachParagraph2: 'For more information, go to the "How to use" tab. Here the system functionality is explained in detail.',
         userTitleLine1: "The new way to verify",
         userTitleLine2: "your medical licenses.",
         userParagraph1:
