@@ -10,6 +10,8 @@ import https from 'https';
 import { subirPDFLicencia } from '../services/supabase/storage.service.js';
 // ✉️ Servicio de correos (solo para "nueva licencia")
 import { notificarNuevaLicencia } from '../services/servicio_Correo.js';
+import { calcularRegularidadEstudiante } from '../services/regularidad.service.js';
+
 
 // 🔔 NUEVO IMPORT para correos de estudiante
 import { 
@@ -914,6 +916,95 @@ export async function cambiarEstado(req, res, next) {
     return res.json({ ok: true, data: { id: lic.id_licencia, estado: lic.estado } });
   } catch (err) { next(err); }
 }
+
+/**
+ * Obtener licencias de un estudiante con información de regularidad
+ * (Para uso de profesores/administradores)
+ */
+export const getLicenciasEstudianteConRegularidad = async (req, res) => {
+  try {
+    const { idEstudiante } = req.params;
+    const { periodo, id_curso } = req.query;
+
+    // Validar permisos - SOLO profesor o administrador
+    const rol = (req.user?.rol ?? req.rol ?? '').toString().toLowerCase();
+    if (!['profesor', 'administrador'].includes(rol)) {
+      return res.status(403).json({ 
+        ok: false, 
+        error: 'No tiene permisos para ver esta información. Se requiere rol de profesor o administrador.' 
+      });
+    }
+
+    // Si es profesor, verificar que el estudiante esté en sus cursos
+    if (rol === 'profesor') {
+      const [acceso] = await db.execute(`
+        SELECT 1 
+        FROM matriculas m
+        JOIN curso c ON m.id_curso = c.id_curso
+        WHERE m.id_usuario = ? 
+          AND c.id_usuario = ?
+        LIMIT 1
+      `, [idEstudiante, req.user.id_usuario]);
+      
+      if (acceso.length === 0) {
+        return res.status(403).json({ 
+          ok: false, 
+          error: 'No tiene acceso a la información de este estudiante' 
+        });
+      }
+    }
+
+    // Obtener licencias del estudiante
+    const [licencias] = await db.execute(`
+      SELECT 
+        lm.id_licencia,
+        lm.folio,
+        lm.fecha_emision,
+        lm.fecha_inicio,
+        lm.fecha_fin,
+        lm.estado,
+        lm.motivo_rechazo,
+        c.nombre_curso,
+        c.codigo,
+        c.periodo
+      FROM licenciamedica lm
+      LEFT JOIN licencias_entregas le ON lm.id_licencia = le.id_licencia
+      LEFT JOIN curso c ON le.id_curso = c.id_curso
+      WHERE lm.id_usuario = ?
+        AND (? IS NULL OR c.periodo = ?)
+        AND (? IS NULL OR le.id_curso = ?)
+      ORDER BY lm.fecha_creacion DESC
+    `, [idEstudiante, periodo, periodo, id_curso, id_curso]);
+
+    // Calcular regularidad
+    const regularidad = await calcularRegularidadEstudiante(
+      parseInt(idEstudiante), 
+      periodo, 
+      id_curso ? parseInt(id_curso) : null
+    );
+
+    // Obtener información del estudiante
+    const [estudianteInfo] = await db.execute(
+      'SELECT id_usuario, nombre, correo_usuario FROM usuario WHERE id_usuario = ?',
+      [idEstudiante]
+    );
+
+    return res.status(200).json({
+      ok: true,
+      data: {
+        estudiante: estudianteInfo[0] || null,
+        licencias,
+        regularidad
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error en getLicenciasEstudianteConRegularidad:', error);
+    return res.status(500).json({ 
+      ok: false, 
+      error: 'Error interno del servidor' 
+    });
+  }
+};
 
 export default {
   listarLicencias,

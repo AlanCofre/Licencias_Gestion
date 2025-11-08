@@ -16,7 +16,7 @@ import matriculasRoutes from './routes/matriculas.routes.js';
 import devMailRoutes from './routes/dev.mail.routes.js';
 import adminRoutes from './routes/admin.route.js';
 import reportesRouter from './routes/reportes.route.js';
-
+import regularidadRoutes from './routes/regularidad.routes.js';
 import { attachAudit } from '../middlewares/audit.middleware.js';
 import db from '../config/db.js';
 
@@ -53,6 +53,7 @@ app.use(express.urlencoded({ extended: true }));
 
 /* === Audit === */
 app.use(attachAudit()); // deja req.audit disponible en todos los entornos
+
 /* === Rutas de DEV (solo fuera de producción) === */
 if (process.env.NODE_ENV !== 'production') {
   app.use(devMailRoutes);
@@ -66,6 +67,9 @@ app.use('/api/archivos', archivoRoutes);
 
 // Licencias (prefijo fijo)
 app.use('/api/licencias', licenciasRouter);
+
+// Regularidad - CORREGIDO: agregado aquí
+app.use('/api/regularidad', regularidadRoutes);
 
 // Rutas legacy / auxiliares
 app.use('/licencias', detailsRouter);
