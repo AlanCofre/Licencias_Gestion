@@ -53,7 +53,6 @@ app.use(express.urlencoded({ extended: true }));
 
 /* === Audit === */
 app.use(attachAudit()); // deja req.audit disponible en todos los entornos
-
 /* === Rutas de DEV (solo fuera de producción) === */
 if (process.env.NODE_ENV !== 'production') {
   app.use(devMailRoutes);
@@ -84,6 +83,10 @@ app.use('/admin', adminRoutes);
 
 // Reportes (SIN prefijo → /reportes/licencias/exceso)
 app.use(reportesRouter);
+
+/* === MIDDLEWARE DE AUDITORÍA - POSICIÓN CORRECTA === */
+// ¡IMPORTANTE: Después de todas las rutas que establecen req.user!
+app.use(attachAudit());
 
 // Home
 app.get('/', (req, res) => res.redirect('/usuarios/login'));

@@ -1,6 +1,4 @@
 // backend/services/servicio_Licencias.js
-// ESM
-
 import crypto from 'crypto';
 import { Op, QueryTypes } from 'sequelize';
 
@@ -9,6 +7,13 @@ import LicenciaMedica from '../src/models/modelo_LicenciaMedica.js';
 import HistorialLicencias from '../src/models/modelo_HistorialLicencias.js';
 import ArchivoLicencia from '../src/models/modelo_ArchivoLicencia.js';
 import { Matricula, LicenciasEntregas } from '../src/models/index.js';
+
+// 🔔 NUEVO IMPORT para correos
+import { 
+  notificarEstadoLicenciaEstudiante,
+  notificarLicenciaCreadaEstudiante 
+} from './servicio_Correo.js';
+
 /* =======================================================
  * Utilidades
  * ======================================================= */
@@ -143,7 +148,112 @@ export async function crearLicenciaConArchivo({
 }
 
 /* =======================================================
- * Decidir licencia (aceptar/rechazar) — ROBUSTO
+ * Función auxiliar: enviar notificación por correo
+ * ======================================================= */
+async function enviarNotificacionCorreo({
+  licencia,
+  estado,
+  motivo_rechazo,
+  observacion,
+  actorId
+}) {
+  try {
+    console.log(`📧 Preparando notificación por correo para licencia ${licencia.id_licencia}`);
+    
+    // Obtener información del estudiante
+    const [estudianteRows] = await LicenciaMedica.sequelize.query(
+      `SELECT u.correo_usuario, u.nombre 
+       FROM usuario u 
+       WHERE u.id_usuario = ? 
+       LIMIT 1`,
+      {
+        replacements: [licencia.id_usuario],
+        type: QueryTypes.SELECT
+      }
+    );
+
+    if (!estudianteRows || !estudianteRows.correo_usuario) {
+      console.warn('⚠️ No se pudo obtener el correo del estudiante para notificación');
+      return { ok: false, error: 'Correo del estudiante no encontrado' };
+    }
+
+    const resultado = await notificarEstadoLicenciaEstudiante({
+      to: estudianteRows.correo_usuario,
+      folio: licencia.folio,
+      estudianteNombre: estudianteRows.nombre,
+      estado: estado,
+      motivo_rechazo: motivo_rechazo,
+      fechaInicio: licencia.fecha_inicio,
+      fechaFin: licencia.fecha_fin,
+      observacion: observacion,
+      enlaceDetalle: `${process.env.APP_URL || 'http://localhost:3000'}/mis-licencias/${licencia.id_licencia}`
+    });
+
+    if (resultado.ok) {
+      console.log(`✅ Correo enviado exitosamente a: ${estudianteRows.correo_usuario}`);
+    } else {
+      console.error(`❌ Error enviando correo a ${estudianteRows.correo_usuario}:`, resultado.error);
+    }
+
+    return resultado;
+  } catch (error) {
+    console.error('❌ Error inesperado en enviarNotificacionCorreo:', error);
+    return { ok: false, error: error.message };
+  }
+}
+
+/* =======================================================
+ * Función auxiliar: notificar creación de licencia
+ * ======================================================= */
+async function enviarNotificacionLicenciaCreada({
+  usuarioId,
+  folio,
+  fechaInicio,
+  fechaFin
+}) {
+  try {
+    console.log(`📧 Preparando notificación de creación para usuario ${usuarioId}`);
+    
+    // Obtener información del estudiante
+    const [estudianteRows] = await LicenciaMedica.sequelize.query(
+      `SELECT u.correo_usuario, u.nombre 
+       FROM usuario u 
+       WHERE u.id_usuario = ? 
+       LIMIT 1`,
+      {
+        replacements: [usuarioId],
+        type: QueryTypes.SELECT
+      }
+    );
+
+    if (!estudianteRows || !estudianteRows.correo_usuario) {
+      console.warn('⚠️ No se pudo obtener el correo del estudiante para notificación de creación');
+      return { ok: false, error: 'Correo del estudiante no encontrado' };
+    }
+
+    const resultado = await notificarLicenciaCreadaEstudiante({
+      to: estudianteRows.correo_usuario,
+      folio: folio,
+      estudianteNombre: estudianteRows.nombre,
+      fechaInicio: fechaInicio,
+      fechaFin: fechaFin
+    });
+
+    if (resultado.ok) {
+      console.log(`✅ Correo de creación enviado a: ${estudianteRows.correo_usuario}`);
+    } else {
+      console.error(`❌ Error enviando correo de creación:`, resultado.error);
+    }
+
+    return resultado;
+  } catch (error) {
+    console.error('❌ Error inesperado en enviarNotificacionLicenciaCreada:', error);
+    return { ok: false, error: error.message };
+  }
+}
+
+/* =======================================================
+ * Registrar notificaciones y auditoría
  * ======================================================= */
 async function registrarNotificacionesYAuditoria({
   licencia,
@@ -208,7 +318,9 @@ async function registrarNotificacionesYAuditoria({
   console.log(`📜 Auditoría y notificaciones registradas para licencia ${licencia.id_licencia}`);
 }
 
-
+/* =======================================================
+ * Decidir licencia (aceptar/rechazar) — ROBUSTO
+ * ======================================================= */
 export async function decidirLicenciaSvc({
   idLicencia,
   decision,
@@ -347,7 +459,6 @@ export async function decidirLicenciaSvc({
         }
       }
 
-
       await HistorialLicencias.create({
         id_licencia: lic.id_licencia,
         id_usuario: actorId,
@@ -367,6 +478,18 @@ export async function decidirLicenciaSvc({
       });
 
       await tx.commit();
+
+      // 🔔 ENVÍO DE CORREO FUERA DE LA TRANSACCIÓN (no bloqueante)
+      enviarNotificacionCorreo({
+        licencia: lic,
+        estado: 'aceptado',
+        motivo_rechazo: null,
+        observacion: observacion,
+        actorId: actorId
+      }).catch(emailError => {
+        console.error('❌ Error no crítico enviando correo (aceptado):', emailError);
+      });
+
       return { ok: true, estado: 'aceptado' };
     }
 
@@ -399,6 +522,18 @@ export async function decidirLicenciaSvc({
       });
 
       await tx.commit();
+
+      // 🔔 ENVÍO DE CORREO FUERA DE LA TRANSACCIÓN (no bloqueante)
+      enviarNotificacionCorreo({
+        licencia: lic,
+        estado: 'rechazado',
+        motivo_rechazo: lic.motivo_rechazo,
+        observacion: observacion,
+        actorId: actorId
+      }).catch(emailError => {
+        console.error('❌ Error no crítico enviando correo (rechazado):', emailError);
+      });
+
       return { ok: true, estado: 'rechazado' };
     }
 
@@ -411,8 +546,9 @@ export async function decidirLicenciaSvc({
   }
 }
 
-
-
+/* =======================================================
+ * Insertar entregas si aceptado (función auxiliar)
+ * ======================================================= */
 async function insertarEntregasSiAceptado(idLicencia, idUsuario) {
   const cursos = await Matricula.findAll({
     where: { id_usuario: idUsuario },
