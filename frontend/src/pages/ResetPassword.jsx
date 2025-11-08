@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom"; // agregar useLocation
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
-import { useConfirmReset } from "../hooks/usePasswordReset"; // agregado
+import Toast from "../components/toast";
 
 export default function ResetPassword() {
   const location = useLocation();
@@ -10,27 +10,27 @@ export default function ResetPassword() {
   const [email, setEmail] = useState(prefilledEmail);
   const [code, setCode] = useState("");
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [toast, setToast] = useState(null); // { message, type }
+  const navigate = useNavigate(); // ✅ inicializar navigate
   const [loadingLocal, setLoadingLocal] = useState(false);
-  const navigate = useNavigate();
 
   const { confirmReset } = useConfirmReset();
-
-  const handleReset = async () => {
-    if (!email || !code || !password) {
-      alert("Completa todos los campos.");
+  const handleReset = () => {
+    if (!code || !password) {
+      setToast({ message: "Completa todos los campos.", type: "error" });
       return;
     }
 
-    try {
-      setLoadingLocal(true);
-      await confirmReset(email, code, password);
-      alert("Tu contraseña fue restablecida correctamente.");
-      navigate("/login");
-    } catch (err) {
-      alert(err?.message || "No se pudo restablecer la contraseña.");
-    } finally {
-      setLoadingLocal(false);
-    }
+    setLoading(true);
+
+    setTimeout(() => {
+      setLoading(false);
+      setToast({ message: "Tu contraseña fue restablecida correctamente.", type: "success" });
+
+      // ✅ redirigir al login después de mostrar toast (breve delay)
+      setTimeout(() => navigate("/login"), 700);
+    }, 1500);
   };
 
   return (
@@ -86,6 +86,15 @@ export default function ResetPassword() {
       </main>
 
       <Footer />
+
+      {/* Toast global */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
     </div>
   );
 }

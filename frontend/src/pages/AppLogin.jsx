@@ -3,6 +3,7 @@ import bannerLogin from "../assets/banner-login.png";
 import logo from "../assets/logo.svg"; // <-- tu logo
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { useTranslation } from "react-i18next";
 
 function AppLogin() {
   const { login } = useAuth();
