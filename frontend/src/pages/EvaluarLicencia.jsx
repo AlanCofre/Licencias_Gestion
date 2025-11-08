@@ -131,23 +131,23 @@ export default function EvaluarLicencia() {
   const openModal = (type) => setModal({ open: true, type });
   const closeModal = () => setModal({ open: false, type: null });
   const handleConfirm = (data) => {
-    // Validación: impedir rechazo sin motivo
     if (modal.type === "reject") {
       const motivo = data?.note ?? "";
-        setToast({ message: "Debes indicar un motivo para rechazar", type: "error" });
       if (!motivo || !motivo.trim()) {
-        return; // no cerrar modal ni proceder
+        setToast({ message: "Debes indicar un motivo para rechazar", type: "error" });
+        return;
       }
     }
 
     const action = modal.type === "accept" ? "aceptada" : "rechazada";
-    console.log(`Licencia ${license.id} ${action}:`, data);
-    // Mostrar toast de éxito en lugar de alert
+    console.log(`Licencia ${licencia.id} ${action}:`, data);
+
     setToast({ message: `Licencia ${action} exitosamente.`, type: "success" });
 
     closeModal();
-    // esperar un poco antes de volver para que el toast se vea
     setTimeout(() => goBackToBandeja(), 700);
+  };
+
   const decidirLicencia = async (decision) => {
     if (!licencia) return;
 
@@ -388,7 +388,6 @@ export default function EvaluarLicencia() {
       </main>
       <Footer />
 
-      {/* Modal correspondiente */}
       <ConfirmModal
         open={modal.open}
         title={modal.type === "accept" ? "Confirmar Aceptación" : "Confirmar Rechazo"}
@@ -397,7 +396,6 @@ export default function EvaluarLicencia() {
         onConfirm={handleConfirm}
       />
 
-      {/* Toast global */}
       {toast && (
         <Toast
           message={toast.message}

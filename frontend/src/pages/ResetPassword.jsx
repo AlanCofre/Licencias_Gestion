@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom"; // agregar useLocation
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
+import { useConfirmReset } from "../hooks/usePasswordReset"; 
 import Toast from "../components/toast";
 
 export default function ResetPassword() {
@@ -12,7 +13,7 @@ export default function ResetPassword() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState(null); // { message, type }
-  const navigate = useNavigate(); // ✅ inicializar navigate
+  const navigate = useNavigate(); // ✅ inicilizar navigate
   const [loadingLocal, setLoadingLocal] = useState(false);
 
   const { confirmReset } = useConfirmReset();

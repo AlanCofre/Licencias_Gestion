@@ -107,16 +107,19 @@ export default function GenerarRevision() {
       setErrorCursos(true);
       cursosSelectorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
+    }
+    
+    // Show confirmation modal
+    setShowConfirm(true);
+    pendingFormRef.current = { formData, selectedCursos, file };
+  };
+
   // Función que realiza el envío real (usada por PreviewEnvio)
   const sendData = async ({ form = formData, cursos = selectedCursos, archivo = file } = {}) => {
     if (!form || !archivo || cursos.length === 0) {
       throw new Error("Faltan datos obligatorios para el envío.");
     }
     setErrorCursos(false);
-    // Validación extra de FE por seguridad
-    if (!isMotivoValid(form.motivoMedico)) {
-      throw new Error("El motivo médico no es válido (mín. 3 caracteres; sin caracteres especiales).");
-    }
 
     setSending(true);
     try {
@@ -127,60 +130,44 @@ export default function GenerarRevision() {
       fd.append("fecha_inicio", form.fechaInicioReposo);
       fd.append("fecha_fin", form.fechaFinalReposo);
       fd.append("cursos", JSON.stringify(cursos));
-      fd.append("motivo_medico", form.motivoMedico.trim()); // <-- NUEVO: se envía al BE
+      fd.append("motivo_medico", form.motivoMedico?.trim() || ""); // Make motivo optional
 
-      const token =
-        localStorage.getItem("token") ||
-        localStorage.getItem("jwt") ||
-        localStorage.getItem("accessToken") ||
-        "";
+      const token = localStorage.getItem("token") || "";
+      const apiBase = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
 
-      const apiBase = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
       const res = await fetch(`${apiBase}/api/licencias/crear`, {
         method: "POST",
         headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          Authorization: `Bearer ${token}`
         },
         body: fd,
       });
 
-      let json;
-      try {
-        json = await res.json();
-      } catch {
-        const text = await res.text().catch(() => null);
-        json = { mensaje: text ?? "Respuesta no JSON" };
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        throw new Error(data?.mensaje || data?.error || "Error al enviar la licencia");
       }
 
-      if (res.ok) {
-        toast.success("Licencia enviada correctamente.");
-        setFormData({
-          folio: "",
-          fechaEmision: "",
-          fechaInicioReposo: "",
-          fechaFinalReposo: "",
-          razon: "",
-        });
-        setFile(null);
-        setSelectedCursos([]);
-        pendingFormRef.current = null;
-      } else {
-        const msg = json?.mensaje || json?.error || JSON.stringify(json);
-        toast.error("Error enviando licencia: " + msg);
-        console.error("Error backend:", res.status, json);
-      }
-
-      // Éxito: limpiar estado y volver al formulario vacío
+      // Success handling
+      setToast({ message: "Licencia enviada correctamente", type: "success" });
       setFormData(initialForm);
       setFile(null);
       setSelectedCursos([]);
       setErrorCursos(false);
       setMotivoTouched(false);
       setStep("form");
+      setSending(false);
       return { ok: true };
+
     } catch (err) {
-      console.error("Catch error enviar licencia:", err);
-      toast.error("Error al enviar la licencia. Revisa la consola y la pestaña Network.");
+      console.error("Error al enviar licencia:", err);
+      setToast({ 
+        message: err.message || "Error al enviar la licencia. Intenta nuevamente.", 
+        type: "error" 
+      });
+      setSending(false);
+      throw err;
     }
   };
 
@@ -270,7 +257,7 @@ export default function GenerarRevision() {
                   className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
                 />
               </div>
-
+             
               {/* NUEVO: Motivo médico */}
               <div>
                 <label className="block text-gray-600 mb-1">
@@ -323,37 +310,40 @@ export default function GenerarRevision() {
                     </svg>
                   </span>
                 </label>
-                <div className="flex flex-col gap-2">
-                  {cursosActivos.length === 0 ? (
-                    <span className="text-gray-500 dark:text-muted text-sm">No hay cursos activos disponibles.</span>
-                  ) : (
-                    cursosActivos.map((curso) => (
-                      <label key={curso.codigo + curso.seccion} className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          value={curso.codigo}
-                          checked={selectedCursos.includes(curso.codigo)}
-                          onChange={(e) => {
-                            setErrorCursos(false);
-                            setSelectedCursos((prev) =>
-                              e.target.checked ? [...prev, curso.codigo] : prev.filter((c) => c !== curso.codigo)
-                            );
-                          }}
-                        />
-                        <span>
-                          {curso.nombre} ({curso.codigo} - Sección {curso.seccion})
-                        </span>
-                      </label>
-                    ))
+                <div className="space-y-2">
+                  {cursosActivos.map((curso) => (
+                    <label
+                      key={curso.codigo}
+                      className="flex items-center p-3 border rounded hover:bg-gray-50 cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        className="mr-3"
+                        checked={selectedCursos.includes(curso.codigo)}
+                        onChange={(e) =>
+                          setSelectedCursos(
+                            e.target.checked
+                              ? [...selectedCursos, curso.codigo]
+                              : selectedCursos.filter((c) => c !== curso.codigo)
+                          )
+                        }
+                      />
+                      <div>
+                        <div className="font-medium">{curso.nombre}</div>
+                        <div className="text-sm text-gray-500">
+                          {curso.codigo} - Sección {curso.seccion}
+                        </div>
+                      </div>
+                    </label>
+                  ))}
+                  {errorCursos && (
+                    <div className="mt-2 text-red-600 text-sm font-medium" aria-live="polite">
+                      Debes seleccionar al menos un curso
+                    </div>
                   )}
-                </div>
-                {errorCursos && (
-                  <div className="mt-2 text-red-600 text-sm font-medium" aria-live="polite">
-                    Debes seleccionar al menos un curso afectado por tu licencia.
+                  <div className="mt-1 text-xs text-gray-400 dark:text-muted">
+                    Solo verás cursos del periodo activo.
                   </div>
-                )}
-                <div className="mt-1 text-xs text-gray-400 dark:text-muted">
-                  Solo verás cursos del periodo activo.
                 </div>
               </div>
 
@@ -433,7 +423,7 @@ export default function GenerarRevision() {
                   setToast({ message: "Error al enviar: " + (err?.message || err), type: "error" });
                 }
               }}
-              apiBase={(import.meta.env.VITE_API_URL || "http://localhost:3000").replace(/\/$/, "")}
+              apiBase={(import.meta.env.VITE_API_BASE_URL || "http://localhost:3000").replace(/\/$/, "")}
             />
           </div>
         )}
@@ -484,7 +474,7 @@ export default function GenerarRevision() {
 
       <Footer />
 
-      {/* Toast global */}
+      {/* Toast notification */}
       {toast && (
         <Toast
           message={toast.message}
