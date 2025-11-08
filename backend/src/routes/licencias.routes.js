@@ -364,15 +364,15 @@ router.get('/mis-cursos', validarJWT, tieneRol('profesor'), async (req, res) => 
 
 router.put(
   '/:id/estado',
-  authRequired,
-  requireRole(['funcionario','secretario']),
+  validarJWT,
+  tieneRol(['funcionario']),
   cambiarEstado
 );
 
 router.post(
   '/:id/decidir',
-  authRequired,
-  requireRole(['funcionario','secretario']),
+  validarJWT,
+  tieneRol(['funcionario']),
   // 🔧 inject id_usuario for validateDecision
   (req, _res, next) => {
     req.body ||= {};
@@ -394,8 +394,8 @@ router.post(
 
 router.put(
   '/:id/notificar',
-  authRequired,
-  requireRole(['funcionario','secretario']),
+  validarJWT,
+  tieneRol(['funcionario']),
   // 🔧 inject id_usuario también aquí por si el middleware lo necesita
   (req, _res, next) => {
     req.body ||= {};
@@ -546,7 +546,7 @@ router.post(
 );
 
 router.post(
-  '/',
+  '/crear',
   validarJWT,
   esEstudiante,
   upload.single('archivo'),

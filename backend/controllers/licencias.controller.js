@@ -11,6 +11,12 @@ import { subirPDFLicencia } from '../services/supabase/storage.service.js';
 // ✉️ Servicio de correos (solo para "nueva licencia")
 import { notificarNuevaLicencia } from '../services/servicio_Correo.js';
 
+// 🔔 NUEVO IMPORT para correos de estudiante
+import { 
+  notificarLicenciaCreadaEstudiante,
+  notificarEstadoLicenciaEstudiante 
+} from '../services/servicio_Correo.js';
+
 // === Utilidad: hash SHA-256 de un Buffer/String → hex 64
 function sha256FromBuffer(bufOrStr) {
   const h = crypto.createHash('sha256');
@@ -283,11 +289,32 @@ export const crearLicencia = async (req, res) => {
     );
     const idLicencia = result.insertId;
 
+    // 🔔 NOTIFICAR POR CORREO AL ESTUDIANTE (no bloqueante)
+    try {
+      // Obtener información del estudiante
+      const [estudianteRows] = await db.execute(
+        `SELECT correo_usuario, nombre FROM usuario WHERE id_usuario = ? LIMIT 1`,
+        [usuarioId]
+      );
+      
+      if (estudianteRows.length > 0) {
+        const estudiante = estudianteRows[0];
+        await notificarLicenciaCreadaEstudiante({
+          to: estudiante.correo_usuario,
+          folio: folio,
+          estudianteNombre: estudiante.nombre,
+          fechaInicio: fecha_inicio,
+          fechaFin: fecha_fin
+        });
+        console.log(`📧 Correo de creación enviado a: ${estudiante.correo_usuario}`);
+      }
+    } catch (emailError) {
+      console.error('❌ Error enviando correo de creación:', emailError);
+      // No fallamos la creación por error de correo
+    }
+
     // 2) Subir a Supabase
-    //    IMPORTANTE: ajusta el import arriba del archivo:
-    //    import { subirPDFLicencia } from '../services/supabase/storage.service.js';
     const meta = await (async () => {
-      // subirPDFLicencia(file, userId) → DEBE devolver un objeto con TODAS estas props (sin undefined)
       const r = await subirPDFLicencia(archivo, usuarioId);
       // Normalizar por si acaso
       return {
@@ -338,8 +365,6 @@ export const crearLicencia = async (req, res) => {
     return res.status(500).json({ msg: 'Error al crear la licencia' });
   }
 };
-
-
 
 // =====================================================
 // GET: Licencias en revisión (funcionario/secretaría)
@@ -426,7 +451,6 @@ export const getLicenciasEnRevision = async (req, res) => {
     return res.status(500).json({ ok: false, error: 'Error al obtener licencias en revisión' });
   }
 };
-
 
 // =======================================================
 // ✅ Licencias Resueltas (FUNCIONARIO)
@@ -781,9 +805,6 @@ export async function decidirLicencia(req, res) {
 
 // ========================
 // GET /api/licencias/:id/archivo
-// ========================
-// ========================
-// GET /api/licencias/:id/archivo
 // → Devuelve URL firmada temporal de Supabase
 // ========================
 export const descargarArchivoLicencia = async (req, res) => {
@@ -849,7 +870,6 @@ export const descargarArchivoLicencia = async (req, res) => {
   }
 };
 
-
 // =====================================================
 // ⬅️ Restaurado: cambiarEstado (named export)
 // =====================================================
@@ -890,7 +910,6 @@ export async function cambiarEstado(req, res, next) {
         console.warn('[audit] cambiarEstado:', e?.message || e);
       }
     }
-
 
     return res.json({ ok: true, data: { id: lic.id_licencia, estado: lic.estado } });
   } catch (err) { next(err); }
