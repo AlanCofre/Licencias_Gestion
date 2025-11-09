@@ -389,6 +389,89 @@
     return null;
   }
 
+
+  // Función para renderizar tabla en formato plano
+  function renderTablaMatriculasPlana(matriculas) {
+    if (!matriculas.length) {
+      return '<div class="muted">No tienes cursos matriculados.</div>';
+    }
+
+    const head = `
+      <tr>
+        <th>ID Curso</th>
+        <th>Código</th>
+        <th>Nombre</th>
+        <th>Sección</th>
+        <th>Periodo</th>
+        <th>Profesor</th>
+        <th>Estado</th>
+        <th>Fecha Matrícula</th>
+      </tr>
+    `;
+
+    const rows = matriculas.map(matricula => `
+      <tr>
+        <td>${matricula.id_curso || ''}</td>
+        <td><strong>${matricula.codigo || ''}</strong></td>
+        <td>${matricula.nombre_curso || ''}</td>
+        <td>${matricula.seccion || ''}</td>
+        <td>${matricula.periodo || ''}</td>
+        <td>${matricula.profesor?.nombre || 'No asignado'}</td>
+        <td>${matricula.activo ? '<span style="color:green">● Activo</span>' : '<span style="color:red">● Inactivo</span>'}</td>
+        <td>${matricula.fecha_matricula ? new Date(matricula.fecha_matricula).toLocaleDateString() : ''}</td>
+      </tr>
+    `).join('');
+
+    return `
+      <div style="overflow-x: auto;">
+        <table>
+          ${head}
+          ${rows}
+        </table>
+      </div>
+    `;
+  }
+
+  // Función para renderizar en formato agrupado por periodo
+  function renderMatriculasAgrupadas(periodos) {
+    if (!periodos.length) {
+      return '<div class="muted">No tienes cursos matriculados.</div>';
+    }
+
+    return periodos.map(periodo => `
+      <div style="margin-bottom: 20px; padding: 12px; border: 2px solid ${periodo.es_periodo_actual ? '#4CAF50' : '#ccc'}; border-radius: 8px;">
+        <div style="display: flex; justify-content: between; align-items: center; margin-bottom: 12px;">
+          <h3 style="margin: 0; color: ${periodo.es_periodo_actual ? '#2E7D32' : '#666'};">
+            Periodo: ${periodo.periodo}
+            ${periodo.es_periodo_actual ? '<span style="background: #4CAF50; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px; margin-left: 8px;">ACTUAL</span>' : ''}
+          </h3>
+          <span style="color: #666; font-size: 14px;">${periodo.cursos.length} curso(s)</span>
+        </div>
+        
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px;">
+          ${periodo.cursos.map(curso => `
+            <div style="border: 1px solid #ddd; padding: 12px; border-radius: 6px; background: #f9f9f9;">
+              <div style="display: flex; justify-content: between; align-items: start; margin-bottom: 8px;">
+                <div>
+                  <strong style="color: #333;">${curso.codigo} - ${curso.nombre_curso}</strong>
+                  <div style="color: #666; font-size: 14px;">Sección ${curso.seccion}</div>
+                </div>
+                <span style="background: ${curso.activo ? '#E8F5E8' : '#FFEBEE'}; color: ${curso.activo ? '#2E7D32' : '#C62828'}; padding: 2px 6px; border-radius: 4px; font-size: 12px;">
+                  ${curso.activo ? 'Activo' : 'Inactivo'}
+                </span>
+              </div>
+              <div style="color: #666; font-size: 14px;">
+                <strong>Profesor:</strong> ${curso.profesor?.nombre || 'No asignado'}
+              </div>
+              <div style="color: #666; font-size: 14px;">
+                <strong>ID Curso:</strong> ${curso.id_curso}
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `).join('');
+  }
   // ===== Registro =====
   $('btnRegister').onclick = async () => {
     const body = {
