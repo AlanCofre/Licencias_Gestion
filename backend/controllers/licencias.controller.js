@@ -231,6 +231,8 @@ export const crearLicencia = async (req, res) => {
       });
     }
 
+    // ✅ NOTA: La validación de matrículas ahora se hace en el middleware validarMatriculasActivas
+
     // Validaciones mínimas
     if (!folio) return res.status(400).json({ msg: 'El folio es obligatorio' });
     const isISO = (d) => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d);
@@ -290,6 +292,15 @@ export const crearLicencia = async (req, res) => {
       ]
     );
     const idLicencia = result.insertId;
+
+    // ✅ Crear entregas de licencia para cada curso (las matrículas ya están validadas por el middleware)
+    for (const idCurso of cursos) {
+      await db.execute(
+        `INSERT INTO licencias_entregas (id_licencia, id_curso, fecha_creacion)
+         VALUES (?, ?, NOW())`,
+        [idLicencia, idCurso]
+      );
+    }
 
     // 🔔 NOTIFICAR POR CORREO AL ESTUDIANTE (no bloqueante)
     try {
@@ -367,7 +378,6 @@ export const crearLicencia = async (req, res) => {
     return res.status(500).json({ msg: 'Error al crear la licencia' });
   }
 };
-
 // =====================================================
 // GET: Licencias en revisión (funcionario/secretaría)
 // =====================================================
@@ -871,7 +881,53 @@ export const descargarArchivoLicencia = async (req, res) => {
     return res.status(500).json({ ok: false, error: 'Error generando URL firmada' });
   }
 };
+// Agregar en backend/controllers/licencias.controller.js
 
+/**
+ * Verificar si el estudiante está matriculado en los cursos seleccionados
+ */
+async function verificarMatriculasActivas(idUsuario, cursosSeleccionados) {
+  try {
+    if (!Array.isArray(cursosSeleccionados) || cursosSeleccionados.length === 0) {
+      throw new Error('No se han seleccionado cursos');
+    }
+
+    // Obtener IDs de cursos únicos
+    const idsCursos = [...new Set(cursosSeleccionados.map(id => parseInt(id)))];
+    
+    const [matriculas] = await db.execute(
+      `SELECT m.id_matricula, c.id_curso, c.codigo, c.nombre_curso
+       FROM matriculas m
+       JOIN curso c ON m.id_curso = c.id_curso
+       WHERE m.id_usuario = ? 
+         AND c.id_curso IN (${idsCursos.map(() => '?').join(',')})
+         AND c.activo = 1`,
+      [idUsuario, ...idsCursos]
+    );
+
+    // Verificar que todos los cursos seleccionados tengan matrícula activa
+    const cursosConMatricula = matriculas.map(m => m.id_curso);
+    const cursosSinMatricula = idsCursos.filter(id => !cursosConMatricula.includes(id));
+
+    if (cursosSinMatricula.length > 0) {
+      // Obtener nombres de cursos sin matrícula para el mensaje de error
+      const [cursosNoMatriculados] = await db.execute(
+        `SELECT id_curso, codigo, nombre_curso 
+         FROM curso 
+         WHERE id_curso IN (${cursosSinMatricula.map(() => '?').join(',')})`,
+        cursosSinMatricula
+      );
+
+      const nombresCursos = cursosNoMatriculados.map(c => `${c.codigo} - ${c.nombre_curso}`).join(', ');
+      throw new Error(`No estás matriculado en los siguientes cursos: ${nombresCursos}`);
+    }
+
+    return matriculas;
+  } catch (error) {
+    console.error('❌ Error en verificarMatriculasActivas:', error);
+    throw error;
+  }
+}
 // =====================================================
 // ⬅️ Restaurado: cambiarEstado (named export)
 // =====================================================

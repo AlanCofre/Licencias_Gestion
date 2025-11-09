@@ -34,6 +34,71 @@ import { getLicenciasEstudianteConRegularidad } from '../../controllers/licencia
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
+const validarMatriculasActivas = async (req, res, next) => {
+  try {
+    const usuarioId = req.user?.id_usuario;
+    
+    if (!usuarioId) {
+      return res.status(401).json({ ok: false, error: 'No autenticado' });
+    }
+
+    let cursos = [];
+    const cursosRaw = req.body?.cursos ?? null;
+    if (cursosRaw) {
+      try {
+        cursos = typeof cursosRaw === 'string' ? JSON.parse(cursosRaw) : cursosRaw;
+      } catch (e) {
+        cursos = [];
+      }
+    }
+
+    if (!Array.isArray(cursos) || cursos.length === 0) {
+      return res.status(400).json({
+        ok: false,
+        error: 'Debe seleccionar al menos un curso afectado'
+      });
+    }
+
+    const idsCursos = [...new Set(cursos.map(id => parseInt(id)))];
+    
+    const [matriculas] = await db.execute(
+      `SELECT c.id_curso, c.codigo, c.nombre_curso
+       FROM matriculas m
+       JOIN curso c ON m.id_curso = c.id_curso
+       WHERE m.id_usuario = ? 
+         AND c.id_curso IN (${idsCursos.map(() => '?').join(',')})
+         AND c.activo = 1`,
+      [usuarioId, ...idsCursos]
+    );
+
+    const cursosConMatricula = matriculas.map(m => m.id_curso);
+    const cursosSinMatricula = idsCursos.filter(id => !cursosConMatricula.includes(id));
+
+    if (cursosSinMatricula.length > 0) {
+      const [cursosNoMatriculados] = await db.execute(
+        `SELECT id_curso, codigo, nombre_curso 
+         FROM curso 
+         WHERE id_curso IN (${cursosSinMatricula.map(() => '?').join(',')})`,
+        cursosSinMatricula
+      );
+
+      const nombresCursos = cursosNoMatriculados.map(c => `${c.codigo} - ${c.nombre_curso}`).join(', ');
+      return res.status(400).json({
+        ok: false,
+        error: `No estás matriculado en los siguientes cursos: ${nombresCursos}`
+      });
+    }
+
+    next();
+  } catch (error) {
+    console.error('❌ Error en validarMatriculasActivas:', error);
+    return res.status(500).json({
+      ok: false,
+      error: 'Error al validar matrículas'
+    });
+  }
+};
+
 async function cargarLicencia(req, res, next) {
   try {
     const lic = await LicenciaMedica.findByPk(req.params.id);
@@ -553,6 +618,7 @@ router.post(
   upload.single('archivo'),
   validarArchivoAdjunto,
   validateLicenciaBody,
+  validarMatriculasActivas,
   crearLicencia
 );
 
