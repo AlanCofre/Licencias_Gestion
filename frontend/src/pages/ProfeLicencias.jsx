@@ -1,12 +1,14 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
-import { Eye, Clock, Search, Calendar } from "lucide-react";
+import { Eye, Clock, Search, Calendar, X } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
 const PAGE_SIZE = 10;
 
+/* -------------------- MOCK DE LICENCIAS (ejemplos) -------------------- */
+/* En producción reemplazar por fetch("/profesores/licencias?periodo=activo") */
 const mockLicencias = [
   {
     id: "123",
@@ -43,6 +45,8 @@ const mockLicencias = [
   },
 ];
 
+/* -------------------- UTILIDADES -------------------- */
+/* Obtener iniciales para avatar */
 function initialsFromName(name = "") {
   const parts = name.trim().split(/\s+/);
   if (parts.length === 0) return "";
@@ -50,37 +54,80 @@ function initialsFromName(name = "") {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
+/* Comparador de fecha en formato ISO yyyy-mm-dd (sin hora) */
+function inDateRange(valueDateStr, startStr, endStr) {
+  if (!valueDateStr) return false;
+  const v = new Date(valueDateStr);
+  if (isNaN(v)) return false;
+  if (startStr) {
+    const s = new Date(startStr);
+    if (isNaN(s)) return false;
+    if (v < s) return false;
+  }
+  if (endStr) {
+    const e = new Date(endStr);
+    if (isNaN(e)) return false;
+    // incluir fin del día
+    e.setHours(23, 59, 59, 999);
+    if (v > e) return false;
+  }
+  return true;
+}
+
+/* -------------------- COMPONENTE PRINCIPAL -------------------- */
 export default function ProfeLicencias() {
   const { user } = useAuth();
-  const [items, setItems] = useState([]); // licencias
+
+  /* estado de datos */
+  const [items, setItems] = useState([]); // licencias cargadas
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Filtros y paginación
-  const [filterCourse, setFilterCourse] = useState("");
-  const [filterDate, setFilterDate] = useState("");
-  const [searchTerm, setSearchTerm] = useState("");
-  const [page, setPage] = useState(1);
+  /* filtros locales + paginación */
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [filterCourse, setFilterCourse] = useState(searchParams.get("course") || "");
+  const [filterEstado, setFilterEstado] = useState(searchParams.get("estado") || "");
+  const [startDate, setStartDate] = useState(searchParams.get("start") || "");
+  const [endDate, setEndDate] = useState(searchParams.get("end") || "");
+  const [searchTerm, setSearchTerm] = useState(searchParams.get("q") || "");
+  const [page, setPage] = useState(Number(searchParams.get("page") || 1));
 
+  /* cargar datos (mock) */
   useEffect(() => {
-    // Simula fetch y usa mockLicencias para que los filtros funcionen inmediatamente
     let mounted = true;
     setLoading(true);
     setError(null);
+    // simulación de fetch
     const t = setTimeout(() => {
       if (!mounted) return;
-      // En producción sustituir por fetch("/profesores/licencias?periodo=activo")
       setItems(mockLicencias);
       setLoading(false);
-    }, 500);
-
+    }, 450);
     return () => {
       mounted = false;
       clearTimeout(t);
     };
   }, [user?.id]);
 
-  // Camino de cursos únicos para filtro
+  /* sincronizar filtros al cambiar searchParams (por si el usuario pega URL) */
+  useEffect(() => {
+    const spCourse = searchParams.get("course") || "";
+    const spEstado = searchParams.get("estado") || "";
+    const spStart = searchParams.get("start") || "";
+    const spEnd = searchParams.get("end") || "";
+    const spQ = searchParams.get("q") || "";
+    const spPage = Number(searchParams.get("page") || 1);
+
+    setFilterCourse(spCourse);
+    setFilterEstado(spEstado);
+    setStartDate(spStart);
+    setEndDate(spEnd);
+    setSearchTerm(spQ);
+    setPage(spPage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // ejecutar solo al montar
+
+  /* construir opciones para dropdowns desde la bandeja actual */
   const courseOptions = useMemo(() => {
     const setC = new Set();
     items.forEach((it) => {
@@ -90,10 +137,20 @@ export default function ProfeLicencias() {
     return Array.from(setC).sort();
   }, [items]);
 
-  // filtro + búsqueda + fecha
+  const estadoOptions = useMemo(() => {
+    const setE = new Set();
+    items.forEach((it) => {
+      const e = String(it.estado || "Desconocido");
+      setE.add(e);
+    });
+    return Array.from(setE).sort();
+  }, [items]);
+
+  /* aplicar filtros client-side (instantáneo) */
   const filtered = useMemo(() => {
     let out = items.slice();
 
+    // filtro por curso
     if (filterCourse) {
       out = out.filter((it) => {
         const key = `${it.courseCode || "UNK"} - ${it.section || "?"}`;
@@ -101,13 +158,25 @@ export default function ProfeLicencias() {
       });
     }
 
-    if (filterDate) {
-      // filtrar por fecha de emisión o inicio (adapta según necesidad)
-      out = out.filter(
-        (it) => it.fechaEmision === filterDate || it.fechaInicio === filterDate
-      );
+    // filtro por estado
+    if (filterEstado) {
+      out = out.filter((it) => {
+        return String(it.estado || "").toLowerCase() === String(filterEstado).toLowerCase();
+      });
     }
 
+    // filtro por rango de fechas (si se entrega start y/o end)
+    if (startDate || endDate) {
+      out = out.filter((it) => {
+        // consideramos fecha de emisión y fecha de inicio como posibles fechas relevantes
+        return (
+          inDateRange(it.fechaEmision, startDate, endDate) ||
+          inDateRange(it.fechaInicio, startDate, endDate)
+        );
+      });
+    }
+
+    // búsqueda por nombre o legajo (q)
     if (searchTerm) {
       const s = searchTerm.toLowerCase();
       out = out.filter(
@@ -117,17 +186,17 @@ export default function ProfeLicencias() {
       );
     }
 
-    // ordenar por fecha inicio descendente
+    // ordenar por fecha inicio descendente, fallback fechaEmision
     out.sort((a, b) => {
-      const da = new Date(a.fechaInicio || 0).getTime();
-      const db = new Date(b.fechaInicio || 0).getTime();
+      const da = new Date(a.fechaInicio || a.fechaEmision || 0).getTime();
+      const db = new Date(b.fechaInicio || b.fechaEmision || 0).getTime();
       return db - da;
     });
 
     return out;
-  }, [items, filterCourse, filterDate, searchTerm]);
+  }, [items, filterCourse, filterEstado, startDate, endDate, searchTerm]);
 
-  // paginación
+  /* paginación simple client-side */
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   useEffect(() => {
     if (page > totalPages) setPage(1);
@@ -135,80 +204,145 @@ export default function ProfeLicencias() {
 
   const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
+  /* actualizar querystring cada vez que cambian filtros o página */
+  useEffect(() => {
+    const params = {};
+    if (filterCourse) params.course = filterCourse;
+    if (filterEstado) params.estado = filterEstado;
+    if (startDate) params.start = startDate;
+    if (endDate) params.end = endDate;
+    if (searchTerm) params.q = searchTerm;
+    if (page && page > 1) params.page = String(page);
+    setSearchParams(params);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterCourse, filterEstado, startDate, endDate, searchTerm, page]);
+
+  /* limpiar todos los filtros (y persistencia) */
+  function clearFilters() {
+    setFilterCourse("");
+    setFilterEstado("");
+    setStartDate("");
+    setEndDate("");
+    setSearchTerm("");
+    setPage(1);
+    setSearchParams({});
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-50 to-indigo-100 dark:bg-app dark:bg-none">
       <Navbar />
 
       <main className="flex-1 w-full">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-10 max-w-6xl">
-          <div className="mb-8 text-center">
-            <div className="bg-white rounded-2xl shadow-lg p-8 border border-gray-100">
-              <div className="flex items-center justify-center mb-4">
-                <div className="bg-blue-100 p-3 rounded-full mr-4">
-                  <Clock className="h-8 w-8 text-blue-600" />
+          {/* header y barra de filtros */}
+          <div className="mb-6">
+            <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
+              <div className="flex items-center gap-4">
+                <div className="bg-blue-100 p-3 rounded-full">
+                  <Clock className="h-7 w-7 text-blue-600" />
                 </div>
-                <div>
-                  <h1 className="text-4xl font-bold text-gray-900">Licencias — Mis cursos</h1>
-                  <p className="text-gray-600 mt-2">
-                    Visualiza las licencias presentadas por los estudiantes de tus ramos en el periodo activo.
-                  </p>
+                <div className="flex-1">
+                  <h1 className="text-2xl font-bold text-gray-900">Licencias — Mis cursos</h1>
+                  <p className="text-gray-600 mt-1">Filtra la bandeja para localizar rápidamente licencias.</p>
+                </div>
+
+                {/* botón limpiar filtros visible en header */}
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={clearFilters}
+                    className="inline-flex items-center gap-2 px-3 py-2 bg-white border rounded shadow-sm hover:bg-gray-50 text-sm"
+                    aria-label="Limpiar filtros"
+                  >
+                    <X className="h-4 w-4 text-gray-600" />
+                    Limpiar filtros
+                  </button>
                 </div>
               </div>
 
-              <div className="mt-6 flex items-center gap-4 flex-wrap justify-center">
-                <div className="flex items-center gap-2">
+              {/* filtros: curso, estado, rango fechas, búsqueda */}
+              <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+                {/* dropdown curso */}
+                <div>
                   <label htmlFor="filterCourse" className="text-sm text-gray-600">Ramo</label>
                   <select
                     id="filterCourse"
                     value={filterCourse}
                     onChange={(e) => { setFilterCourse(e.target.value); setPage(1); }}
-                    className="border border-gray-200 bg-white px-3 py-1 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#048FD4]"
+                    className="mt-1 block w-full border border-gray-200 bg-white px-3 py-2 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#048FD4]"
                   >
-                    <option value="">Todos</option>
+                    <option value="">Todos los ramos</option>
                     {courseOptions.map((c) => (
                       <option key={c} value={c}>{c}</option>
                     ))}
                   </select>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <label htmlFor="filterDate" className="text-sm text-gray-600">Fecha</label>
-                  <div className="relative">
-                    <input
-                      id="filterDate"
-                      type="date"
-                      value={filterDate}
-                      onChange={(e) => { setFilterDate(e.target.value); setPage(1); }}
-                      className="pl-9 pr-3 py-1 border border-gray-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#048FD4]"
-                    />
-                    <Calendar className="absolute left-2 top-1.5 h-4 w-4 text-gray-400" />
+                {/* dropdown estado */}
+                <div>
+                  <label htmlFor="filterEstado" className="text-sm text-gray-600">Estado</label>
+                  <select
+                    id="filterEstado"
+                    value={filterEstado}
+                    onChange={(e) => { setFilterEstado(e.target.value); setPage(1); }}
+                    className="mt-1 block w-full border border-gray-200 bg-white px-3 py-2 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#048FD4]"
+                  >
+                    <option value="">Todos los estados</option>
+                    {/* permitimos mostrar opciones dinámicas según lo entregue el BE */}
+                    {estadoOptions.map((e) => (
+                      <option key={e} value={e}>{e}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* date range local (start / end) */}
+                <div className="flex gap-2">
+                  <div className="w-1/2">
+                    <label htmlFor="startDate" className="text-sm text-gray-600">Desde</label>
+                    <div className="relative mt-1">
+                      <input
+                        id="startDate"
+                        type="date"
+                        value={startDate}
+                        onChange={(e) => { setStartDate(e.target.value); setPage(1); }}
+                        className="block w-full border border-gray-200 bg-white px-3 py-2 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#048FD4]"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="w-1/2">
+                    <label htmlFor="endDate" className="text-sm text-gray-600">Hasta</label>
+                    <div className="relative mt-1">
+                      <input
+                        id="endDate"
+                        type="date"
+                        value={endDate}
+                        onChange={(e) => { setEndDate(e.target.value); setPage(1); }}
+                        className="block w-full border border-gray-200 bg-white px-3 py-2 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#048FD4]"
+                      />
+                    </div>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
+                {/* búsqueda global (alumno / legajo) - ocupa toda la fila en md */}
+                <div className="md:col-span-3">
                   <label htmlFor="searchTerm" className="text-sm text-gray-600">Buscar</label>
-                  <div className="relative">
+                  <div className="relative mt-1">
                     <input
                       id="searchTerm"
                       type="text"
                       placeholder="Alumno o legajo"
                       value={searchTerm}
                       onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
-                      className="pl-9 pr-3 py-1 border border-gray-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#048FD4]"
+                      className="pl-10 pr-3 py-2 border border-gray-200 rounded-md w-full text-sm focus:outline-none focus:ring-2 focus:ring-[#048FD4] bg-white"
                     />
-                    <Search className="absolute left-2 top-1.5 h-4 w-4 text-gray-400" />
+                    <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                   </div>
-                </div>
-
-                <div className="ml-auto hidden sm:flex items-center gap-2">
-                  <div className="text-sm text-gray-600">Mostrando</div>
-                  <div className="font-semibold text-gray-800">{filtered.length}</div>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Contenido */}
+          {/* Contenido: tabla de licencias */}
           <div className="bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-100">
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -224,6 +358,7 @@ export default function ProfeLicencias() {
 
                 <tbody className="bg-white divide-y divide-gray-100">
                   {loading ? (
+                    /* esqueleto de carga */
                     Array.from({ length: 6 }).map((_, i) => (
                       <tr key={i} className="animate-pulse">
                         <td className="px-6 py-5"><div className="h-4 bg-gray-200 rounded w-32" /></td>
@@ -234,6 +369,7 @@ export default function ProfeLicencias() {
                       </tr>
                     ))
                   ) : paged.length === 0 ? (
+                    /* estado vacío */
                     <tr>
                       <td colSpan={5} className="p-12 text-center">
                         <div className="bg-gray-100 rounded-full w-24 h-24 flex items-center justify-center mx-auto mb-6">
@@ -244,6 +380,7 @@ export default function ProfeLicencias() {
                       </td>
                     </tr>
                   ) : (
+                    /* filas con datos */
                     paged.map((lic) => {
                       const courseLabel = `${lic.courseCode || "UNK"} - ${lic.section || "?"}`;
                       const studentName = lic.studentName || "Sin nombre";
@@ -286,10 +423,10 @@ export default function ProfeLicencias() {
 
                           <td className="px-6 py-5 whitespace-nowrap">
                             <span
-                              className={`px-3 py-2 inline-flex text-sm leading-5 font-semibold rounded-full border ${
-                                lic.estado === "Aceptada" || lic.estado === "validated"
+                              className={`px-3 py-2 inline-flex text-sm leading-5 font-semibold rounded-full border min-w-[140px] justify-center ${
+                                String(lic.estado).toLowerCase().includes("acept")
                                   ? "bg-green-100 text-green-800 border-green-200"
-                                  : lic.estado === "Rechazada" || lic.estado === "rejected"
+                                  : String(lic.estado).toLowerCase().includes("rechaz")
                                   ? "bg-red-100 text-red-800 border-red-200"
                                   : "bg-yellow-100 text-yellow-800 border-yellow-200"
                               }`}
@@ -300,7 +437,7 @@ export default function ProfeLicencias() {
 
                           <td className="px-6 py-5 whitespace-nowrap text-center">
                             <Link
-                              to={`/profesor/licencias/${lic.id}`} /* <-- ruta hacia EntregaDetalle */
+                              to={`/profesor/licencias/${lic.id}`}
                               className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-medium rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 shadow-md hover:shadow-lg"
                             >
                               <Eye className="h-4 w-4 mr-2" />
@@ -315,11 +452,11 @@ export default function ProfeLicencias() {
               </table>
             </div>
 
-            {/* Paginacion */}
-            {!loading && paged.length > 0 && (
+            {/* Paginación */}
+            {!loading && filtered.length > 0 && (
               <div className="flex items-center justify-between p-4 border-t">
                 <div className="text-sm text-gray-600">
-                  Página {page} de {totalPages}
+                  Mostrando {filtered.length} resultados — Página {page} de {totalPages}
                 </div>
                 <div className="flex items-center gap-2">
                   <button
@@ -340,6 +477,13 @@ export default function ProfeLicencias() {
               </div>
             )}
           </div>
+
+          {/* error si aplica */}
+          {error && (
+            <div className="mt-4 text-sm text-red-600">
+              Error al cargar licencias: {String(error)}
+            </div>
+          )}
         </div>
       </main>
 
