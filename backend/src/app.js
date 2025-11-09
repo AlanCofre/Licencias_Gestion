@@ -19,6 +19,8 @@ import reportesRouter from './routes/reportes.route.js';
 import regularidadRoutes from './routes/regularidad.routes.js';
 import { attachAudit } from '../middlewares/audit.middleware.js';
 import db from '../config/db.js';
+import estudianteRoutes from './routes/estudiante.routes.js';
+
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -70,7 +72,7 @@ app.use('/api/licencias', licenciasRouter);
 
 // Regularidad - CORREGIDO: agregado aquí
 app.use('/api/regularidad', regularidadRoutes);
-
+app.use('/api/estudiantes', estudianteRoutes);
 // Rutas legacy / auxiliares
 app.use('/licencias', detailsRouter);
 app.use('/archivos', insertRouter);
@@ -99,6 +101,8 @@ app.get('/', (req, res) => res.redirect('/usuarios/login'));
 app.use((req, res) => {
   res.status(404).json({ ok: false, mensaje: 'Ruta no encontrada' });
 });
+
+
 
 /* === Error handler global === */
 app.use((err, req, res, next) => {
