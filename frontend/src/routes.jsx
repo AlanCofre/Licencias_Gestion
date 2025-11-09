@@ -28,6 +28,7 @@ import LicenciaNueva from "./pages/LicenciaNueva.jsx";
 import ProfesorEntregaDetalle from "./pages/EntregaDetalle.jsx";
 import AdminResumenPeriodo from "./pages/AdminResumenPeriodo";
 import AdminPeriodos from "./pages/PeriodoActivo.jsx";
+import ProfeLicencias from "./pages/ProfeLicencias.jsx";
 
 export default function AppRoutes() {
   return (
@@ -61,6 +62,7 @@ export default function AppRoutes() {
       <Route path="/estudiante/licencias/nueva" element={<LicenciaNueva />} />
       <Route path="/profesor/licencias/:idEntrega" element={<ProfesorEntregaDetalle />} />
       <Route path="/admin/periodos" element={<AdminPeriodos />} />
+      <Route path="/profesor/licencias" element={<ProfeLicencias />} />
 
       {/* Rutas nuevas de secretaria */}
       <Route path="/evaluar/:id" element={<EvaluarLicencia />} />
