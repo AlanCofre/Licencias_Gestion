@@ -212,7 +212,13 @@ export const crearLicencia = async (req, res) => {
     const fecha_inicio = _str(req.body?.fecha_inicio);
     const fecha_fin    = _str(req.body?.fecha_fin);
     const motivo       = _str(req.body?.motivo);
-
+    const motivo_medico = _str(req.body?.motivo_medico);
+    if (!motivo_medico || motivo_medico.length === 0) {
+      return res.status(400).json({ 
+        ok: false, 
+        error: 'El motivo médico es obligatorio' 
+      });
+    }
     // Cursos: puede venir como array o como JSON-string desde el frontend
     let cursos = [];
     const cursosRaw = req.body?.cursos ?? null;
@@ -280,12 +286,13 @@ export const crearLicencia = async (req, res) => {
     // 1) Insertar licencia (forzar NULLs donde corresponda)
     const [result] = await db.execute(
       `INSERT INTO licenciamedica
-       (folio, fecha_emision, fecha_inicio, fecha_fin, estado, motivo_rechazo, fecha_creacion, id_usuario)
-       VALUES (?, CURDATE(), ?, ?, 'pendiente', NULL, NOW(), ?)`,
+      (folio, fecha_emision, fecha_inicio, fecha_fin, estado, motivo_rechazo, motivo_medico, fecha_creacion, id_usuario)
+      VALUES (?, CURDATE(), ?, ?, 'pendiente', NULL, ?, NOW(), ?)`,
       [
         folio ?? null,
         fecha_inicio ?? null,
         fecha_fin ?? null,
+        motivo_medico ?? null,  // ✅ AHORA SÍ TIENE SU LUGAR
         usuarioId ?? null
       ]
     );
@@ -356,6 +363,7 @@ export const crearLicencia = async (req, res) => {
         fecha_fin,
         estado: 'pendiente',
         motivo_rechazo: null,
+        motivo_medico: motivo_medico,
         fecha_creacion: new Date().toISOString(),
         id_usuario: usuarioId,
         motivo: motivo ?? null,
@@ -679,15 +687,19 @@ export const crearLicenciaLegacy = async (req, res) => {
     if (!folio) {
       return res.status(400).json({ ok: false, mensaje: "El folio es obligatorio" });
     }
+    const motivo_medico = String(req.body?.motivo_medico ?? "").trim();
+    if (!motivo_medico) {
+      return res.status(400).json({ ok: false, mensaje: "El motivo médico es obligatorio" });
+    }
 
     const sql = `
       INSERT INTO licenciamedica
-        (folio, fecha_emision, fecha_inicio, fecha_fin, estado, motivo_rechazo, fecha_creacion, id_usuario)
+        (folio, fecha_emision, fecha_inicio, fecha_fin, estado, motivo_rechazo, motivo_medico, fecha_creacion, id_usuario)
       VALUES
-        (?,     CURDATE(),     ?,            ?,          'pendiente', NULL,            NOW(),     ?)
+        (?,     CURDATE(),     ?,            ?,          'pendiente', NULL,            ?, NOW(),     ?)
     `;
-    const [result] = await db.execute(sql, [folio, fecha_inicio, fecha_fin, id_usuario]);
-
+    const [result] = await db.execute(sql, [folio, fecha_inicio, fecha_fin, motivo_medico, id_usuario]);
+    
     // 🔎 AUDIT: emitir licencia (legacy)
     try {
       await req.audit('emitir licencia', 'licenciamedica', {

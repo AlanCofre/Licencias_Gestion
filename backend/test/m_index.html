@@ -22,6 +22,12 @@
     .row-2col { display:grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     @media (max-width: 900px){ .row-2col{ grid-template-columns: 1fr; } }
     .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+    .cursos-container { max-height: 200px; overflow-y: auto; border: 1px solid #ddd; padding: 8px; margin-top: 8px; }
+    .curso-item { display: flex; align-items: center; padding: 4px 0; }
+    .curso-item input { margin-right: 8px; }
+    .curso-info { flex: 1; }
+    .curso-codigo { font-weight: bold; color: #333; }
+    .curso-detalle { font-size: 12px; color: #666; }
   </style>
 </head>
 <body>
@@ -100,10 +106,10 @@
     <h2>Licencias del Alumno</h2>
 
     <fieldset>
-      <legend>Crear Licencia – Médica (multipart /medica)</legend>
+      <legend>Crear Licencia – Médica (multipart /api/licencias/crear)</legend>
       <form id="formLicencia" enctype="multipart/form-data">
         <div class="row-2col">
-          <label>Folio (requerido para /medica)
+          <label>Folio (requerido)
             <input id="med_folio" name="folio" type="text" placeholder="FOL-2025-0001" required/>
           </label>
 
@@ -126,6 +132,16 @@
           <label>Fecha fin <input name="fecha_fin" type="date" required/></label>
         </div>
 
+        <!-- ✅ NUEVO CAMPO: Motivo médico -->
+        <div>
+          <label>Motivo médico (requerido)
+            <input id="med_motivo_medico" name="motivo_medico" type="text" 
+                   placeholder="Ej: Bronquitis, COVID-19, Migraña" 
+                   style="width: 100%" required/>
+          </label>
+          <div class="muted">Descripción breve del motivo médico o patología</div>
+        </div>
+
         <div class="row-2col">
           <label>Usar id_usuario del JWT
             <input id="med_useJwt" type="checkbox" checked />
@@ -135,18 +151,28 @@
           </label>
         </div>
 
-        <label>Archivo (PDF/JPG/PNG, máx 2MB)
-          <input name="archivo" type="file" accept=".pdf,.jpg,.jpeg,.png" />
+        <!-- ✅ NUEVO: Selección de cursos -->
+        <div>
+          <label>Cursos afectados (selecciona al menos uno)</label>
+          <div class="cursos-container" id="cursosContainer">
+            <div class="muted" id="cursosLoading">Cargando cursos disponibles...</div>
+          </div>
+          <div class="muted">Selecciona los cursos a los que aplica esta licencia médica</div>
+        </div>
+
+        <label>Archivo (PDF, máx 2MB)
+          <input name="archivo" type="file" accept=".pdf" required />
         </label>
-        <button type="submit">Crear (POST /api/licencias/medica)</button>
+        <button type="submit">Crear (POST /api/licencias/crear)</button>
       </form>
-      <div class="muted">Este endpoint espera: folio, (opcional estado), fecha_emision (requerida), fecha_inicio, fecha_fin, id_usuario y archivo.</div>
+      <div class="muted">Este endpoint espera: folio, motivo_medico, fecha_emision, fecha_inicio, fecha_fin, cursos[], id_usuario y archivo.</div>
     </fieldset>
 
     <fieldset>
       <legend>Crear Licencia – JSON con roles (POST /api/licencias/crear)</legend>
       <div class="row-2col">
         <label>Motivo <input id="json_motivo" type="text" placeholder="Enfermedad común" /></label>
+        <label>Motivo médico <input id="json_motivo_medico" type="text" placeholder="Bronquitis aguda" /></label>
         <label>Tipo
           <select id="json_tipo">
             <option value="medica">Médica</option>
@@ -159,12 +185,13 @@
       <button id="btnCrearJSON">Crear (JSON)</button>
       <div class="muted">Usa Authorization: Bearer & crea vía controlador de roles (esEstudiante).</div>
     </fieldset>
+
     <fieldset>
       <legend>Listar Mis Licencias (GET /api/licencias/mis-licencias)</legend>
       <button id="btnListar">Obtener</button>
       <div id="tablaLicencias"></div>
     </fieldset>
-    <fieldset>
+
     <fieldset>
       <legend>Licencias en Revisión (GET /api/licencias/en-revision)</legend>
       <label>Página <input id="rev_page" type="number" value="1" min="1" style="width:60px"/></label>
@@ -176,17 +203,22 @@
       <button id="btnListarRevision">Obtener</button>
       <div id="tablaLicenciasRevision"></div>
     </fieldset>
+
     <fieldset>
       <legend>Detalle de Licencia (GET /api/licencias/detalle/:id)</legend>
       <label>ID Licencia <input id="detalle_id" type="number" min="1" style="width:80px"/></label>
       <button id="btnDetalleLicencia">Obtener Detalle</button>
       <div id="detalleLicenciaBox"></div>
+    </fieldset>
+
+    <fieldset>
       <legend>Acciones sobre Licencia Médica</legend>
       <label>ID Licencia <input id="accion_id" type="number" min="1" style="width:80px"/></label>
       <button id="btnAceptarLicencia" type="button">Aceptar</button>
       <button id="btnRechazarLicencia" type="button">Rechazar</button>
       <input id="motivoRechazo" type="text" placeholder="Motivo de rechazo" style="width:220px; display:none; margin-left:8px"/>
     </fieldset>
+
     <fieldset>
       <legend>Licencias Resueltas (solo funcionario)</legend>
       <label>Nombre estudiante <input id="resueltas_nombre" type="text" placeholder="Nombre estudiante"/></label>
@@ -241,13 +273,59 @@
       localStorage.setItem('jwt', token);
       $('jwtStatus').innerHTML = `<span class="ok">Guardado</span>`;
       const mj = $('manual_jwt'); if (mj) mj.value = token;
+      // Cuando se guarda un JWT, cargar los cursos disponibles
+      cargarCursosDisponibles();
     } else {
       localStorage.removeItem('jwt');
       $('jwtStatus').innerHTML = `<span class="err">No</span>`;
       const mj = $('manual_jwt'); if (mj) mj.value = '';
+      $('cursosContainer').innerHTML = '<div class="muted">Inicia sesión para ver cursos disponibles</div>';
     }
     renderPayload();
   };
+
+  // Función para cargar cursos disponibles
+  async function cargarCursosDisponibles() {
+    if (!JWT) return;
+    
+    try {
+      const res = await fetch(`${BASE_URL}/usuarios/matriculas?flat=true`, {
+        headers: { 'Accept': 'application/json', ...authHeaders() }
+      });
+      
+      if (!res.ok) {
+        throw new Error(`Error ${res.status}: ${res.statusText}`);
+      }
+      
+      const data = await res.json();
+      const cursos = data.data || [];
+      
+      const container = $('cursosContainer');
+      if (cursos.length === 0) {
+        container.innerHTML = '<div class="muted">No tienes cursos matriculados</div>';
+        return;
+      }
+      
+      let html = '';
+      cursos.forEach(curso => {
+        html += `
+          <div class="curso-item">
+            <input type="checkbox" name="cursos" value="${curso.id_curso}" id="curso_${curso.id_curso}">
+            <div class="curso-info">
+              <div class="curso-codigo">${curso.codigo} - ${curso.nombre_curso}</div>
+              <div class="curso-detalle">Sección ${curso.seccion} | Periodo: ${curso.periodo} | Profesor: ${curso.profesor?.nombre || 'No asignado'}</div>
+            </div>
+          </div>
+        `;
+      });
+      
+      container.innerHTML = html;
+      
+    } catch (error) {
+      console.error('Error cargando cursos:', error);
+      $('cursosContainer').innerHTML = `<div class="err">Error cargando cursos: ${error.message}</div>`;
+    }
+  }
 
   // Enviamos Authorization y x-token (ambos)
   const authHeaders = () => (JWT ? { 'Authorization': 'Bearer ' + JWT, 'x-token': JWT } : {});
@@ -309,88 +387,6 @@
       if (p[k] != null && !Number.isNaN(Number(p[k]))) return Number(p[k]);
     }
     return null;
-  }
-  // Función para renderizar tabla en formato plano
-  function renderTablaMatriculasPlana(matriculas) {
-    if (!matriculas.length) {
-      return '<div class="muted">No tienes cursos matriculados.</div>';
-    }
-
-    const head = `
-      <tr>
-        <th>ID Curso</th>
-        <th>Código</th>
-        <th>Nombre</th>
-        <th>Sección</th>
-        <th>Periodo</th>
-        <th>Profesor</th>
-        <th>Estado</th>
-        <th>Fecha Matrícula</th>
-      </tr>
-    `;
-
-    const rows = matriculas.map(matricula => `
-      <tr>
-        <td>${matricula.id_curso || ''}</td>
-        <td><strong>${matricula.codigo || ''}</strong></td>
-        <td>${matricula.nombre_curso || ''}</td>
-        <td>${matricula.seccion || ''}</td>
-        <td>${matricula.periodo || ''}</td>
-        <td>${matricula.profesor?.nombre || 'No asignado'}</td>
-        <td>${matricula.activo ? '<span style="color:green">● Activo</span>' : '<span style="color:red">● Inactivo</span>'}</td>
-        <td>${matricula.fecha_matricula ? new Date(matricula.fecha_matricula).toLocaleDateString() : ''}</td>
-      </tr>
-    `).join('');
-
-    return `
-      <div style="overflow-x: auto;">
-        <table>
-          ${head}
-          ${rows}
-        </table>
-      </div>
-    `;
-  }
-
-  // Función para renderizar en formato agrupado por periodo
-  function renderMatriculasAgrupadas(periodos) {
-    if (!periodos.length) {
-      return '<div class="muted">No tienes cursos matriculados.</div>';
-    }
-
-    return periodos.map(periodo => `
-      <div style="margin-bottom: 20px; padding: 12px; border: 2px solid ${periodo.es_periodo_actual ? '#4CAF50' : '#ccc'}; border-radius: 8px;">
-        <div style="display: flex; justify-content: between; align-items: center; margin-bottom: 12px;">
-          <h3 style="margin: 0; color: ${periodo.es_periodo_actual ? '#2E7D32' : '#666'};">
-            Periodo: ${periodo.periodo}
-            ${periodo.es_periodo_actual ? '<span style="background: #4CAF50; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px; margin-left: 8px;">ACTUAL</span>' : ''}
-          </h3>
-          <span style="color: #666; font-size: 14px;">${periodo.cursos.length} curso(s)</span>
-        </div>
-        
-        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px;">
-          ${periodo.cursos.map(curso => `
-            <div style="border: 1px solid #ddd; padding: 12px; border-radius: 6px; background: #f9f9f9;">
-              <div style="display: flex; justify-content: between; align-items: start; margin-bottom: 8px;">
-                <div>
-                  <strong style="color: #333;">${curso.codigo} - ${curso.nombre_curso}</strong>
-                  <div style="color: #666; font-size: 14px;">Sección ${curso.seccion}</div>
-                </div>
-                <span style="background: ${curso.activo ? '#E8F5E8' : '#FFEBEE'}; color: ${curso.activo ? '#2E7D32' : '#C62828'}; padding: 2px 6px; border-radius: 4px; font-size: 12px;">
-                  ${curso.activo ? 'Activo' : 'Inactivo'}
-                </span>
-              </div>
-              <div style="color: #666; font-size: 14px;">
-                <strong>Profesor:</strong> ${curso.profesor?.nombre || 'No asignado'}
-              </div>
-              <div style="color: #666; font-size: 14px;">
-                <strong>ID Curso:</strong> ${curso.id_curso}
-              </div>
-            </div>
-          `).join('')}
-        </div>
-      </div>
-    `).join('');
   }
 
   // ===== Registro =====
@@ -455,13 +451,24 @@
 
   // ===== Licencias =====
 
-  // Crear licencia (MÉDICA multipart → POST /api/licencias/medica)
+  // Crear licencia (MÉDICA multipart → POST /api/licencias/crear)
   $('formLicencia').addEventListener('submit', async (ev) => {
     ev.preventDefault();
     const fd = new FormData(ev.target);
 
     // Campos obligatorios
     const folio = $('med_folio').value.trim();
+    const motivoMedico = $('med_motivo_medico').value.trim();
+
+    // ✅ Obtener cursos seleccionados
+    const cursosSeleccionados = Array.from(document.querySelectorAll('input[name="cursos"]:checked'))
+      .map(checkbox => parseInt(checkbox.value))
+      .filter(id => !isNaN(id));
+
+    if (cursosSeleccionados.length === 0) {
+      log('Debes seleccionar al menos un curso.', 'error');
+      return;
+    }
 
     // Estado (opcional)
     const sendEstado = $('med_sendEstado').checked;
@@ -506,11 +513,11 @@
       }
       idUsuario = n;
     }
-
     // Validaciones rápidas cliente
     const ini = new Date(fd.get('fecha_inicio'));
     const fin = new Date(fd.get('fecha_fin'));
-    if (!folio) { log('Falta folio (requerido por /medica).', 'error'); return; }
+    if (!folio) { log('Falta folio (requerido).', 'error'); return; }
+    if (!motivoMedico) { log('Falta motivo médico (requerido).', 'error'); return; }
     if (isNaN(ini) || isNaN(fin) || ini > fin) {
       log('Validación cliente: fecha_inicio debe ser ≤ fecha_fin', 'error');
       return;
@@ -523,6 +530,8 @@
 
     // Asegura campos “limpios”
     fd.delete('folio');      fd.set('folio', folio);
+    fd.delete('motivo_medico'); fd.set('motivo_medico', motivoMedico);
+    fd.delete('cursos');     fd.set('cursos', JSON.stringify(cursosSeleccionados));
     fd.delete('id_usuario'); fd.set('id_usuario', String(idUsuario));
 
     try {
