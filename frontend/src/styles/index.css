@@ -389,3 +389,30 @@ body {
   background-color: #e5e7eb !important; /* fondo gris claro */
 }
 
+/* Forzar estilos de notificaciones en modo oscuro */
+.dark .bg-red-50 {
+  background-color: #fef2f2 !important;
+}
+
+.dark .border-red-200 {
+  border-color: #fecaca !important;
+}
+
+.dark .text-red-600 {
+  color: #dc2626 !important;
+}
+
+.dark .text-red-700 {
+  color: #b91c1c !important;
+}
+
+.dark .text-red-800 {
+  color: #991b1b !important;
+}
+
+/* Asegurar que el componente AlertaLicenciasAnual mantenga estilos claros en dark */
+.dark .bg-red-50.border.border-red-300 {
+  background-color: #fef2f2 !important;
+  border-color: #fecaca !important;
+}
+
