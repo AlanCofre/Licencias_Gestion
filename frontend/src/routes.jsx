@@ -31,6 +31,7 @@ import AdminPeriodos from "./pages/PeriodoActivo.jsx";
 import ProfeLicencias from "./pages/ProfeLicencias.jsx";
 import ProfesorRegularidad from "./pages/ProfeRegularidad.jsx";
 import EstudianteRegularidad from "./pages/EstudianteRegularidad.jsx";
+import SecretariaLicenciasAlerta from "./pages/SecretariaLicenciasAlerta";
 
 export default function AppRoutes() {
   return (
@@ -73,6 +74,7 @@ export default function AppRoutes() {
       <Route path="/licencias-por-revisar" element={<LicenciasPorRevisar />} />
       <Route path="/licencias-evaluadas/:id" element={<LicenciasEvaluadas />} />
       <Route path="/admin/periodo/resumen" element={<AdminResumenPeriodo />} />
+      <Route path="/secretaria/alertas-licencias" element={<SecretariaLicenciasAlerta />} />
 
       {/* Rutas heredadas del navbar */}
       <Route path="/pendientes" element={<Dashboard />} />

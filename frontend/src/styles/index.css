@@ -82,6 +82,21 @@ body {
   animation: slideUp 0.4s ease-out;
 }
 
+@keyframes slideIn {
+  from {
+    transform: translateX(400px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.animate-slideIn {
+  animation: slideIn 0.3s ease-out;
+}
+
 /* Tamaños de fuente para accesibilidad */
 .font-size-small { font-size: 14px; }
 .font-size-normal { font-size: 16px; }
