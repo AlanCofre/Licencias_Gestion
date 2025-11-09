@@ -363,3 +363,89 @@ ${observacion ? `Observación: ${observacion}\n` : ""}Ver: ${enlaceDetalle}`;
 
   return enviarCorreo({ to: toList, subject, html, text });
 }
+
+/* ==========================================================
+   NOTIFICACIÓN A PROFESOR: Licencia aceptada para su curso
+   ========================================================== */
+export async function notificarLicenciaAceptadaProfesor({
+  to, // correo del profesor
+  folio,
+  estudianteNombre,
+  nombreCurso,
+  fechaInicio,
+  fechaFin,
+  enlaceDetalle = 'https://medleave.uct.cl/mis-cursos'
+}) {
+  if (!to) {
+    return { ok: false, error: "No hay destinatario especificado" };
+  }
+
+  const subject = `Licencia ${folio} aceptada para el curso ${nombreCurso}`;
+  const fechaInicioFmt = new Date(fechaInicio).toLocaleDateString("es-CL");
+  const fechaFinFmt = new Date(fechaFin).toLocaleDateString("es-CL");
+
+  const html = `
+    <div style="font-family:Inter,Arial,sans-serif;line-height:1.5;max-width:600px;margin:0 auto;">
+      <div style="background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);padding:20px;text-align:center;color:white;">
+        <h1 style="margin:0;font-size:24px;">MedLeave UCT</h1>
+        <p style="margin:8px 0 0;opacity:0.9;">Sistema de Licencias Médicas</p>
+      </div>
+      
+      <div style="padding:24px;background:#f9fafb;">
+        <h2 style="color:#1f2937;margin:0 0 16px;">Licencia Aceptada - Curso ${nombreCurso}</h2>
+        
+        <div style="background:white;border-radius:8px;padding:20px;border-left:4px solid #10b981;">
+          <div style="display:flex;align-items:center;margin-bottom:16px;">
+            <div style="width:40px;height:40px;border-radius:50%;background:#10b981;display:flex;align-items:center;justify-content:center;margin-right:12px;">
+              <span style="color:white;font-size:18px;">✓</span>
+            </div>
+            <div>
+              <h3 style="margin:0;color:#1f2937;">Licencia <strong>ACEPTADA</strong></h3>
+              <p style="margin:4px 0 0;color:#6b7280;font-size:14px;">Folio: ${folio}</p>
+            </div>
+          </div>
+          
+          <div style="border-top:1px solid #e5e7eb;padding-top:16px;">
+            <p style="margin:0 0 12px;"><strong>Estudiante:</strong> ${estudianteNombre}</p>
+            <p style="margin:0 0 12px;"><strong>Curso:</strong> ${nombreCurso}</p>
+            <p style="margin:0 0 12px;"><strong>Período de licencia:</strong> ${fechaInicioFmt} - ${fechaFinFmt}</p>
+            
+            <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:12px;margin:12px 0;">
+              <p style="margin:0;color:#166534;font-size:14px;">
+                ✅ <strong>La licencia ha sido aprobada.</strong> El estudiante está excusado de asistir a clases durante el período indicado.
+              </p>
+            </div>
+          </div>
+        </div>
+        
+        <div style="text-align:center;margin:24px 0;">
+          <a href="${enlaceDetalle}" target="_blank" rel="noopener" 
+            style="display:inline-block;padding:12px 24px;background:#1a73e8;color:#fff;
+            text-decoration:none;border-radius:8px;font-weight:500;">Ver Detalle en MedLeave</a>
+        </div>
+        
+        <div style="border-top:1px solid #e5e7eb;padding-top:16px;text-align:center;">
+          <p style="color:#6b7280;font-size:12px;margin:0;">
+            Este es un correo automático. Por favor no respondas a este mensaje.<br>
+            Sistema de Gestión de Licencias Médicas - Universidad Católica de Temuco
+          </p>
+        </div>
+      </div>
+    </div>`;
+
+  const text = `Licencia Médica Aceptada - Curso ${nombreCurso}
+
+Folio: ${folio}
+Estudiante: ${estudianteNombre}
+Curso: ${nombreCurso}
+Período: ${fechaInicioFmt} - ${fechaFinFmt}
+
+✅ La licencia ha sido aprobada. El estudiante está excusado de asistir a clases durante el período indicado.
+
+Ver detalle: ${enlaceDetalle}
+
+---
+Este es un correo automático. No responder.`;
+
+  return enviarCorreo({ to, subject, html, text });
+}

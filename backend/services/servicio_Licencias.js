@@ -11,7 +11,8 @@ import { Matricula, LicenciasEntregas } from '../src/models/index.js';
 // 🔔 NUEVO IMPORT para correos
 import { 
   notificarEstadoLicenciaEstudiante,
-  notificarLicenciaCreadaEstudiante 
+  notificarLicenciaCreadaEstudiante,
+  notificarLicenciaAceptadaProfesor 
 } from './servicio_Correo.js';
 
 /* =======================================================
@@ -298,6 +299,21 @@ async function registrarNotificacionesYAuditoria({
       }
     );
   }
+  // Notificación al profesor 
+  if (estado === 'aceptado' && licencia.id_profesor) {
+    await conn.sequelize.query(
+      `INSERT INTO notificacion (asunto, contenido, leido, fecha_envio, id_usuario)
+      VALUES (?, ?, 0, NOW(), ?)`,
+      {
+        replacements: [
+          'Licencia aprobada del estudiante',
+          `La licencia del estudiante ${licencia.id_usuario} ha sido aprobada.`,
+          licencia.id_profesor
+        ],
+        transaction: conn
+      }
+    );
+  }
 
   // Notificación al profesor (solo si fue aceptada)
   if (estado === 'aceptado' && licencia.id_profesor) {
@@ -490,6 +506,14 @@ export async function decidirLicenciaSvc({
         console.error('❌ Error no crítico enviando correo (aceptado):', emailError);
       });
 
+      // 🔔 ENVÍO DE CORREO A PROFESORES FUERA DE LA TRANSACCIÓN (no bloqueante)
+      enviarNotificacionProfesores({
+        licencia: lic,
+        actorId: actorId
+      }).catch(profesorEmailError => {
+        console.error('❌ Error no crítico enviando correo a profesores:', profesorEmailError);
+      });
+
       return { ok: true, estado: 'aceptado' };
     }
 
@@ -569,5 +593,96 @@ async function insertarEntregasSiAceptado(idLicencia, idUsuario) {
     } catch (error) {
       console.error(`❌ Error al insertar entrega: ${error.message}`);
     }
+  }
+}
+
+/* =======================================================
+ * Función auxiliar: enviar notificación a profesores
+ * ======================================================= */
+async function enviarNotificacionProfesores({
+  licencia,
+  actorId
+}) {
+  try {
+    console.log(`📧 Preparando notificación a profesores para licencia ${licencia.id_licencia}`);
+    
+    // Obtener información del estudiante
+    const [estudianteRows] = await LicenciaMedica.sequelize.query(
+      `SELECT u.nombre 
+       FROM usuario u 
+       WHERE u.id_usuario = ? 
+       LIMIT 1`,
+      {
+        replacements: [licencia.id_usuario],
+        type: QueryTypes.SELECT
+      }
+    );
+
+    if (!estudianteRows) {
+      console.warn('⚠️ No se pudo obtener información del estudiante para notificación a profesores');
+      return { ok: false, error: 'Información del estudiante no encontrada' };
+    }
+
+    // Obtener cursos y profesores asociados a esta licencia - CORREGIDO
+    const cursosProfesores = await LicenciaMedica.sequelize.query(
+      `SELECT 
+        le.id_curso,
+        c.nombre_curso,
+        c.id_usuario as id_profesor,
+        u.correo_usuario,
+        u.nombre as nombre_profesor
+       FROM licencias_entregas le
+       JOIN curso c ON le.id_curso = c.id_curso
+       JOIN usuario u ON c.id_usuario = u.id_usuario
+       WHERE le.id_licencia = ?`,
+      {
+        replacements: [licencia.id_licencia],
+        type: QueryTypes.SELECT
+      }
+    );
+
+    // CORRECCIÓN: Verificar si hay resultados de manera segura
+    if (!cursosProfesores || !Array.isArray(cursosProfesores) || cursosProfesores.length === 0) {
+      console.warn(`⚠️ No se encontraron cursos/profesores asociados a la licencia ${licencia.id_licencia}`);
+      return { ok: true, resultados: [], mensaje: 'No hay cursos asociados a esta licencia' };
+    }
+
+    console.log(`📚 Encontrados ${cursosProfesores.length} cursos para notificar`);
+
+    // Enviar correo a cada profesor
+    const resultados = [];
+    for (const curso of cursosProfesores) {
+      if (curso.correo_usuario) {
+        try {
+          const resultado = await notificarLicenciaAceptadaProfesor({
+            to: curso.correo_usuario,
+            folio: licencia.folio,
+            estudianteNombre: estudianteRows.nombre,
+            nombreCurso: curso.nombre_curso,
+            fechaInicio: licencia.fecha_inicio,
+            fechaFin: licencia.fecha_fin,
+            enlaceDetalle: `${process.env.APP_URL || 'http://localhost:3000'}/mis-cursos`
+          });
+
+          if (resultado.ok) {
+            console.log(`✅ Correo enviado al profesor: ${curso.nombre_profesor} (${curso.correo_usuario}) - Curso: ${curso.nombre_curso}`);
+          } else {
+            console.error(`❌ Error enviando correo a ${curso.correo_usuario}:`, resultado.error);
+          }
+          resultados.push(resultado);
+        } catch (error) {
+          console.error(`❌ Error procesando correo para profesor ${curso.nombre_profesor}:`, error);
+          resultados.push({ ok: false, error: error.message });
+        }
+      } else {
+        console.warn(`⚠️ Profesor ${curso.nombre_profesor} no tiene correo configurado`);
+        resultados.push({ ok: false, error: 'Correo no configurado' });
+      }
+    }
+
+    return { ok: true, resultados };
+  } catch (error) {
+    console.error('❌ Error inesperado en enviarNotificacionProfesores:', error);
+    return { ok: false, error: error.message };
   }
 }

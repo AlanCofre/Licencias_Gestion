@@ -87,6 +87,7 @@ export default function EvaluarLicencia() {
   const [loadingAccion, setLoadingAccion] = useState(false);
   const [modal, setModal] = useState({ open: false, type: null });
   const [toast, setToast] = useState(null); // estado para Toast
+  const [redireccionando, setRedireccionando] = useState(false);
 
   useEffect(() => {
     const cargar = async () => {
@@ -226,17 +227,30 @@ export default function EvaluarLicencia() {
         throw new Error(json?.error || json?.msg || `Error ${res.status}`);
       }
 
-      toast.success(
-        `Licencia ${decision === "aceptado" ? "aceptada" : "rechazada"} correctamente`
-      );
-      navigate("/licencias-por-revisar");
+      // ✅ CORREO ENVIADO EXITOSAMENTE - REDIRIGIR DESPUÉS DE MOSTRAR TOAST
+      const mensajeExito = decision === "aceptado" 
+        ? "Licencia aceptada y notificada correctamente" 
+        : "Licencia rechazada y notificada correctamente";
+      
+      setToast({ 
+        message: mensajeExito, 
+        type: "success" 
+      });
+
+      // Configurar redirección automática después de 2 segundos
+      setRedireccionando(true);
+      setTimeout(() => {
+        navigate("/licencias-por-revisar");
+      }, 2000);
+
     } catch (e) {
       setMensaje(e.message);
-      toast.error(e.message);
+      setToast({ message: e.message, type: "error" });
     } finally {
       setLoadingAccion(false);
     }
   };
+
 
   if (loading) {
     return (
