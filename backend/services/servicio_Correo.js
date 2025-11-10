@@ -56,12 +56,12 @@ export async function verificarSMTP() {
    Envío genérico
    ============== */
 export async function enviarCorreo({ to, subject, html, text, headers = {} }) {
-  const from = `"MedLeave UCT" <${fromDom}>`;
+  const from = `"Medmanager" <${fromDom}>`;
   
   // Headers específicos para Brevo
   const brevoHeaders = {
     ...headers,
-    'X-Sender': 'MedLeave UCT <medleave8@gmail.com>',
+    'X-Sender': 'Medmanager <medleave8@gmail.com>',
     'X-Mailer': 'MedLeave-API'
   };
 
@@ -123,7 +123,7 @@ export async function notificarEstadoLicenciaEstudiante({
   fechaInicio,
   fechaFin,
   observacion = null,
-  enlaceDetalle = 'https://medleave.uct.cl/mis-licencias'
+  enlaceDetalle = 'http://localhost:5173/'
 }) {
   if (!to) {
     return { ok: false, error: "No hay destinatario especificado" };
@@ -140,7 +140,7 @@ export async function notificarEstadoLicenciaEstudiante({
   const html = `
     <div style="font-family:Inter,Arial,sans-serif;line-height:1.5;max-width:600px;margin:0 auto;">
       <div style="background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);padding:20px;text-align:center;color:white;">
-        <h1 style="margin:0;font-size:24px;">MedLeave UCT</h1>
+        <h1 style="margin:0;font-size:24px;">medmanager</h1>
         <p style="margin:8px 0 0;opacity:0.9;">Sistema de Licencias Médicas</p>
       </div>
       
@@ -189,7 +189,7 @@ export async function notificarEstadoLicenciaEstudiante({
         <div style="text-align:center;margin:24px 0;">
           <a href="${enlaceDetalle}" target="_blank" rel="noopener" 
             style="display:inline-block;padding:12px 24px;background:#1a73e8;color:#fff;
-            text-decoration:none;border-radius:8px;font-weight:500;">Ver Detalle en MedLeave</a>
+            text-decoration:none;border-radius:8px;font-weight:500;">Ver Detalle en medmanager</a>
         </div>
         
         <div style="border-top:1px solid #e5e7eb;padding-top:16px;text-align:center;">
@@ -243,7 +243,7 @@ export async function notificarLicenciaCreadaEstudiante({
   const html = `
     <div style="font-family:Inter,Arial,sans-serif;line-height:1.5;max-width:600px;margin:0 auto;">
       <div style="background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);padding:20px;text-align:center;color:white;">
-        <h1 style="margin:0;font-size:24px;">MedLeave UCT</h1>
+        <h1 style="margin:0;font-size:24px;">medmanager</h1>
         <p style="margin:8px 0 0;opacity:0.9;">Sistema de Licencias Médicas</p>
       </div>
       
@@ -328,7 +328,7 @@ export async function notificarNuevaLicencia({
       </ul>
       <p><a href="${enlaceDetalle}" target="_blank" rel="noopener" 
         style="display:inline-block;padding:10px 14px;background:#1a73e8;color:#fff;
-        text-decoration:none;border-radius:8px">Abrir en MedLeave</a></p>
+        text-decoration:none;border-radius:8px">Abrir en medmanager</a></p>
       <p style="color:#6b7280;font-size:12px">Este es un correo automático. No responder.</p>
     </div>`;
   const text = `Nueva licencia pendiente.
@@ -374,7 +374,7 @@ export async function notificarLicenciaAceptadaProfesor({
   nombreCurso,
   fechaInicio,
   fechaFin,
-  enlaceDetalle = 'https://medleave.uct.cl/mis-cursos'
+  enlaceDetalle = 'http://localhost:5173/'
 }) {
   if (!to) {
     return { ok: false, error: "No hay destinatario especificado" };
@@ -387,7 +387,7 @@ export async function notificarLicenciaAceptadaProfesor({
   const html = `
     <div style="font-family:Inter,Arial,sans-serif;line-height:1.5;max-width:600px;margin:0 auto;">
       <div style="background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);padding:20px;text-align:center;color:white;">
-        <h1 style="margin:0;font-size:24px;">MedLeave UCT</h1>
+        <h1 style="margin:0;font-size:24px;">medmanager</h1>
         <p style="margin:8px 0 0;opacity:0.9;">Sistema de Licencias Médicas</p>
       </div>
       
@@ -421,7 +421,7 @@ export async function notificarLicenciaAceptadaProfesor({
         <div style="text-align:center;margin:24px 0;">
           <a href="${enlaceDetalle}" target="_blank" rel="noopener" 
             style="display:inline-block;padding:12px 24px;background:#1a73e8;color:#fff;
-            text-decoration:none;border-radius:8px;font-weight:500;">Ver Detalle en MedLeave</a>
+            text-decoration:none;border-radius:8px;font-weight:500;">Ver Detalle en medmanager</a>
         </div>
         
         <div style="border-top:1px solid #e5e7eb;padding-top:16px;text-align:center;">
