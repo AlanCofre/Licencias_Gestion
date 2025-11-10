@@ -96,7 +96,7 @@ function AppLogin() {
                 </div>
               </label>
 
-              {/* Nueva Opción: Profesor */}
+              {/* Profesor */}
               <label className="flex items-center p-4 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50">
                 <input
                   type="radio"
@@ -113,7 +113,7 @@ function AppLogin() {
                 </div>
               </label>
 
-              {/* Nueva Opción: Administrador */}
+              {/* Administrador */}
               <label className="flex items-center p-4 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50">
                 <input
                   type="radio"
