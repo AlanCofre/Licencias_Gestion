@@ -40,8 +40,8 @@ async function fetchEntregaDetalle(idEntrega) {
       observacionesSecretaria: "Documentación legible. Falta firma en pág. 2, pero se acepta.",
       estado: "En revisión",
       file: {
-        url: "/api/files/licencia-123.pdf", // simulado
-        tipo: "signed", // "direct" abriría en pestaña nueva
+        url: "/api/files/licencia-123.pdf",
+        tipo: "signed",
         filename: "licencia-123.pdf"
       }
     },
@@ -63,6 +63,26 @@ async function fetchEntregaDetalle(idEntrega) {
         url: "/api/files/licencia-456.pdf",
         tipo: "direct",
         filename: "licencia-456.pdf"
+      }
+    },
+    "789": {
+      id: "789",
+      curso: "Derecho Civil",
+      periodo: "2025-2",
+      profesorOwnerId: "prof-abc", // coincide con el prof activo para permitir ver
+      estudiante: { nombre: "Ana Martínez", email: "amartinez@alu.uct.cl" },
+      fechas: {
+        emision: "2025-10-01",
+        envio: "2025-10-02",
+        inicioReposo: "2025-10-03",
+        finReposo: "2025-10-05"
+      },
+      observacionesSecretaria: "Adjuntar receta original si aplica.",
+      estado: "Rechazado",
+      file: {
+        url: "/api/files/licencia-789.pdf",
+        tipo: "direct",
+        filename: "licencia-789.pdf"
       }
     }
   };

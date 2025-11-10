@@ -4,10 +4,10 @@ import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import BannerSection from "../components/BannerSection";
 import Announcement from "../components/Announcement";
+import NotificacionesSecretaria from "../components/NotificacionesSecretaria";
 
 export default function DashboardSecretary() {
   // Simulando un estado de licencias, esto debería venir de tu estado global o contexto
-
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-blue-50 to-blue-100 dark:bg-app dark:bg-none">
@@ -25,7 +25,7 @@ export default function DashboardSecretary() {
           </div>
         </div>
       </main>
-
+      <NotificacionesSecretaria />
       <Footer />
     </div>
   );

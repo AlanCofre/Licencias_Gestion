@@ -28,6 +28,10 @@ import LicenciaNueva from "./pages/LicenciaNueva.jsx";
 import ProfesorEntregaDetalle from "./pages/EntregaDetalle.jsx";
 import AdminResumenPeriodo from "./pages/AdminResumenPeriodo";
 import AdminPeriodos from "./pages/PeriodoActivo.jsx";
+import ProfeLicencias from "./pages/ProfeLicencias.jsx";
+import ProfesorRegularidad from "./pages/ProfeRegularidad.jsx";
+import EstudianteRegularidad from "./pages/EstudianteRegularidad.jsx";
+import SecretariaLicenciasAlerta from "./pages/SecretariaLicenciasAlerta";
 
 export default function AppRoutes() {
   return (
@@ -61,12 +65,16 @@ export default function AppRoutes() {
       <Route path="/estudiante/licencias/nueva" element={<LicenciaNueva />} />
       <Route path="/profesor/licencias/:idEntrega" element={<ProfesorEntregaDetalle />} />
       <Route path="/admin/periodos" element={<AdminPeriodos />} />
+      <Route path="/profesor/licencias" element={<ProfeLicencias />} />
+      <Route path="/profesor/regularidad" element={<ProfesorRegularidad />} />
+      <Route path="/profesor/regularidad/:studentId" element={<EstudianteRegularidad />} />
 
       {/* Rutas nuevas de secretaria */}
       <Route path="/evaluar/:id" element={<EvaluarLicencia />} />
       <Route path="/licencias-por-revisar" element={<LicenciasPorRevisar />} />
       <Route path="/licencias-evaluadas/:id" element={<LicenciasEvaluadas />} />
       <Route path="/admin/periodo/resumen" element={<AdminResumenPeriodo />} />
+      <Route path="/secretaria/alertas-licencias" element={<SecretariaLicenciasAlerta />} />
 
       {/* Rutas heredadas del navbar */}
       <Route path="/pendientes" element={<Dashboard />} />
