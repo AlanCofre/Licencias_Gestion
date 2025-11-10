@@ -47,6 +47,8 @@ export default function AppRoutes() {
 
       {/* Dashboards por rol */}
       <Route path="/alumno" element={<Dashboard />} />
+      <Route path="/profesor" element={<Dashboard />} />
+      <Route path="/admin" element={<Dashboard />} />
       <Route path="/secretaria" element={<DashboardSecretary />} />
 
       {/* Páginas comunes */}
