@@ -94,10 +94,85 @@ function AppLogin() {
             Inicio de sesión
           </h2>
 
+<<<<<<< HEAD
           <form onSubmit={handleSubmit} className="flex flex-col gap-3">
             <div>
               <label className="block text-black font-medium mb-1 text-sm">
                 Correo Electrónico:
+=======
+        <form onSubmit={handleSubmit} className="w-full flex flex-col gap-6">
+          <div>
+            <label className="block text-black font-medium mb-4 text-lg">
+              {t("login.howAccess")}
+            </label>
+            <div className="space-y-3">
+              {/* Opción Alumno */}
+              <label className="flex items-center p-4 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50">
+                <input
+                  type="radio"
+                  name="role"
+                  value="alumno"
+                  checked={roleSelect === "alumno"}
+                  onChange={(e) => setRoleSelect(e.target.value)}
+                  className="mr-3"
+                  disabled={loading}
+                />
+                <div>
+                  <div className="font-semibold text-gray-900">{t("roles.student")}</div>
+                  <div className="text-sm text-gray-600">{t("roles.studentDesc")}</div>
+                </div>
+              </label>
+
+              {/* Opción Secretaria */}
+              <label className="flex items-center p-4 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50">
+                <input
+                  type="radio"
+                  name="role"
+                  value="secretaria"
+                  checked={roleSelect === "secretaria"}
+                  onChange={(e) => setRoleSelect(e.target.value)}
+                  className="mr-3"
+                  disabled={loading}
+                />
+                <div>
+                  <div className="font-semibold text-gray-900">{t("roles.secretary")}</div>
+                  <div className="text-sm text-gray-600">{t("roles.secretaryDesc")}</div>
+                </div>
+              </label>
+
+              {/* Profesor */}
+              <label className="flex items-center p-4 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50">
+                <input
+                  type="radio"
+                  name="role"
+                  value="profesor"
+                  checked={roleSelect === "profesor"}
+                  onChange={(e) => setRoleSelect(e.target.value)}
+                  className="mr-3"
+                  disabled={loading}
+                />
+                <div>
+                  <div className="font-semibold text-gray-900">{t("roles.teacher")}</div>
+                  <div className="text-sm text-gray-600">{t("roles.teacherDesc")}</div>
+                </div>
+              </label>
+
+              {/* Administrador */}
+              <label className="flex items-center p-4 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50">
+                <input
+                  type="radio"
+                  name="role"
+                  value="admin"
+                  checked={roleSelect === "admin"}
+                  onChange={(e) => setRoleSelect(e.target.value)}
+                  className="mr-3"
+                  disabled={loading}
+                />
+                <div>
+                  <div className="font-semibold text-gray-900">{t("roles.admin")}</div>
+                  <div className="text-sm text-gray-600">{t("roles.adminDesc")}</div>
+                </div>
+>>>>>>> feature_frontend
               </label>
               <input
                 type="email"
