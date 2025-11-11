@@ -319,7 +319,39 @@ export const crearLicencia = async (req, res) => {
       }
     } catch (emailError) {
       console.error('❌ Error enviando correo de creación:', emailError);
-      // No fallamos la creación por error de correo
+    }
+    
+    // 🔔 NUEVO: NOTIFICAR A FUNCIONARIOS SOBRE NUEVA LICENCIA (no bloqueante)
+    try {
+      // Obtener información completa del estudiante para la notificación
+      const [estudianteRows] = await db.execute(
+        `SELECT nombre, correo_usuario FROM usuario WHERE id_usuario = ? LIMIT 1`,
+        [usuarioId]
+      );
+      
+      if (estudianteRows.length > 0) {
+        const estudiante = estudianteRows[0];
+        
+        const resultadoNotificacion = await notificarNuevaLicencia({
+          folio: folio,
+          estudiante: {
+            nombre: estudiante.nombre,
+            correo: estudiante.correo_usuario
+          },
+          fechaCreacionISO: new Date().toISOString(),
+          enlaceDetalle: `${process.env.APP_URL || 'http://localhost:3000'}/licencias/${idLicencia}`
+          // No pasar 'to' parameter - la función obtendrá los correos automáticamente de la BD
+        });
+        
+        if (resultadoNotificacion.ok) {
+          console.log(`📧 Notificación de nueva licencia enviada a funcionarios`);
+        } else {
+          console.error('❌ Error en notificación a funcionarios:', resultadoNotificacion.error);
+        }
+      }
+    } catch (funcionariosEmailError) {
+      console.error('❌ Error enviando notificación a funcionarios:', funcionariosEmailError);
+      
     }
 
     // 2) Subir a Supabase

@@ -95,6 +95,28 @@ export function getSecretariaToList() {
   return raw.split(",").map(s => s.trim()).filter(Boolean);
 }
 
+// 🔔 NUEVA FUNCIÓN: Obtener correos de funcionarios desde la base de datos
+export async function getFuncionariosCorreos() {
+  try {
+    // Importar la conexión a la base de datos
+    const db = (await import('../config/db.js')).default;
+    
+    const [rows] = await db.execute(
+      `SELECT u.correo_usuario 
+       FROM usuario u 
+       JOIN rol r ON u.id_rol = r.id_rol 
+       WHERE r.nombre_rol = 'funcionario' 
+       AND u.activo = 1`
+    );
+    
+    return rows.map(row => row.correo_usuario).filter(Boolean);
+  } catch (error) {
+    console.error('❌ Error obteniendo correos de funcionarios:', error);
+    // Fallback a la lista de environment variable
+    return getSecretariaToList();
+  }
+}
+
 /* ==========================================
    Plantilla: recuperación de contraseña
    ========================================== */
@@ -297,25 +319,40 @@ Este es un correo automático. No responder.`;
 }
 
 /* ==========================================================
-   NUEVA LICENCIA: correo a secretaría/funcionarios
+   NUEVA LICENCIA: correo a funcionarios
    ========================================================== */
 export async function notificarNuevaLicencia({
   folio,
   estudiante,
   fechaCreacionISO,
   enlaceDetalle,
-  to, // ← opcional: lista dinámica desde el controlador
-}) {
-  const toList = Array.isArray(to) && to.length
-    ? to
-    : getSecretariaToList();
+  to, }) {
+  let toList = [];
+  
+  try {
+    // Intentar obtener correos de funcionarios desde la base de datos
+    toList = Array.isArray(to) && to.length ? to : await getFuncionariosCorreos();
+    
+    // Si no hay funcionarios en la BD, usar la lista de environment variable como fallback
+    if (!toList.length) {
+      toList = getSecretariaToList();
+      console.warn('⚠️ Usando lista de environment variable como fallback');
+    }
+  } catch (error) {
+    console.error('❌ Error obteniendo destinatarios:', error);
+    toList = getSecretariaToList();
+  }
 
   if (!toList.length) {
-    return { ok: false, error: "No hay destinatarios configurados (ni to[] ni SECRETARIA_EMAILS)" };
+    console.warn('⚠️ No hay destinatarios configurados para notificación de nueva licencia');
+    return { ok: false, error: "No hay destinatarios configurados" };
   }
+
+  console.log(`📧 Enviando notificación a ${toList.length} funcionarios:`, toList);
 
   const subject = `Nueva licencia recibida · Folio ${folio}`;
   const fechaFmt = new Date(fechaCreacionISO).toLocaleString("es-CL", { hour12: false });
+
   const html = `
     <div style="font-family:Inter,Arial,sans-serif;line-height:1.5">
       <h2 style="margin:0 0 8px">Nueva licencia pendiente</h2>
