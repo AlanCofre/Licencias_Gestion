@@ -197,6 +197,48 @@ export const crearLicencia = async (req, res) => {
     console.warn('[crearLicencia] advertencia pre-checks:', e?.message || e);
   }
 
+  // 🔔 FUNCIÓN AUXILIAR: CREAR NOTIFICACIONES PARA FUNCIONARIOS
+  const crearNotificacionLicenciaCreada = async (idLicencia, usuarioId, folio, fechaInicio, fechaFin) => {
+    try {
+      // Obtener información del estudiante
+      const [estudianteRows] = await db.execute(
+        `SELECT nombre FROM usuario WHERE id_usuario = ? LIMIT 1`,
+        [usuarioId]
+      );
+      
+      const estudianteNombre = estudianteRows[0]?.nombre || 'Estudiante';
+      
+      // Obtener funcionarios que deben recibir la notificación (roles 3 y 4)
+      const [funcionarios] = await db.execute(
+        `SELECT id_usuario, nombre 
+         FROM usuario 
+         WHERE id_rol IN (3, 4)`, // funcionarios y administradores
+        []
+      );
+
+      let notificacionesCreadas = 0;
+      
+      for (const funcionario of funcionarios) {
+        const asunto = 'Nueva licencia médica creada';
+        const contenido = `El estudiante ${estudianteNombre} ha creado una nueva licencia médica. Folio: ${folio}. Período: ${fechaInicio} al ${fechaFin}. Estado: Pendiente de revisión.`;
+        
+        await db.execute(
+          `INSERT INTO notificacion (asunto, contenido, leido, fecha_envio, id_usuario)
+           VALUES (?, ?, 0, NOW(), ?)`,
+          [asunto, contenido, funcionario.id_usuario]
+        );
+        notificacionesCreadas++;
+        console.log(`📢 Notificación creada para funcionario: ${funcionario.nombre}`);
+      }
+      
+      console.log(`📢 Total notificaciones de creación enviadas a ${notificacionesCreadas} funcionarios`);
+      return { notificacionesCreadas };
+    } catch (error) {
+      console.error('❌ Error creando notificaciones de creación:', error);
+      return { notificacionesCreadas: 0, error: error.message };
+    }
+  };
+
   try {
     const usuarioId = req.user?.id_usuario ?? req.id ?? null;
     const rol = (req.user?.rol ?? req.rol ?? '').toString().toLowerCase();
@@ -298,6 +340,15 @@ export const crearLicencia = async (req, res) => {
     );
     const idLicencia = result.insertId;
 
+    // 🔔 NUEVO: CREAR NOTIFICACIONES PARA FUNCIONARIOS (no bloqueante)
+    crearNotificacionLicenciaCreada(idLicencia, usuarioId, folio, fecha_inicio, fecha_fin)
+      .then(resultado => {
+        console.log(`📢 Notificaciones internas creadas: ${resultado.notificacionesCreadas} funcionarios notificados`);
+      })
+      .catch(err => {
+        console.error('❌ Error no crítico en notificaciones internas:', err);
+      });
+
     // 🔔 NOTIFICAR POR CORREO AL ESTUDIANTE (no bloqueante)
     try {
       // Obtener información del estudiante
@@ -321,7 +372,7 @@ export const crearLicencia = async (req, res) => {
       console.error('❌ Error enviando correo de creación:', emailError);
     }
     
-    // 🔔 NUEVO: NOTIFICAR A FUNCIONARIOS SOBRE NUEVA LICENCIA (no bloqueante)
+    // 🔔 NOTIFICAR A FUNCIONARIOS POR CORREO SOBRE NUEVA LICENCIA (no bloqueante)
     try {
       // Obtener información completa del estudiante para la notificación
       const [estudianteRows] = await db.execute(
@@ -351,7 +402,6 @@ export const crearLicencia = async (req, res) => {
       }
     } catch (funcionariosEmailError) {
       console.error('❌ Error enviando notificación a funcionarios:', funcionariosEmailError);
-      
     }
 
     // 2) Subir a Supabase
@@ -407,7 +457,6 @@ export const crearLicencia = async (req, res) => {
     return res.status(500).json({ msg: 'Error al crear la licencia' });
   }
 };
-
 // =====================================================
 // GET: Licencias en revisión (funcionario/secretaría)
 // =====================================================

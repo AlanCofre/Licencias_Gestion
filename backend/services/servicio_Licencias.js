@@ -253,6 +253,98 @@ async function enviarNotificacionLicenciaCreada({
   }
 }
 
+// Agregar esta función en servicio_Licencias.js después de las otras funciones auxiliares
+
+/* =======================================================
+ * Función auxiliar: crear notificaciones para profesores
+ * cuando se genera una entrega de licencia
+ * ======================================================= */
+/* =======================================================
+ * Función auxiliar: crear notificaciones para profesores
+ * cuando se genera una entrega de licencia
+ * ======================================================= */
+async function crearNotificacionesProfesores({
+  licencia,
+  actorId,
+  conn // Sequelize transaction
+}) {
+  try {
+    console.log(`📢 Creando notificaciones para profesores - Licencia ${licencia.id_licencia}`);
+    
+    // Obtener cursos y profesores asociados a esta licencia
+    const cursosProfesores = await LicenciaMedica.sequelize.query(
+      `SELECT 
+        le.id_curso,
+        c.nombre_curso,
+        c.id_usuario as id_profesor,
+        u.nombre as nombre_profesor
+       FROM licencias_entregas le
+       JOIN curso c ON le.id_curso = c.id_curso
+       JOIN usuario u ON c.id_usuario = u.id_usuario
+       WHERE le.id_licencia = ?`,
+      {
+        replacements: [licencia.id_licencia],
+        type: QueryTypes.SELECT,
+        transaction: conn
+      }
+    );
+
+    // Obtener información del estudiante
+    const [estudianteRows] = await LicenciaMedica.sequelize.query(
+      `SELECT u.nombre 
+       FROM usuario u 
+       WHERE u.id_usuario = ? 
+       LIMIT 1`,
+      {
+        replacements: [licencia.id_usuario],
+        type: QueryTypes.SELECT,
+        transaction: conn
+      }
+    );
+
+    const estudianteNombre = estudianteRows?.nombre || 'Estudiante';
+
+    if (!cursosProfesores || cursosProfesores.length === 0) {
+      console.warn(`⚠️ No se encontraron cursos/profesores asociados a la licencia ${licencia.id_licencia}`);
+      return { notificacionesCreadas: 0 };
+    }
+
+    console.log(`📚 Encontrados ${cursosProfesores.length} cursos para notificar`);
+
+    let notificacionesCreadas = 0;
+
+    // Crear notificación para cada profesor
+    for (const curso of cursosProfesores) {
+      if (curso.id_profesor) {
+        try {
+          const asunto = 'Nueva entrega de licencia médica';
+          const contenido = `El estudiante ${estudianteNombre} ha generado una entrega de licencia médica para el curso "${curso.nombre_curso}". Folio: ${licencia.folio}. Período: ${licencia.fecha_inicio} al ${licencia.fecha_fin}.`;
+          
+          await LicenciaMedica.sequelize.query(
+            `INSERT INTO notificacion (asunto, contenido, leido, fecha_envio, id_usuario)
+             VALUES (?, ?, 0, NOW(), ?)`,
+            {
+              replacements: [asunto, contenido, curso.id_profesor],
+              transaction: conn
+            }
+          );
+          
+          console.log(`✅ Notificación creada para profesor: ${curso.nombre_profesor} - Curso: ${curso.nombre_curso}`);
+          notificacionesCreadas++;
+        } catch (error) {
+          console.error(`❌ Error creando notificación para profesor ${curso.nombre_profesor}:`, error);
+        }
+      }
+    }
+
+    console.log(`📢 Total notificaciones creadas para profesores: ${notificacionesCreadas}`);
+    return { notificacionesCreadas };
+  } catch (error) {
+    console.error('❌ Error inesperado en crearNotificacionesProfesores:', error);
+    return { notificacionesCreadas: 0, error: error.message };
+  }
+}
+
 /* =======================================================
  * Registrar notificaciones y auditoría
  * ======================================================= */
@@ -475,6 +567,12 @@ export async function decidirLicenciaSvc({
         }
       }
 
+      // 🔔 NUEVO: CREAR NOTIFICACIONES PARA PROFESORES
+      await crearNotificacionesProfesores({
+        licencia: lic,
+        actorId: actorId,
+        conn: tx
+      });
       await HistorialLicencias.create({
         id_licencia: lic.id_licencia,
         id_usuario: actorId,
