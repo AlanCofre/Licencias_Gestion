@@ -155,6 +155,16 @@ export default function LicenciasEstudiante() {
     setLicencias(resultado);
   }, [allLicencias, filterDate, filterEstado, sortAsc, searchTerm]);
 
+  // Supón que tienes un array de licencias visible llamado "licenciasFiltradas"
+  // Cada licencia tiene un campo "estado": "nueva", "vista", "aceptada", "rechazada", etc.
+
+  // Cálculo local de contadores (ajusta los nombres de estado según tu backend)
+  const total = licencias.length;
+  const nuevas = licencias.filter((l) => l.estado === "nueva").length;
+  const vistas = licencias.filter((l) => l.estado === "vista").length;
+
+  // Puedes agregar más estados si tu backend los entrega
+
   if (loading) {
     return (
       <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-50 to-indigo-100 dark:bg-app dark:bg-none">
@@ -184,8 +194,12 @@ export default function LicenciasEstudiante() {
                   <Clock className="h-8 w-8 text-blue-600" />
                 </div>
                 <div>
-                  <h1 className="text-4xl font-bold text-gray-900">Mis Licencias</h1>
-                  <p className="text-gray-600 mt-2">Revisa el estado de tus solicitudes</p>
+                  <h1 className="text-4xl font-bold text-gray-900">
+                    Mis Licencias
+                  </h1>
+                  <p className="text-gray-600 mt-2">
+                    Revisa el estado de tus solicitudes
+                  </p>
                 </div>
               </div>
 
@@ -211,8 +225,11 @@ export default function LicenciasEstudiante() {
 
                 {/* Filtro por fecha */}
                 <div className="flex items-center gap-2">
-                  <label htmlFor="filterDate" className="text-sm text-gray-600">
-                    Fecha (Enviado)
+                  <label
+                    htmlFor="filterDate"
+                    className="text-sm text-gray-600"
+                  >
+                    Fecha (Emisión)
                   </label>
                   <input
                     id="filterDate"
@@ -233,7 +250,10 @@ export default function LicenciasEstudiante() {
 
                 {/* Filtro por estado */}
                 <div className="flex items-center gap-2">
-                  <label htmlFor="filterEstado" className="text-sm text-gray-600">
+                  <label
+                    htmlFor="filterEstado"
+                    className="text-sm text-gray-600"
+                  >
                     Estado
                   </label>
                   <select
@@ -265,6 +285,28 @@ export default function LicenciasEstudiante() {
                 </button>
               </div>
             </div>
+          </div>
+
+          {/* Badges/Contadores arriba de la bandeja */}
+          <div className="flex gap-4 mb-4">
+            <span className="inline-flex items-center px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-semibold">
+              Nuevas&nbsp;
+              <span className="bg-blue-600 text-white rounded-full px-2 py-0.5 ml-1 text-xs">
+                {nuevas}
+              </span>
+            </span>
+            <span className="inline-flex items-center px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-sm font-semibold">
+              Vistas&nbsp;
+              <span className="bg-gray-700 text-white rounded-full px-2 py-0.5 ml-1 text-xs">
+                {vistas}
+              </span>
+            </span>
+            <span className="inline-flex items-center px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-semibold">
+              Totales&nbsp;
+              <span className="bg-green-600 text-white rounded-full px-2 py-0.5 ml-1 text-xs">
+                {total}
+              </span>
+            </span>
           </div>
 
           {/* Tabla */}
@@ -304,18 +346,23 @@ export default function LicenciasEstudiante() {
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-100">
                     {licencias.map((licencia) => (
-                      <tr key={licencia.id} className="hover:bg-blue-50 transition-colors duration-200">
+                      <tr
+                        key={licencia.id}
+                        className="hover:bg-blue-50 transition-colors duration-200"
+                      >
                         <td className="px-6 py-5 whitespace-nowrap">
                           <div className="text-sm space-y-1">
                             <div className="flex items-center text-gray-900">
-                              <span className="font-medium text-blue-600">Enviado el:</span>
-                              <span className="ml-2">
-                                {licencia.fecha_creacionFull || licencia.fecha_creacion || "-"}
+                              <span className="font-medium text-blue-600">
+                                Emisión:
                               </span>
+                              <span className="ml-2">{licencia.fechaEmision}</span>
                             </div>
                             <div className="flex items-center text-gray-900">
-                              <span className="font-medium text-green-600">Inicio reposo:</span>
-                              <span className="ml-2">{licencia.fechaInicioReposo || "-"}</span>
+                              <span className="font-medium text-green-600">
+                                Inicio:
+                              </span>
+                              <span className="ml-2">{licencia.fechaInicioReposo}</span>
                             </div>
                             <div className="flex items-center text-gray-900">
                               <span className="font-medium text-red-600">Fin reposo:</span>

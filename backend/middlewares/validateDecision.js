@@ -55,7 +55,7 @@ export async function validateDecision(req, res, next) {
     }
 
     const estudiante = await Usuario.findByPk(Number(id_usuario));
-    if (!estudiante || estudiante.id_rol !== 2) {
+    if (!estudiante || estudiante.id_rol !== 3) {
       return res.status(404).json({ ok: false, error: "Estudiante no encontrado" });
     }
 

@@ -32,23 +32,11 @@ Matricula.init(
         key: 'id_curso',
       },
     },
-    // 👇 estos dos campos son los que agregamos en la BD
-    id_periodo: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-      field: 'id_periodo',
-    },
     fecha_matricula: {
       type: DataTypes.DATE,
       allowNull: false,
       defaultValue: DataTypes.NOW,
       field: 'fecha_matricula',
-    },
-    estado: {
-      type: DataTypes.ENUM('activa', 'baja'),
-      allowNull: false,
-      defaultValue: 'activa',
-      field: 'estado',
     },
   },
   {

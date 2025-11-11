@@ -10,6 +10,14 @@ import https from 'https';
 import { subirPDFLicencia } from '../services/supabase/storage.service.js';
 // ✉️ Servicio de correos (solo para "nueva licencia")
 import { notificarNuevaLicencia } from '../services/servicio_Correo.js';
+import { calcularRegularidadEstudiante } from '../services/regularidad.service.js';
+
+
+// 🔔 NUEVO IMPORT para correos de estudiante
+import { 
+  notificarLicenciaCreadaEstudiante,
+  notificarEstadoLicenciaEstudiante 
+} from '../services/servicio_Correo.js';
 
 // === Utilidad: hash SHA-256 de un Buffer/String → hex 64
 function sha256FromBuffer(bufOrStr) {
@@ -204,7 +212,13 @@ export const crearLicencia = async (req, res) => {
     const fecha_inicio = _str(req.body?.fecha_inicio);
     const fecha_fin    = _str(req.body?.fecha_fin);
     const motivo       = _str(req.body?.motivo);
-
+    const motivo_medico = _str(req.body?.motivo_medico);
+    if (!motivo_medico || motivo_medico.length === 0) {
+      return res.status(400).json({ 
+        ok: false, 
+        error: 'El motivo médico es obligatorio' 
+      });
+    }
     // Cursos: puede venir como array o como JSON-string desde el frontend
     let cursos = [];
     const cursosRaw = req.body?.cursos ?? null;
@@ -272,22 +286,44 @@ export const crearLicencia = async (req, res) => {
     // 1) Insertar licencia (forzar NULLs donde corresponda)
     const [result] = await db.execute(
       `INSERT INTO licenciamedica
-       (folio, fecha_emision, fecha_inicio, fecha_fin, estado, motivo_rechazo, fecha_creacion, id_usuario)
-       VALUES (?, CURDATE(), ?, ?, 'pendiente', NULL, NOW(), ?)`,
+      (folio, fecha_emision, fecha_inicio, fecha_fin, estado, motivo_rechazo, motivo_medico, fecha_creacion, id_usuario)
+      VALUES (?, CURDATE(), ?, ?, 'pendiente', NULL, ?, NOW(), ?)`,
       [
         folio ?? null,
         fecha_inicio ?? null,
         fecha_fin ?? null,
+        motivo_medico ?? null,  // ✅ AHORA SÍ TIENE SU LUGAR
         usuarioId ?? null
       ]
     );
     const idLicencia = result.insertId;
 
+    // 🔔 NOTIFICAR POR CORREO AL ESTUDIANTE (no bloqueante)
+    try {
+      // Obtener información del estudiante
+      const [estudianteRows] = await db.execute(
+        `SELECT correo_usuario, nombre FROM usuario WHERE id_usuario = ? LIMIT 1`,
+        [usuarioId]
+      );
+      
+      if (estudianteRows.length > 0) {
+        const estudiante = estudianteRows[0];
+        await notificarLicenciaCreadaEstudiante({
+          to: estudiante.correo_usuario,
+          folio: folio,
+          estudianteNombre: estudiante.nombre,
+          fechaInicio: fecha_inicio,
+          fechaFin: fecha_fin
+        });
+        console.log(`📧 Correo de creación enviado a: ${estudiante.correo_usuario}`);
+      }
+    } catch (emailError) {
+      console.error('❌ Error enviando correo de creación:', emailError);
+      // No fallamos la creación por error de correo
+    }
+
     // 2) Subir a Supabase
-    //    IMPORTANTE: ajusta el import arriba del archivo:
-    //    import { subirPDFLicencia } from '../services/supabase/storage.service.js';
     const meta = await (async () => {
-      // subirPDFLicencia(file, userId) → DEBE devolver un objeto con TODAS estas props (sin undefined)
       const r = await subirPDFLicencia(archivo, usuarioId);
       // Normalizar por si acaso
       return {
@@ -327,6 +363,7 @@ export const crearLicencia = async (req, res) => {
         fecha_fin,
         estado: 'pendiente',
         motivo_rechazo: null,
+        motivo_medico: motivo_medico,
         fecha_creacion: new Date().toISOString(),
         id_usuario: usuarioId,
         motivo: motivo ?? null,
@@ -338,8 +375,6 @@ export const crearLicencia = async (req, res) => {
     return res.status(500).json({ msg: 'Error al crear la licencia' });
   }
 };
-
-
 
 // =====================================================
 // GET: Licencias en revisión (funcionario/secretaría)
@@ -426,7 +461,6 @@ export const getLicenciasEnRevision = async (req, res) => {
     return res.status(500).json({ ok: false, error: 'Error al obtener licencias en revisión' });
   }
 };
-
 
 // =======================================================
 // ✅ Licencias Resueltas (FUNCIONARIO)
@@ -653,15 +687,19 @@ export const crearLicenciaLegacy = async (req, res) => {
     if (!folio) {
       return res.status(400).json({ ok: false, mensaje: "El folio es obligatorio" });
     }
+    const motivo_medico = String(req.body?.motivo_medico ?? "").trim();
+    if (!motivo_medico) {
+      return res.status(400).json({ ok: false, mensaje: "El motivo médico es obligatorio" });
+    }
 
     const sql = `
       INSERT INTO licenciamedica
-        (folio, fecha_emision, fecha_inicio, fecha_fin, estado, motivo_rechazo, fecha_creacion, id_usuario)
+        (folio, fecha_emision, fecha_inicio, fecha_fin, estado, motivo_rechazo, motivo_medico, fecha_creacion, id_usuario)
       VALUES
-        (?,     CURDATE(),     ?,            ?,          'pendiente', NULL,            NOW(),     ?)
+        (?,     CURDATE(),     ?,            ?,          'pendiente', NULL,            ?, NOW(),     ?)
     `;
-    const [result] = await db.execute(sql, [folio, fecha_inicio, fecha_fin, id_usuario]);
-
+    const [result] = await db.execute(sql, [folio, fecha_inicio, fecha_fin, motivo_medico, id_usuario]);
+    
     // 🔎 AUDIT: emitir licencia (legacy)
     try {
       await req.audit('emitir licencia', 'licenciamedica', {
@@ -781,9 +819,6 @@ export async function decidirLicencia(req, res) {
 
 // ========================
 // GET /api/licencias/:id/archivo
-// ========================
-// ========================
-// GET /api/licencias/:id/archivo
 // → Devuelve URL firmada temporal de Supabase
 // ========================
 export const descargarArchivoLicencia = async (req, res) => {
@@ -849,7 +884,6 @@ export const descargarArchivoLicencia = async (req, res) => {
   }
 };
 
-
 // =====================================================
 // ⬅️ Restaurado: cambiarEstado (named export)
 // =====================================================
@@ -891,10 +925,98 @@ export async function cambiarEstado(req, res, next) {
       }
     }
 
-
     return res.json({ ok: true, data: { id: lic.id_licencia, estado: lic.estado } });
   } catch (err) { next(err); }
 }
+
+/**
+ * Obtener licencias de un estudiante con información de regularidad
+ * (Para uso de profesores/administradores)
+ */
+export const getLicenciasEstudianteConRegularidad = async (req, res) => {
+  try {
+    const { idEstudiante } = req.params;
+    const { periodo, id_curso } = req.query;
+
+    // Validar permisos - SOLO profesor o administrador
+    const rol = (req.user?.rol ?? req.rol ?? '').toString().toLowerCase();
+    if (!['profesor', 'administrador'].includes(rol)) {
+      return res.status(403).json({ 
+        ok: false, 
+        error: 'No tiene permisos para ver esta información. Se requiere rol de profesor o administrador.' 
+      });
+    }
+
+    // Si es profesor, verificar que el estudiante esté en sus cursos
+    if (rol === 'profesor') {
+      const [acceso] = await db.execute(`
+        SELECT 1 
+        FROM matriculas m
+        JOIN curso c ON m.id_curso = c.id_curso
+        WHERE m.id_usuario = ? 
+          AND c.id_usuario = ?
+        LIMIT 1
+      `, [idEstudiante, req.user.id_usuario]);
+      
+      if (acceso.length === 0) {
+        return res.status(403).json({ 
+          ok: false, 
+          error: 'No tiene acceso a la información de este estudiante' 
+        });
+      }
+    }
+
+    // Obtener licencias del estudiante
+    const [licencias] = await db.execute(`
+      SELECT 
+        lm.id_licencia,
+        lm.folio,
+        lm.fecha_emision,
+        lm.fecha_inicio,
+        lm.fecha_fin,
+        lm.estado,
+        lm.motivo_rechazo,
+        c.nombre_curso,
+        c.codigo,
+        c.periodo
+      FROM licenciamedica lm
+      LEFT JOIN licencias_entregas le ON lm.id_licencia = le.id_licencia
+      LEFT JOIN curso c ON le.id_curso = c.id_curso
+      WHERE lm.id_usuario = ?
+        AND (? IS NULL OR c.periodo = ?)
+        AND (? IS NULL OR le.id_curso = ?)
+      ORDER BY lm.fecha_creacion DESC
+    `, [idEstudiante, periodo, periodo, id_curso, id_curso]);
+
+    // Calcular regularidad
+    const regularidad = await calcularRegularidadEstudiante(
+      parseInt(idEstudiante), 
+      periodo, 
+      id_curso ? parseInt(id_curso) : null
+    );
+
+    // Obtener información del estudiante
+    const [estudianteInfo] = await db.execute(
+      'SELECT id_usuario, nombre, correo_usuario FROM usuario WHERE id_usuario = ?',
+      [idEstudiante]
+    );
+
+    return res.status(200).json({
+      ok: true,
+      data: {
+        estudiante: estudianteInfo[0] || null,
+        licencias,
+        regularidad
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error en getLicenciasEstudianteConRegularidad:', error);
+    return res.status(500).json({ 
+      ok: false, 
+      error: 'Error interno del servidor' 
+    });
+  }
+};
 
 export default {
   listarLicencias,

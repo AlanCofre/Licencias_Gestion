@@ -20,12 +20,16 @@ Curso.init(
       type: DataTypes.STRING(100),
       allowNull: false,
     },
+    semestre: { // ✅ CAMPO AÑADIDO
+      type: DataTypes.INTEGER,
+      allowNull: false,
+    },
     seccion: {
       type: DataTypes.STRING(10),
       allowNull: false,
     },
     periodo: {
-      type: DataTypes.STRING(10), // ej: '2025-1'
+      type: DataTypes.STRING(10),
       allowNull: false,
     },
     activo: {
@@ -33,7 +37,6 @@ Curso.init(
       allowNull: false,
       defaultValue: true,
     },
-    // FK al profesor
     id_usuario: {
       type: DataTypes.INTEGER,
       allowNull: false,
@@ -46,9 +49,10 @@ Curso.init(
   {
     sequelize,
     modelName: 'Curso',
-    tableName: 'curso', // 👈 si tu tabla es cursos, cámbiala aquí
+    tableName: 'curso',
     timestamps: false,
   }
 );
+
 
 export default Curso;

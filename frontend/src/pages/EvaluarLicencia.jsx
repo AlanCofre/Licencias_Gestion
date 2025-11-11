@@ -1,8 +1,11 @@
+// ...existing code...
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
-import { toast } from "react-hot-toast";
+import ConfirmModal from "../components/ConfirmModal";
+import samplePDF from "../assets/sample.pdf";
+import Toast from "../components/toast"; // añadido
 
 function formatFechaHora(fechaStr) {
   if (!fechaStr) return "";
@@ -82,6 +85,9 @@ export default function EvaluarLicencia() {
   const [mensaje, setMensaje] = useState("");
   const [motivoRechazo, setMotivoRechazo] = useState("");
   const [loadingAccion, setLoadingAccion] = useState(false);
+  const [modal, setModal] = useState({ open: false, type: null });
+  const [toast, setToast] = useState(null); // estado para Toast
+  const [redireccionando, setRedireccionando] = useState(false);
 
   useEffect(() => {
     const cargar = async () => {
@@ -121,6 +127,27 @@ export default function EvaluarLicencia() {
     };
     cargar();
   }, [id]);
+
+  const goBackToBandeja = () => navigate("/pendientes");
+  const openModal = (type) => setModal({ open: true, type });
+  const closeModal = () => setModal({ open: false, type: null });
+  const handleConfirm = (data) => {
+    if (modal.type === "reject") {
+      const motivo = data?.note ?? "";
+      if (!motivo || !motivo.trim()) {
+        setToast({ message: "Debes indicar un motivo para rechazar", type: "error" });
+        return;
+      }
+    }
+
+    const action = modal.type === "accept" ? "aceptada" : "rechazada";
+    console.log(`Licencia ${licencia.id} ${action}:`, data);
+
+    setToast({ message: `Licencia ${action} exitosamente.`, type: "success" });
+
+    closeModal();
+    setTimeout(() => goBackToBandeja(), 700);
+  };
 
   const decidirLicencia = async (decision) => {
     if (!licencia) return;
@@ -200,17 +227,30 @@ export default function EvaluarLicencia() {
         throw new Error(json?.error || json?.msg || `Error ${res.status}`);
       }
 
-      toast.success(
-        `Licencia ${decision === "aceptado" ? "aceptada" : "rechazada"} correctamente`
-      );
-      navigate("/licencias-por-revisar");
+      // ✅ CORREO ENVIADO EXITOSAMENTE - REDIRIGIR DESPUÉS DE MOSTRAR TOAST
+      const mensajeExito = decision === "aceptado" 
+        ? "Licencia aceptada y notificada correctamente" 
+        : "Licencia rechazada y notificada correctamente";
+      
+      setToast({ 
+        message: mensajeExito, 
+        type: "success" 
+      });
+
+      // Configurar redirección automática después de 2 segundos
+      setRedireccionando(true);
+      setTimeout(() => {
+        navigate("/licencias-por-revisar");
+      }, 2000);
+
     } catch (e) {
       setMensaje(e.message);
-      toast.error(e.message);
+      setToast({ message: e.message, type: "error" });
     } finally {
       setLoadingAccion(false);
     }
   };
+
 
   if (loading) {
     return (
@@ -361,6 +401,22 @@ export default function EvaluarLicencia() {
         </div>
       </main>
       <Footer />
+
+      <ConfirmModal
+        open={modal.open}
+        title={modal.type === "accept" ? "Confirmar Aceptación" : "Confirmar Rechazo"}
+        confirmLabel={modal.type === "accept" ? "Aceptar Licencia" : "Rechazar Licencia"}
+        onClose={closeModal}
+        onConfirm={handleConfirm}
+      />
+
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
     </div>
   );
 }
