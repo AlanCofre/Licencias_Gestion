@@ -10,6 +10,7 @@ const Announcement = () => {
   const role = String(user?.role || "").toLowerCase();
   const isSecretary = role === "secretaria" || role === "secretary";
   const isTeacher = role === "profesor" || role === "teacher";
+  const isAdmin = role === "admin" || role === "administrator";
 
   // usar el nombre que venga del login; anteponer "Sec." si es secretaria
   const rawName = String(user?.name || "").trim();
@@ -51,6 +52,7 @@ const Announcement = () => {
                 </div>
               </>
             ) : (
+              
               // anuncio para estudiante
               <>
                 <h2 className="text-4xl lg:text-5xl font-sans font-bold text-gray-800 mb-6 leading-tight">

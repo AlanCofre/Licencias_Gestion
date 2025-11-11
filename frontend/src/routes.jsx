@@ -4,6 +4,7 @@ import { useAuth } from "./context/AuthContext";
 
 import Dashboard from "./pages/Dashboard"; // alumno
 import DashboardSecretary from "./pages/DashboardSecretary";
+import DashboardAdmin from "./pages/DashboardAdmin";
 import AppLogin from "./pages/AppLogin";
 import AppRegistro from "./pages/AppRegistro";
 import ForgotPassword from "./pages/ForgotPassword";
@@ -48,7 +49,7 @@ export default function AppRoutes() {
       {/* Dashboards por rol */}
       <Route path="/alumno" element={<Dashboard />} />
       <Route path="/profesor" element={<Dashboard />} />
-      <Route path="/admin" element={<Dashboard />} />
+      <Route path="/admin" element={<DashboardAdmin />} />
       <Route path="/secretaria" element={<DashboardSecretary />} />
 
       {/* Páginas comunes */}
