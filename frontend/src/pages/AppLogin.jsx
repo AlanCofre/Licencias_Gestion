@@ -3,6 +3,7 @@ import bannerLogin from "../assets/banner-login.png";
 import logo from "../assets/logo.svg"; // <-- tu logo
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { useTranslation } from "react-i18next";
 
 function AppLogin() {
   const { login } = useAuth();
@@ -84,7 +85,7 @@ function AppLogin() {
         {/* Logo */}
         <div className="hidden md:flex md:w-1/3 bg-[#00AAFF] flex-col items-center justify-center p-6">
           <img src={logo} alt="Logo" className="w-38 h-auto" />
-          <span className="text-white text-4xl font-bold mt-3 text-center">MedManager</span>
+          <span className="font-display text-white text-4xl font-bold mt-3 text-center">MedManager</span>
         </div>
 
         {/* Formulario */}

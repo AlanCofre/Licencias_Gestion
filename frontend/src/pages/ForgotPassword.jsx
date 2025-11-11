@@ -2,15 +2,22 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
-import { useRequestReset } from "../hooks/usePasswordReset"; // agregado
+import Toast from "../components/toast";
+import { useRequestReset } from "../hooks/usePasswordReset"; // Asegúrate de que la ruta sea correcta
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState("");
   const [timer, setTimer] = useState(0);
-  const [loadingLocal, setLoadingLocal] = useState(false); // local spinner while hook runs
+  const [toast, setToast] = useState(null);
   const navigate = useNavigate();
-
   const { requestReset, loading, error } = useRequestReset();
+
+  // Mostrar errores del hook
+  useEffect(() => {
+    if (error) {
+      setToast({ message: error, type: "error" });
+    }
+  }, [error]);
 
   // Temporizador para bloquear reenvío
   useEffect(() => {
@@ -21,28 +28,30 @@ export default function ForgotPassword() {
     return () => clearInterval(countdown);
   }, [timer]);
 
-  // Función para validar formato de correo
   const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
   const handleRequestCode = async () => {
     if (!isValidEmail(email)) {
-      alert("Por favor ingresa un correo válido");
+      setToast({ message: "Por favor ingresa un correo válido", type: "error" });
       return;
     }
 
     try {
-      setLoadingLocal(true);
-      await requestReset(email);
-      // El backend imprime el código en la terminal local (dev). Indica al usuario que revise la consola del servidor.
-      alert("Si el correo existe, se generó un código. Revisa la consola del servidor para copiarlo en desarrollo.");
+      const result = await requestReset(email);
+      
       setTimer(60);
-      // Pasar email a la ruta de ResetPassword
-      navigate("/reset-password", { state: { email } });
+      setToast({ 
+        message: result.message || "Se envió un código a tu correo.", 
+        type: "success" 
+      });
+
+      // Navega a ResetPassword pasando el email como estado
+      setTimeout(() => navigate("/reset-password", { 
+        state: { email } 
+      }), 1000);
     } catch (err) {
-      // mostrar mensaje genérico o el error si lo desea
-      alert(err?.message || "No se pudo solicitar el código. Intenta más tarde.");
-    } finally {
-      setLoadingLocal(false);
+      // El error ya se maneja automáticamente en el hook y se muestra en el useEffect
+      console.error("Error al solicitar código:", err);
     }
   };
 
@@ -67,14 +76,14 @@ export default function ForgotPassword() {
 
           <button
             onClick={handleRequestCode}
-            disabled={loadingLocal || timer > 0}
+            disabled={loading || timer > 0}
             className={`w-full py-2 rounded-lg text-white font-semibold transition ${
-              loadingLocal || timer > 0
+              loading || timer > 0
                 ? "bg-gray-400 cursor-not-allowed"
                 : "bg-blue-600 hover:bg-blue-700"
             }`}
           >
-            {loadingLocal
+            {loading
               ? "Enviando..."
               : timer > 0
               ? `Reenviar en ${timer}s`
@@ -84,6 +93,14 @@ export default function ForgotPassword() {
       </main>
 
       <Footer />
+
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
     </div>
   );
 }

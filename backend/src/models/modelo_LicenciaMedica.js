@@ -1,4 +1,3 @@
-// src/models/modelo_LicenciaMedica.js
 import { DataTypes, Model } from 'sequelize';
 import sequelize from '../../db/sequelize.js';
 import Usuario from './modelo_Usuario.js';
@@ -39,6 +38,12 @@ LicenciaMedica.init(
     // Observación en caso de rechazo
     motivo_rechazo: { type: DataTypes.TEXT, allowNull: true },
 
+    // ✅ NUEVO CAMPO: motivo médico
+    motivo_medico: { 
+      type: DataTypes.STRING(255), 
+      allowNull: true, // Permite NULL para compatibilidad con licencias existentes
+    },
+
     // Marca de creación (si ya tienes createdAt/updatedAt, puedes borrar esto y usar timestamps: true)
     fecha_creacion: {
       type: DataTypes.DATE,
@@ -49,7 +54,7 @@ LicenciaMedica.init(
   {
     sequelize,
     tableName: 'licenciamedica',
-    timestamps: false, // Si tu tabla ya tiene createdAt/updatedAt, cambia a true y mapea underscored si aplica
+    timestamps: false,
     defaultScope: {
       order: [['fecha_creacion', 'DESC']],
     },
@@ -63,55 +68,55 @@ LicenciaMedica.init(
         }
       },
     },
-hooks: {
-  beforeCreate(inst) {
-    // Forzar pendiente en creación
-    inst.estado = 'pendiente';
+    hooks: {
+      beforeCreate(inst) {
+        // Forzar pendiente en creación
+        inst.estado = 'pendiente';
 
-    // Si viene motivo_rechazo y NO está rechazado, limpiar
-    if (inst.estado !== 'rechazado' && inst.motivo_rechazo) {
-      inst.motivo_rechazo = null;
-    }
-  },
+        // Si viene motivo_rechazo y NO está rechazado, limpiar
+        if (inst.estado !== 'rechazado' && inst.motivo_rechazo) {
+          inst.motivo_rechazo = null;
+        }
+      },
 
-  beforeUpdate(inst) {
-    const prev = inst.previous('estado');
-    const next = inst.estado;
+      beforeUpdate(inst) {
+        const prev = inst.previous('estado');
+        const next = inst.estado;
 
-    // Idempotente: si no cambia, solo validar coherencia de motivo
-    if (prev === next) {
-      if (next === 'rechazado' && !inst.motivo_rechazo) {
-        const err = new Error('motivo_rechazo es obligatorio cuando la licencia es rechazada');
-        err.status = 400; err.code = 'REJECTION_REASON_REQUIRED';
-        throw err;
-      }
-      if (next !== 'rechazado' && inst.motivo_rechazo) {
-        inst.motivo_rechazo = null;
-      }
-      return;
-    }
+        // Idempotente: si no cambia, solo validar coherencia de motivo
+        if (prev === next) {
+          if (next === 'rechazado' && !inst.motivo_rechazo) {
+            const err = new Error('motivo_rechazo es obligatorio cuando la licencia es rechazada');
+            err.status = 400; err.code = 'REJECTION_REASON_REQUIRED';
+            throw err;
+          }
+          if (next !== 'rechazado' && inst.motivo_rechazo) {
+            inst.motivo_rechazo = null;
+          }
+          return;
+        }
 
-    // Transiciones válidas: pendiente → aceptado|rechazado
-    const permitido = (prev === 'pendiente') && (next === 'aceptado' || next === 'rechazado');
-    if (!permitido) {
-      const err = new Error('Transición de estado no permitida');
-      err.status = 400;
-      err.code = 'INVALID_STATE_TRANSITION';
-      throw err;
-    }
+        // Transiciones válidas: pendiente → aceptado|rechazado
+        const permitido = (prev === 'pendiente') && (next === 'aceptado' || next === 'rechazado');
+        if (!permitido) {
+          const err = new Error('Transición de estado no permitida');
+          err.status = 400;
+          err.code = 'INVALID_STATE_TRANSITION';
+          throw err;
+        }
 
-    // Si pasa a rechazado, exigir motivo
-    if (next === 'rechazado' && !inst.motivo_rechazo) {
-      const err = new Error('motivo_rechazo es obligatorio cuando la licencia es rechazada');
-      err.status = 400; err.code = 'REJECTION_REASON_REQUIRED';
-      throw err;
-    }
+        // Si pasa a rechazado, exigir motivo
+        if (next === 'rechazado' && !inst.motivo_rechazo) {
+          const err = new Error('motivo_rechazo es obligatorio cuando la licencia es rechazada');
+          err.status = 400; err.code = 'REJECTION_REASON_REQUIRED';
+          throw err;
+        }
 
-    // Si pasa a aceptado, limpiar motivo_rechazo
-    if (next !== 'rechazado' && inst.motivo_rechazo) {
-      inst.motivo_rechazo = null;
-    }
-  },
+        // Si pasa a aceptado, limpiar motivo_rechazo
+        if (next !== 'rechazado' && inst.motivo_rechazo) {
+          inst.motivo_rechazo = null;
+        }
+      },
     },
   }
 );

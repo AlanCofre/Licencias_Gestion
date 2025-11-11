@@ -54,6 +54,11 @@ body {
   line-height: 1.6;
 }
 
+/* clase para usar el font de display explícitamente */
+.font-display {
+  font-family: 'Wix Madefor Display', 'Work Sans', system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+}
+
 /* botón ghost respetando variables */
 .btn-ghost {
   @apply px-6 py-3 rounded-lg shadow-md flex items-center gap-3 transition-all;
@@ -75,6 +80,21 @@ body {
 }
 .animate-slide-up {
   animation: slideUp 0.4s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(400px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.animate-slideIn {
+  animation: slideIn 0.3s ease-out;
 }
 
 /* Tamaños de fuente para accesibilidad */
@@ -360,5 +380,39 @@ body {
 /* Si algún componente usa clases compuestas inline, forzar texto legible dentro */
 .dark .inline-flex.bg-white * {
   color: var(--text) !important;
+}
+
+/* Forzar color de texto y fondo en select y option en modo oscuro */
+.dark select,
+.dark select option {
+  color: #222 !important;      /* texto oscuro */
+  background-color: #e5e7eb !important; /* fondo gris claro */
+}
+
+/* Forzar estilos de notificaciones en modo oscuro */
+.dark .bg-red-50 {
+  background-color: #fef2f2 !important;
+}
+
+.dark .border-red-200 {
+  border-color: #fecaca !important;
+}
+
+.dark .text-red-600 {
+  color: #dc2626 !important;
+}
+
+.dark .text-red-700 {
+  color: #b91c1c !important;
+}
+
+.dark .text-red-800 {
+  color: #991b1b !important;
+}
+
+/* Asegurar que el componente AlertaLicenciasAnual mantenga estilos claros en dark */
+.dark .bg-red-50.border.border-red-300 {
+  background-color: #fef2f2 !important;
+  border-color: #fecaca !important;
 }
 

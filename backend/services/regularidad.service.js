@@ -1,0 +1,181 @@
+// backend/services/regularidad.service.js
+import db from '../config/db.js';
+
+/**
+ * Calcula la regularidad académica de un estudiante basado en licencias médicas aceptadas
+ * @param {number} idEstudiante - ID del estudiante
+ * @param {string} periodo - Periodo académico (ej: '2025-1')
+ * @param {number} idCurso - ID del curso (opcional)
+ * @returns {Object} Objeto con conteo y categoría de regularidad
+ */
+export async function calcularRegularidadEstudiante(idEstudiante, periodo = null, idCurso = null) {
+  try {
+    // Determinar el período activo si no se especifica
+    let periodoActivo = periodo;
+    if (!periodoActivo) {
+      // Obtener el período actual - CORREGIDO: usar id_curso en lugar de fecha_creacion
+      const [periodos] = await db.execute(
+        'SELECT periodo FROM curso WHERE activo = 1 ORDER BY id_curso DESC LIMIT 1'
+      );
+      periodoActivo = periodos.length > 0 ? periodos[0].periodo : '2025-1'; // fallback
+    }
+
+    let query = `
+      SELECT COUNT(DISTINCT lm.id_licencia) as total_licencias_aceptadas
+      FROM licenciamedica lm
+      WHERE lm.id_usuario = ?
+        AND lm.estado = 'aceptado'
+        AND (? IS NULL OR EXISTS (
+          SELECT 1 FROM licencias_entregas le 
+          JOIN curso c ON le.id_curso = c.id_curso 
+          WHERE le.id_licencia = lm.id_licencia 
+          AND c.periodo = ?
+        ))
+    `;
+
+    const params = [idEstudiante, periodoActivo, periodoActivo];
+
+    // Si se especifica un curso, filtrar por él
+    if (idCurso) {
+      query += ` AND EXISTS (
+        SELECT 1 FROM licencias_entregas le 
+        WHERE le.id_licencia = lm.id_licencia 
+        AND le.id_curso = ?
+      )`;
+      params.push(idCurso);
+    }
+
+    const [result] = await db.execute(query, params);
+    
+    const totalLicencias = result[0]?.total_licencias_aceptadas || 0;
+    
+    // Categorizar la regularidad
+    let categoria = '';
+    if (totalLicencias <= 2) {
+      categoria = 'Alta regularidad';
+    } else if (totalLicencias <= 5) {
+      categoria = 'Media regularidad';
+    } else {
+      categoria = 'Baja regularidad';
+    }
+
+    return {
+      total_licencias_aceptadas: totalLicencias,
+      categoria_regularidad: categoria,
+      periodo: periodoActivo
+    };
+  } catch (error) {
+    console.error('❌ Error calculando regularidad:', error);
+    throw new Error('Error al calcular regularidad académica');
+  }
+}
+
+/**
+ * Obtiene la regularidad de todos los estudiantes de un curso
+ * @param {number} idCurso - ID del curso
+ * @param {string} periodo - Periodo académico
+ * @returns {Array} Lista de estudiantes con su regularidad
+ */
+export async function obtenerRegularidadPorCurso(idCurso, periodo = null) {
+  try {
+    // Obtener estudiantes matriculados en el curso
+    const [estudiantes] = await db.execute(`
+      SELECT 
+        u.id_usuario,
+        u.nombre,
+        u.correo_usuario
+      FROM matriculas m
+      JOIN usuario u ON m.id_usuario = u.id_usuario
+      JOIN rol r ON u.id_rol = r.id_rol
+      WHERE m.id_curso = ?
+        AND r.nombre_rol = 'estudiante'
+    `, [idCurso]);
+
+    // Calcular regularidad para cada estudiante
+    const estudiantesConRegularidad = await Promise.all(
+      estudiantes.map(async (estudiante) => {
+        const regularidad = await calcularRegularidadEstudiante(
+          estudiante.id_usuario, 
+          periodo, 
+          idCurso
+        );
+        
+        return {
+          ...estudiante,
+          regularidad
+        };
+      })
+    );
+
+    return estudiantesConRegularidad;
+  } catch (error) {
+    console.error('❌ Error obteniendo regularidad por curso:', error);
+    throw new Error('Error al obtener regularidad por curso');
+  }
+}
+
+/**
+ * Obtiene estadísticas de regularidad para dashboard de profesor/admin
+ * @param {number} idProfesor - ID del profesor (opcional para admin)
+ * @param {string} periodo - Periodo académico
+ * @returns {Object} Estadísticas agregadas
+ */
+export async function obtenerEstadisticasRegularidad(idProfesor = null, periodo = null) {
+  try {
+    // Determinar período activo - CORREGIDO: usar id_curso en lugar de fecha_creacion
+    let periodoActivo = periodo;
+    if (!periodoActivo) {
+      const [periodos] = await db.execute(
+        'SELECT periodo FROM curso WHERE activo = 1 ORDER BY id_curso DESC LIMIT 1'
+      );
+      periodoActivo = periodos.length > 0 ? periodos[0].periodo : '2025-1';
+    }
+
+    let query = `
+      SELECT 
+        COUNT(DISTINCT u.id_usuario) as total_estudiantes,
+        SUM(CASE WHEN lic_count.total_licencias <= 2 THEN 1 ELSE 0 END) as alta_regularidad,
+        SUM(CASE WHEN lic_count.total_licencias BETWEEN 3 AND 5 THEN 1 ELSE 0 END) as media_regularidad,
+        SUM(CASE WHEN lic_count.total_licencias >= 6 THEN 1 ELSE 0 END) as baja_regularidad
+      FROM usuario u
+      JOIN rol r ON u.id_rol = r.id_rol
+      LEFT JOIN matriculas m ON u.id_usuario = m.id_usuario
+      LEFT JOIN curso c ON m.id_curso = c.id_curso
+      LEFT JOIN (
+        SELECT 
+          lm.id_usuario,
+          COUNT(DISTINCT lm.id_licencia) as total_licencias
+        FROM licenciamedica lm
+        WHERE lm.estado = 'aceptado'
+          AND EXISTS (
+            SELECT 1 FROM licencias_entregas le 
+            JOIN curso c2 ON le.id_curso = c2.id_curso 
+            WHERE le.id_licencia = lm.id_licencia 
+            AND c2.periodo = ?
+          )
+        GROUP BY lm.id_usuario
+      ) lic_count ON u.id_usuario = lic_count.id_usuario
+      WHERE r.nombre_rol = 'estudiante'
+    `;
+
+    const params = [periodoActivo];
+
+    if (idProfesor) {
+      query += ` AND c.id_usuario = ?`;
+      params.push(idProfesor);
+    }
+
+    const [stats] = await db.execute(query, params);
+    
+    return {
+      total_estudiantes: stats[0]?.total_estudiantes || 0,
+      alta_regularidad: stats[0]?.alta_regularidad || 0,
+      media_regularidad: stats[0]?.media_regularidad || 0,
+      baja_regularidad: stats[0]?.baja_regularidad || 0,
+      periodo: periodoActivo
+    };
+  } catch (error) {
+    console.error('❌ Error obteniendo estadísticas de regularidad:', error);
+    throw new Error('Error al obtener estadísticas de regularidad');
+  }
+}

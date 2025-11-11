@@ -3,6 +3,16 @@ import jwt from 'jsonwebtoken';
 import db from '../config/db.js';
 
 /* ============================
+ * Constantes de rol (canónicos)
+ * ============================ */
+export const ROLES = {
+  ADMIN: 'administrador',
+  PROF:  'profesor',
+  EST:   'estudiante',
+  FUNC:  'funcionario',
+};
+
+/* ============================
  * Utilidades
  * ============================ */
 const extractToken = (req) => {
@@ -15,18 +25,17 @@ const normalizeRol = (raw) => {
   if (raw == null) return null;
   const v = String(raw).toLowerCase().trim();
 
-  // numéricos de tu BD
-  if (v === '1') return 'profesor';
-  if (v === '2') return 'estudiante';
-  if (v === '3') return 'funcionario';
+  // === IDs de la tabla "rol" ===
+  if (v === '1') return ROLES.PROF;   // profesor
+  if (v === '2') return ROLES.EST;    // estudiante
+  if (v === '3') return ROLES.FUNC;   // funcionario
+  if (v === '4') return ROLES.ADMIN;  // administrador
 
-  // nombres “buenos”
-  if (v === 'profesor' || v === 'estudiante' || v=== 'funcionario')  return v;
-
-  // alias heredados
-  if (v === 'profesor' || v === 'profesora')return 'profesor';
-  if (v === 'alumno') return 'estudiante';
-  if (v === 'funcionario') return 'funcionario';
+  // === Nombres / alias ===
+  if (v === 'profesor' || v === 'profesora') return ROLES.PROF;
+  if (v === 'estudiante' || v === 'alumno')  return ROLES.EST;
+  if (v === 'funcionario')                    return ROLES.FUNC;
+  if (v === 'administrador' || v === 'admin' || v === 'administradora') return ROLES.ADMIN;
 
   return null;
 };
@@ -34,9 +43,8 @@ const normalizeRol = (raw) => {
 /* ============================
  * Middleware: validarJWT
  * - Verifica token
- * - Normaliza rol
- * - Si falta rol, lo consulta a BD
- * - Setea req.user y deja compat en req.id / req.rol
+ * - Normaliza rol (desde token o BD)
+ * - Setea req.user y compat en req.id / req.rol
  * ============================ */
 export const validarJWT = async (req, res, next) => {
   const token = extractToken(req);
@@ -62,9 +70,7 @@ export const validarJWT = async (req, res, next) => {
           LIMIT 1`,
         [id_usuario]
       );
-      if (rows.length) {
-        rol = normalizeRol(rows[0].rol);
-      }
+      if (rows.length) rol = normalizeRol(rows[0].rol);
     }
 
     if (!id_usuario) return res.status(401).json({ msg: 'Token sin id válido' });
@@ -83,12 +89,12 @@ export const validarJWT = async (req, res, next) => {
 };
 
 /* ============================
- * Requiere estudiante
+ * Requiere estudiante (legacy)
  * ============================ */
 export const esEstudiante = (req, res, next) => {
   const rol = normalizeRol(req.user?.rol ?? req.rol);
   if (!rol) return res.status(401).json({ msg: 'Token sin rol válido' });
-  if (rol !== 'estudiante') {
+  if (rol !== ROLES.EST) {
     return res.status(403).json({ msg: 'No tiene permisos para realizar esta acción (solo estudiantes)' });
   }
   next();
@@ -109,4 +115,20 @@ export const tieneRol = (...rolesPermitidos) => {
   };
 };
 
-export default { validarJWT, esEstudiante, tieneRol };
+/* ============================
+ * Wrappers sin duplicar lógica
+ * ============================ */
+export const esAdmin       = tieneRol(ROLES.ADMIN);
+export const esProfesor    = tieneRol(ROLES.PROF);
+export const esFuncionario = tieneRol(ROLES.FUNC);
+
+// Export default por compatibilidad
+export default {
+  ROLES,
+  validarJWT,
+  esEstudiante,
+  tieneRol,
+  esAdmin,
+  esProfesor,
+  esFuncionario,
+};
