@@ -20,24 +20,6 @@ function fmtDateOnly(d) {
   } catch { return String(d); }
 }
 
-function normalizeLicenciaResuelta(raw) {
-  if (!raw || typeof raw !== "object") return null;
-
-  return {
-    id: raw.id_licencia || raw.folio || "-",
-    estudiante: raw.estudiante_nombre || `Usuario #${raw.id_usuario}`,
-    fechaEmision: fmtDateOnly(raw.fecha_emision),
-    fechaEnvio: fmtDateOnly(raw.fecha_creacion),
-    fechaInicioReposo: fmtDateOnly(raw.fecha_inicio),
-    fechaFinReposo: fmtDateOnly(raw.fecha_fin),
-    fechaRevision: fmtDateOnly(raw.fecha_revision || raw.updatedAt),
-    estado: raw.estado?.toLowerCase().includes("acept") ? "Verificada" :
-            raw.estado?.toLowerCase().includes("rechaz") ? "Rechazada" : "—",
-    comentario: raw.motivo_rechazo || "",
-  };
-}
-
-
 function normalizeItem(raw) {
   if (!raw || typeof raw !== "object") return null;
 
@@ -84,9 +66,6 @@ export default function HistorialLicencias() {
   const [licencias, setLicencias] = useState([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
-  const [rolUsuario, setRolUsuario] = useState("");
-  const [alertasPatologicas, setAlertasPatologicas] = useState([]);
-
 
   // filtros & orden
   const [searchTerm, setSearchTerm] = useState("");
@@ -137,7 +116,7 @@ useEffect(() => {
       }
 
       // Normaliza + filtra vacíos
-      const normalizadas = arr.map(normalizeLicenciaResuelta).filter(Boolean);
+      const normalizadas = arr.map(normalizeItem).filter(Boolean);
 
       // Si después de normalizar quedaron 0, es porque los campos no coinciden
       if (normalizadas.length === 0) {
@@ -154,48 +133,7 @@ useEffect(() => {
     }
   };
   cargar();
-}, [token]);useEffect(() => {
-  const token = localStorage.getItem("token");
-  if (!token) return;
-
-  const cargarRol = async () => {
-    try {
-      const res = await fetch(`${API_BASE}/api/perfil`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const json = await res.json();
-      setRolUsuario(json?.rol?.toLowerCase() || "");
-    } catch (err) {
-      console.error("Error al obtener rol:", err);
-    }
-  };
-
-  cargarRol();
-}, []),useEffect(() => {
-  const cargarAlertas = async () => {
-    if (rolUsuario !== "funcionario") return console.log("Rol:", rolUsuario);
-console.log("Alertas:", alertasPatologicas);
-;
-
-    try {
-      const res = await fetch(`${API_BASE}/reportes/licencias/repetidas?year=2025&limite=2`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const json = await res.json();
-      if (json.ok && Array.isArray(json.data)) {
-        console.log("Rol:", rolUsuario);
-        console.log("Alertas:", alertasPatologicas);
-
-        setAlertasPatologicas(json.data);
-      }
-    } catch (err) {
-      console.error("Error al cargar alertas:", err);
-    }
-  };
-
-  cargarAlertas();
-}, [rolUsuario, token])
-
+}, [token]);
 
   const licenciasFiltradas = licencias
     .filter(l => !searchTerm ? true : l.estudiante.toLowerCase().includes(searchTerm.toLowerCase()))
@@ -323,18 +261,7 @@ console.log("Alertas:", alertasPatologicas);
               </div>
             </div>
           </div>
-          {rolUsuario === "funcionario" && alertasPatologicas.length > 0 && (
-            <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6 rounded-lg shadow-sm">
-              <h3 className="text-lg font-semibold text-yellow-800 mb-2">🔍 Patologías repetidas detectadas</h3>
-              <ul className="list-disc pl-5 text-sm text-yellow-700">
-                {alertasPatologicas.map((item, idx) => (
-                  <li key={idx}>
-                    <strong>{item.nombre_estudiante}</strong> presentó <strong>{item.repeticiones}</strong> licencias por <em>{item.motivo_medico}</em> en las fechas: {item.fechas}.
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+
           {/* Tabla */}
           {licenciasFiltradas.length === 0 ? (
             <div className="bg-white rounded-2xl shadow-lg p-12 text-center border border-gray-100">
