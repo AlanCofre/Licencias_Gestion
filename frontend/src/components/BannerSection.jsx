@@ -18,10 +18,12 @@ const BannerSection = () => {
   const { user } = useAuth();
   const { t } = useTranslation();
 
-  const role = String(user?.role || "").toLowerCase();
-  const isSecretary = role === "secretaria" || role === "secretary";
-  const isProfessor = role === "profesor" || role === "professor";
-  const isAdmin = role === "admin" || role === "administrador" || role === "administrator";
+  // Normalizar role: trim, lowercase y aceptar sinónimos comunes
+  const normalizedRole = String(user?.role ?? "").toLowerCase().trim();
+  // acepta varias formas para cada rol
+  const isSecretary = ["secretaria", "secretary", "sec"].includes(normalizedRole);
+  const isProfessor = ["profesor", "professor", "profe"].includes(normalizedRole);
+  const isAdmin = ["admin", "administrador", "administrator"].includes(normalizedRole);
 
   return (
     <>
