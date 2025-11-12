@@ -1,10 +1,18 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import BannerSection from "../components/BannerSection";
 import { Upload } from "lucide-react";
 import PreviewEnvio from "../components/PreviewEnvio";
 import Toast from "../components/toast"; // <-- import del Toast
+
+const calcularHashSHA256 = async (file) => {
+  const arrayBuffer = await file.arrayBuffer();
+  const hashBuffer = await crypto.subtle.digest("SHA-256", arrayBuffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+};
+
 
 export default function GenerarRevision() {
   const initialForm = {
@@ -38,10 +46,38 @@ export default function GenerarRevision() {
   const pendingFormRef = useRef(null);
 
   // Simulación de cursos activos (reemplaza por tu fuente real)
-  const cursosActivos = [
-    { codigo: "INF-101", nombre: "Programación I", seccion: "A" },
-    { codigo: "MAT-201", nombre: "Matemáticas II", seccion: "B" },
-  ];
+  const [cursosActivos, setCursosActivos] = useState([]);
+  useEffect(() => {
+    const cargarCursosMatriculados = async () => {
+      const token = localStorage.getItem("token") || "";
+      const apiBase = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
+
+      try {
+        const res = await fetch(`${apiBase}/api/matriculas/mis?flat=true`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+
+        const json = await res.json();
+        if (res.ok && json.ok && Array.isArray(json.data)) {
+          const cursos = json.data.map(c => ({
+            codigo: c.codigo,
+            nombre: c.nombre_curso,
+            seccion: c.seccion
+          }));
+          setCursosActivos(cursos);
+        } else {
+          console.warn("No se pudieron cargar los cursos:", json);
+          setCursosActivos([]);
+        }
+      } catch (err) {
+        console.error("Error al cargar cursos:", err);
+        setCursosActivos([]);
+      }
+    };
+
+    cargarCursosMatriculados();
+  }, []);
+
 
   // --- Helpers de validación ---
   const regexMotivo = /^[\p{L}\p{N}\s,-]{3,}$/u; // letras (con acentos), números, espacio, coma, guion; 3+ chars
@@ -120,9 +156,15 @@ export default function GenerarRevision() {
       throw new Error("Faltan datos obligatorios para el envío.");
     }
     setErrorCursos(false);
-
     setSending(true);
+
     try {
+      // 🧠 Metadatos del archivo
+      const hash = await calcularHashSHA256(archivo);
+      const tipoMime = archivo.type;
+      const tamano = archivo.size;
+      const ruta_url = `https://storage.googleapis.com/tu-bucket/${archivo.name}`;
+
       const fd = new FormData();
       fd.append("archivo", archivo);
       fd.append("folio", form.folio);
@@ -130,7 +172,12 @@ export default function GenerarRevision() {
       fd.append("fecha_inicio", form.fechaInicioReposo);
       fd.append("fecha_fin", form.fechaFinalReposo);
       fd.append("cursos", JSON.stringify(cursos));
-      fd.append("motivo_medico", form.motivoMedico?.trim() || ""); // Make motivo optional
+      fd.append("motivo_medico", form.motivoMedico?.trim() || "");
+      fd.append("requiere_archivo", "true");
+      fd.append("ruta_url", ruta_url);
+      fd.append("tipo_mime", tipoMime);
+      fd.append("hash", hash);
+      fd.append("tamano", tamano);
 
       const token = localStorage.getItem("token") || "";
       const apiBase = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
@@ -149,7 +196,7 @@ export default function GenerarRevision() {
         throw new Error(data?.mensaje || data?.error || "Error al enviar la licencia");
       }
 
-      // Success handling
+      // ✅ Éxito
       setToast({ message: "Licencia enviada correctamente", type: "success" });
       setFormData(initialForm);
       setFile(null);
@@ -170,6 +217,7 @@ export default function GenerarRevision() {
       throw err;
     }
   };
+
 
   // Cuando el usuario hace "Siguiente / Confirmar" en el formulario: validar y pasar a preview
   const handleFormNext = (e) => {

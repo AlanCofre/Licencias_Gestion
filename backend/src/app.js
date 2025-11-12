@@ -83,6 +83,7 @@ app.use('/usuarios', usuarioRoutes);
 app.use('/api', perfilRouter);
 app.use('/cursos', cursoRoutes);
 app.use('/matriculas', matriculasRoutes);
+app.use('/api/matriculas', matriculasRoutes);
 
 // Admin
 app.use('/admin', adminRoutes);
