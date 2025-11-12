@@ -63,3 +63,59 @@ export async function excesoLicenciasSvc({ filtro, idProfesor }) {
   const [rows] = await db.execute(sql, params);
   return rows;
 }
+
+export async function repeticionPatologiasSvc({ filtro, idProfesor }) {
+  const { year, limite, curso, seccion } = filtro;
+
+  const where = [];
+  const params = [];
+
+  // Año y estado válido
+  where.push(`YEAR(l.fecha_inicio) = ?`);
+  params.push(year);
+
+  where.push(`l.estado IN ('aceptado', 'pendiente')`);
+  where.push(`l.motivo_medico IS NOT NULL`);
+
+  // Filtros opcionales
+  if (curso) {
+    where.push(`c.id_curso = ?`);
+    params.push(curso);
+  }
+
+  if (seccion) {
+    where.push(`c.seccion = ?`);
+    params.push(seccion);
+  }
+
+  if (idProfesor != null) {
+    where.push(`c.id_usuario = ?`);
+    params.push(idProfesor);
+  }
+
+  const sql = `
+    SELECT
+      u.id_usuario              AS id_estudiante,
+      u.nombre                  AS nombre_estudiante,
+      u.correo_usuario          AS correo_estudiante,
+      c.id_curso,
+      c.nombre_curso,
+      c.seccion,
+      l.motivo_medico,
+      COUNT(*)                  AS repeticiones,
+      GROUP_CONCAT(DATE(l.fecha_inicio) ORDER BY l.fecha_inicio) AS fechas
+    FROM licenciamedica l
+    JOIN usuario u     ON u.id_usuario = l.id_usuario
+    JOIN matriculas m  ON m.id_usuario = u.id_usuario
+    JOIN curso c       ON c.id_curso   = m.id_curso
+    WHERE ${where.join(' AND ')}
+    GROUP BY u.id_usuario, c.id_curso, c.seccion, l.motivo_medico
+    HAVING repeticiones > ?
+    ORDER BY repeticiones DESC, nombre_estudiante ASC
+  `;
+
+  params.push(limite);
+
+  const [rows] = await db.execute(sql, params);
+  return rows;
+}

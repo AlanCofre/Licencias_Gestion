@@ -1,5 +1,5 @@
 // backend/controllers/reportes.controller.js
-import { excesoLicenciasSvc } from '../services/reportes.service.js';
+import { excesoLicenciasSvc, repeticionPatologiasSvc } from '../services/reportes.service.js';
 
 /**
  * GET /reportes/licencias/exceso
@@ -43,4 +43,35 @@ export async function reporteExcesoLicenciasCtrl(req, res) {
   }
 }
 
-export default { reporteExcesoLicenciasCtrl };
+export async function repeticionPatologiasCtrl(req, res) {
+  try {
+    const nowYear = new Date().getFullYear();
+    const year   = Number.isFinite(+req.query?.year)   ? parseInt(req.query.year, 10)   : nowYear;
+    const limite = Number.isFinite(+req.query?.limite) ? parseInt(req.query.limite, 10) : 2;
+
+    if (!Number.isInteger(year) || year < 2000 || year > 3000) {
+      return res.status(400).json({ ok: false, error: 'Parámetro "year" inválido' });
+    }
+    if (!Number.isInteger(limite) || limite < 1) {
+      return res.status(400).json({ ok: false, error: 'Parámetro "limite" inválido' });
+    }
+
+    const curso   = req.query?.curso_id ? parseInt(req.query.curso_id, 10) : null;
+    const seccion = req.query?.seccion ?? null;
+
+    const rol = String(req.user?.rol || '').toLowerCase();
+    const idProfesor = (rol === 'profesor') ? (req.user?.id_usuario ?? req.user?.id ?? null) : null;
+
+    const filtro = { year, limite, curso, seccion };
+    const data = await repeticionPatologiasSvc({ filtro, idProfesor });
+
+    return res.json({ ok: true, count: data.length, data });
+  } catch (err) {
+    console.error('[repeticionPatologiasCtrl]', err);
+    return res.status(500).json({ ok: false, error: 'Error al generar reporte de patologías repetidas' });
+  }
+}
+
+
+
+export default { reporteExcesoLicenciasCtrl, repeticionPatologiasCtrl };

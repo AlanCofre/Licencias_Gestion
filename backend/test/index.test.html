@@ -605,6 +605,56 @@
 
   document.getElementById('btnBuscarEntrega').addEventListener('click', buscarEntregaPorId);
 </script>
+<!-- ------------------------------------------------------------------------------------------------------------------ -->
+
+ <h2>Reporte de Patologías Repetidas</h2>
+  <form id="formReporte">
+    <label>Año: <input type="number" name="year" value="2025" /></label><br />
+    <label>Límite: <input type="number" name="limite" value="2" /></label><br />
+    <label>Curso ID: <input type="number" name="curso_id" /></label><br />
+    <label>Sección: <input type="text" name="seccion" /></label><br />
+    <button type="submit">Consultar</button>
+  </form>
+
+  <pre id="resultadoRepetidas"></pre>
+
+
+  <script>
+    document.getElementById('formReporte').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const params = new URLSearchParams(new FormData(e.target)).toString();
+      const token = localStorage.getItem('jwt');
+      const resultado = document.getElementById('resultadoRepetidas');
+      resultado.textContent = ''; // limpiar
+
+      if (!token) {
+        resultado.textContent = '🔒 Token JWT no encontrado. Inicia sesión primero.';
+        return;
+      }
+
+      try {
+        const res = await fetch(`http://localhost:3000/reportes/licencias/repetidas?${params}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+
+        const json = await res.json();
+        window.ultimaRespuesta = json; // para inspección en consola
+
+        if (!json.ok) {
+          resultado.textContent = `❌ Error: ${json.error || 'Respuesta inválida'}`;
+          return;
+        }
+
+        resultado.textContent = JSON.stringify(json.data, null, 2);
+      } catch (err) {
+        resultado.textContent = `❌ Error al consultar el reporte: ${err.message}`;
+        console.error('Error en reporte:', err);
+      }
+    });
+  </script>
+
+
 
 
 

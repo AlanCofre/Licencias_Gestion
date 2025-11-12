@@ -1,7 +1,7 @@
 // src/routes/reportes.route.js
 import { Router } from 'express';
 import { validarJWT, tieneRol, ROLES } from '../../middlewares/auth.js';
-import { reporteExcesoLicenciasCtrl } from '../../controllers/reportes.controller.js';
+import { reporteExcesoLicenciasCtrl, repeticionPatologiasCtrl } from '../../controllers/reportes.controller.js';
 
 const router = Router();
 
@@ -16,6 +16,13 @@ router.get(
   validarJWT,
   tieneRol(ROLES.ADMIN, ROLES.PROF),
   reporteExcesoLicenciasCtrl
+);
+
+router.get(
+  '/reportes/licencias/repetidas',
+  validarJWT,
+  tieneRol(ROLES.ADMIN, ROLES.PROF, ROLES.FUNC), // acceso para funcionario, profesor y admin
+  repeticionPatologiasCtrl
 );
 
 export default router;
