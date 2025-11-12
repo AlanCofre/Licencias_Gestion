@@ -64,6 +64,7 @@ const BannerSection = () => {
         {isAdmin ? (
           <>
             {/* Vista de Cursos */}
+            <Link to="/admin/cursos" className="inline-flex no-underline">
               <button className="bg-white text-gray-700 px-6 py-3 min-w-[260px] rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-between font-sans font-medium">
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
@@ -75,8 +76,10 @@ const BannerSection = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
               </button>
+            </Link>
 
             {/* Vista de Matrículas */}
+            <Link to="/admin/matriculas" className="inline-flex no-underline">
               <button className="bg-white text-gray-700 px-6 py-3 min-w-[260px] rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-between font-sans font-medium">
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
@@ -88,21 +91,25 @@ const BannerSection = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
               </button>
+            </Link>
 
             {/* Gestión de Período Activo (activar/desactivar) */}
+            <Link to="/admin/periodos" className="inline-flex no-underline">
               <button className="bg-white text-gray-700 px-6 py-3 min-w-[260px] rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-between font-sans font-medium">
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 bg-teal-100 rounded-full flex items-center justify-center">
                     <CalendarRange className="w-4 h-4 text-teal-600" strokeWidth={2} />
                   </div>
-                  <span>{t("i18n.admin.dashboard.periodToggle", "Periodos Activos")}</span>
+                  <span>Periodos</span>
                 </div>
                 <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
               </button>
+            </Link>
 
             {/* Vista del Tablero (resumen cursos/matrículas por período) */}
+            <Link to="/admin/periodo/resumen" className="inline-flex no-underline">
               <button className="bg-white text-gray-700 px-6 py-3 min-w-[260px] rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-between font-sans font-medium">
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 bg-amber-100 rounded-full flex items-center justify-center">
@@ -114,6 +121,7 @@ const BannerSection = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
               </button>
+            </Link>
           </>
         ) : isProfessor ? (
           <>

@@ -72,14 +72,12 @@ export default function AppRoutes() {
       <Route path="/profesor/regularidad" element={<ProfesorRegularidad />} />
       <Route path="/profesor/regularidad/:studentId" element={<EstudianteRegularidad />} />
 
-      {/* Rutas nuevas de secretaria */}
       <Route path="/evaluar/:id" element={<EvaluarLicencia />} />
       <Route path="/licencias-por-revisar" element={<LicenciasPorRevisar />} />
       <Route path="/licencias-evaluadas/:id" element={<LicenciasEvaluadas />} />
       <Route path="/admin/periodo/resumen" element={<AdminResumenPeriodo />} />
       <Route path="/secretaria/alertas-licencias" element={<SecretariaLicenciasAlerta />} />
 
-      {/* Rutas heredadas del navbar */}
       <Route path="/pendientes" element={<Dashboard />} />
       <Route path="/revisadas" element={<Dashboard />} />
       <Route path="/verificadas" element={<Dashboard />} />
