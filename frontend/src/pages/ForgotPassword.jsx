@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import Toast from "../components/toast";
 
@@ -44,7 +43,6 @@ export default function ForgotPassword() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <Navbar />
 
       <main className="flex-grow flex items-center justify-center px-4">
         <div className="bg-white shadow-lg rounded-xl p-8 w-full max-w-md">

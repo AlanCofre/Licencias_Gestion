@@ -1,6 +1,5 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom"; // ✅ importar hook
-import Navbar from "../components/Navbar";
+import { useNavigate } from "react-router-dom";
 import Footer from "../components/Footer";
 import Toast from "../components/toast";
 
@@ -22,16 +21,12 @@ export default function ResetPassword() {
     setTimeout(() => {
       setLoading(false);
       setToast({ message: "Tu contraseña fue restablecida correctamente.", type: "success" });
-
-      // ✅ redirigir al login después de mostrar toast (breve delay)
       setTimeout(() => navigate("/login"), 700);
     }, 1500);
   };
 
   return (
     <div className="min-h-screen flex flex-col">
-      <Navbar />
-
       <main className="flex-grow flex items-center justify-center px-4">
         <div className="bg-white shadow-lg rounded-xl p-8 w-full max-w-md">
           <h2 className="text-2xl font-bold text-gray-800 mb-4">
