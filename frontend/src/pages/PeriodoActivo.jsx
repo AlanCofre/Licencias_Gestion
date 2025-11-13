@@ -180,12 +180,12 @@ export default function AdminPeriodos() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-50 to-indigo-100 dark:bg-app">
+      <div className="min-h-screen flex flex-col bg-gradient-to-b from-blue-100 to-blue-300 dark:bg-app dark:bg-none">
         <Navbar />
         <main className="flex-1 flex items-center justify-center">
-          <div className="text-center bg-white p-8 rounded-2xl shadow-lg border border-gray-100">
+          <div className="text-center bg-white dark:bg-surface p-8 rounded-2xl shadow-lg border border-gray-100 dark:border-app">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p className="text-lg text-gray-700">Cargando periodos...</p>
+            <p className="text-lg text-gray-700 dark:text-white">Cargando periodos...</p>
           </div>
         </main>
         <Footer />
@@ -194,14 +194,14 @@ export default function AdminPeriodos() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-50 to-indigo-100 w-full overflow-x-hidden dark:bg-app">
+    <div className="min-h-screen flex flex-col bg-gradient-to-b from-blue-100 to-blue-300 dark:bg-app dark:bg-none w-full overflow-x-hidden">
       <Navbar />
       <main className="flex-1 w-full">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-10 max-w-6xl">
           {/* Banner de advertencia si no hay periodo activo */}
           {!activo?.id && (
-            <div className="mb-6 bg-yellow-50 border border-yellow-200 text-yellow-900 rounded-2xl p-4 flex items-start gap-3 shadow-sm">
-              <AlertTriangle className="h-5 w-5 mt-0.5 text-yellow-700" />
+            <div className="mb-6 bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-700 text-yellow-900 dark:text-yellow-300 rounded-2xl p-4 flex items-start gap-3 shadow-sm">
+              <AlertTriangle className="h-5 w-5 mt-0.5 text-yellow-700 dark:text-yellow-400" />
               <div className="text-sm">
                 <div className="font-semibold">No hay un periodo activo configurado.</div>
                 <div>Activa un periodo para que el resto del sistema funcione correctamente.</div>
@@ -210,25 +210,25 @@ export default function AdminPeriodos() {
           )}
 
           {/* Panel superior: Periodo activo */}
-          <div className="mb-8 bg-white rounded-2xl shadow-lg p-8 border border-gray-100">
+          <div className="mb-8 bg-white dark:bg-surface rounded-2xl shadow-lg p-8 border border-gray-100 dark:border-app">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="bg-blue-100 p-3 rounded-full">
-                  <Calendar className="h-7 w-7 text-blue-600" />
+                <div className="bg-blue-100 dark:bg-blue-900/30 p-3 rounded-full">
+                  <Calendar className="h-7 w-7 text-blue-600 dark:text-blue-400" />
                 </div>
                 <div>
-                  <h1 className="text-3xl font-bold text-gray-900">Periodos Académicos</h1>
-                  <p className="text-gray-600 mt-1">Administra el periodo activo del sistema.</p>
+                  <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Periodos Académicos</h1>
+                  <p className="text-gray-600 dark:text-muted mt-1">Administra el periodo activo del sistema.</p>
                 </div>
               </div>
 
               <div className="flex items-center gap-2">
                 {activo?.id ? (
-                  <span className="px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800 border border-green-200">
+                  <span className="px-3 py-1 rounded-full text-xs font-semibold bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 border border-green-200 dark:border-green-700">
                     Activo: {activoNombre}
                   </span>
                 ) : (
-                  <span className="px-3 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800 border border-yellow-200">
+                  <span className="px-3 py-1 rounded-full text-xs font-semibold bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 border border-yellow-200 dark:border-yellow-700">
                     Sin periodo activo
                   </span>
                 )}
@@ -237,38 +237,38 @@ export default function AdminPeriodos() {
           </div>
 
           {/* Tabla de periodos */}
-          <div className="bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-100">
+          <div className="bg-white dark:bg-surface rounded-2xl shadow-lg overflow-hidden border border-gray-100 dark:border-app">
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-gradient-to-r from-blue-50 to-indigo-50">
+                <thead className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20">
                   <tr>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 dark:text-blue-200 uppercase tracking-wider">
                       Periodo
                     </th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 dark:text-blue-200 uppercase tracking-wider">
                       Estado
                     </th>
-                    <th className="px-6 py-4 text-center text-sm font-semibold text-gray-700 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-center text-sm font-semibold text-gray-700 dark:text-blue-200 uppercase tracking-wider">
                       Acción
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-100">
+                <tbody className="bg-white dark:bg-surface divide-y divide-gray-100 dark:divide-app">
                   {periodos.map((p) => {
                     const isActive = activo?.id === p.id;
                     return (
-                      <tr key={p.id} className="hover:bg-blue-50 transition-colors duration-200">
+                      <tr key={p.id} className="hover:bg-blue-50 dark:hover:bg-app/20 transition-colors duration-200">
                         <td className="px-6 py-5 whitespace-nowrap">
-                          <div className="text-sm font-semibold text-gray-900">{p.nombre}</div>
-                          <div className="text-xs text-gray-500">ID: {p.id}</div>
+                          <div className="text-sm font-semibold text-gray-900 dark:text-white">{p.nombre}</div>
+                          <div className="text-xs text-gray-500 dark:text-muted">ID: {p.id}</div>
                         </td>
                         <td className="px-6 py-5 whitespace-nowrap">
                           {isActive ? (
-                            <span className="px-3 py-1 rounded-full text-xs font-semibold bg-green-50 text-green-800 border border-green-200">
+                            <span className="px-3 py-1 rounded-full text-xs font-semibold bg-green-50 dark:bg-green-900/30 text-green-800 dark:text-green-300 border border-green-200 dark:border-green-700">
                               Activo
                             </span>
                           ) : (
-                            <span className="px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-700 border border-gray-200">
+                            <span className="px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 dark:bg-app text-gray-700 dark:text-muted border border-gray-200 dark:border-app">
                               Inactivo
                             </span>
                           )}
@@ -277,7 +277,7 @@ export default function AdminPeriodos() {
                           {isActive ? (
                             <button
                               disabled
-                              className="inline-flex items-center px-4 py-2 bg-gray-100 text-gray-400 text-sm font-medium rounded-lg border border-gray-200 cursor-not-allowed"
+                              className="inline-flex items-center px-4 py-2 bg-gray-100 dark:bg-app text-gray-400 dark:text-muted text-sm font-medium rounded-lg border border-gray-200 dark:border-app cursor-not-allowed"
                             >
                               ✓ Actual
                             </button>
@@ -302,7 +302,7 @@ export default function AdminPeriodos() {
           <div className="text-center mt-6">
             <Link
               to="/admin"
-              className="inline-flex items-center px-4 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 shadow-sm"
+              className="inline-flex items-center px-4 py-2 bg-white dark:bg-surface border border-gray-200 dark:border-app rounded-lg hover:bg-gray-50 dark:hover:bg-app/20 shadow-sm dark:text-white"
             >
               Volver al panel
             </Link>
