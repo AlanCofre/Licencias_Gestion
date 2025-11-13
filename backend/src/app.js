@@ -20,6 +20,7 @@ import regularidadRoutes from './routes/regularidad.routes.js';
 import { attachAudit } from '../middlewares/audit.middleware.js';
 import db from '../config/db.js';
 import estudianteRoutes from './routes/estudiante.routes.js';
+import funcionarioRoutes from './routes/funcionario.routes.js';
 
 
 const app = express();
@@ -83,6 +84,8 @@ app.use('/usuarios', usuarioRoutes);
 app.use('/api', perfilRouter);
 app.use('/cursos', cursoRoutes);
 app.use('/matriculas', matriculasRoutes);
+
+app.use('/funcionario', funcionarioRoutes);
 
 // Admin
 app.use('/admin', adminRoutes);
