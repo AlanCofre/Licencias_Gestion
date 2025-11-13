@@ -8,9 +8,9 @@ const Announcement = () => {
   const { t } = useTranslation();
 
   const role = String(user?.role || "").toLowerCase();
-  const isSecretary = role === "secretaria" || role === "secretary";
+  const isSecretary = role === "secretaria" || role === "secretary" || role === "funcionario";
   const isTeacher = role === "profesor" || role === "teacher";
-  const isAdmin = role === "admin" || role === "administrator";
+  const isAdmin = role === "admin" || role === "administrator" || role === "administrador";
 
   // usar el nombre que venga del login; anteponer "Sec." si es secretaria
   const rawName = String(user?.name || "").trim();

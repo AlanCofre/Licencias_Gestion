@@ -19,7 +19,7 @@ const BannerSection = () => {
   const { t } = useTranslation();
 
   const role = String(user?.role || "").toLowerCase();
-  const isSecretary = role === "secretaria" || role === "secretary";
+  const isSecretary = role === "secretaria" || role === "secretary" || role === "funcionario";
   const isProfessor = role === "profesor" || role === "professor";
   const isAdmin = role === "admin" || role === "administrador" || role === "administrator";
 
