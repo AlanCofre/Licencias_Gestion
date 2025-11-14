@@ -83,7 +83,7 @@ app.use('/api/notificaciones', notificacionesRouter);
 app.use('/usuarios', usuarioRoutes);
 app.use('/api', perfilRouter);
 app.use('/cursos', cursoRoutes);
-app.use('/api/matriculas', matriculasRoutes);
+app.use('/matriculas', matriculasRoutes);
 
 app.use('/funcionario', funcionarioRoutes);
 

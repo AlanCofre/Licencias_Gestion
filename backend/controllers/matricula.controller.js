@@ -1,19 +1,15 @@
 // backend/controllers/matricula.controller.js
 import { Matricula, Curso, Usuario, Rol } from '../src/models/index.js';
 
-
+/**
+ * 1) ESTUDIANTE: obtener mis matrículas
+ */
 export const obtenerMisMatriculas = async (req, res) => {
   try {
-    console.log('🔍 [obtenerMisMatriculas] Iniciando...');
-    console.log('👤 Usuario autenticado:', req.user);
-    
     const usuarioId = req.user?.id_usuario || req.user?.id;
     const { periodo, flat } = req.query;
 
-    console.log('📝 Parámetros:', { usuarioId, periodo, flat });
-
     if (!usuarioId) {
-      console.log('❌ No autenticado');
       return res.status(401).json({ ok: false, error: 'No autenticado' });
     }
 
@@ -28,15 +24,11 @@ export const obtenerMisMatriculas = async (req, res) => {
     });
 
     if (!usuario) {
-      console.log('❌ Usuario no encontrado:', usuarioId);
       return res.status(404).json({ ok: false, error: 'Usuario no encontrado' });
     }
 
-    console.log('🎯 Rol del usuario:', usuario.id_rol, usuario.Rol?.nombre_rol);
-
     // solo estudiantes (id_rol = 2 en tu BD)
     if (usuario.id_rol !== 2) {
-      console.log('❌ No es estudiante, rol actual:', usuario.id_rol);
       return res.status(403).json({
         ok: false,
         error: 'Solo estudiantes pueden acceder a esta información',
@@ -44,10 +36,11 @@ export const obtenerMisMatriculas = async (req, res) => {
       });
     }
 
-    // armar where - ahora el periodo está en matricula.periodo
+    // armar where
     const whereConditions = { id_usuario: usuarioId };
     if (periodo) {
-      whereConditions.periodo = periodo;
+      // ojo: esto depende de que Curso tenga campo "periodo"
+      whereConditions['$curso.periodo$'] = periodo;
     }
 
     const matriculas = await Matricula.findAll({
@@ -56,7 +49,7 @@ export const obtenerMisMatriculas = async (req, res) => {
         {
           model: Curso,
           as: 'curso',
-          attributes: ['id_curso', 'codigo', 'nombre_curso', 'seccion', 'activo'],
+          attributes: ['id_curso', 'codigo', 'nombre_curso', 'seccion', 'periodo', 'activo'],
           include: [
             {
               model: Usuario,
@@ -67,21 +60,18 @@ export const obtenerMisMatriculas = async (req, res) => {
         },
       ],
       order: [
-        ['periodo', 'DESC'],
+        ['curso', 'periodo', 'DESC'],
         ['curso', 'nombre_curso', 'ASC'],
         ['curso', 'seccion', 'ASC'],
       ],
     });
 
-    console.log('📊 Matrículas encontradas:', matriculas.length);
-
     // sin cursos
     if (!matriculas.length) {
-      console.log('ℹ️ No hay matrículas para el usuario');
       return res.json({
         ok: true,
         mensaje: 'No tienes cursos matriculados',
-        data: [],
+        data: flat ? [] : {},
       });
     }
 
@@ -90,34 +80,32 @@ export const obtenerMisMatriculas = async (req, res) => {
       const cursosPlano = matriculas.map((m) => ({
         id_matricula: m.id_matricula,
         fecha_matricula: m.fecha_matricula,
-        periodo: m.periodo,
         ...m.curso.toJSON(),
       }));
       return res.json({ ok: true, data: cursosPlano });
     }
 
-    // agrupado por periodo (desde matricula.periodo)
+    // agrupado por periodo
     const agrupadoPorPeriodo = {};
     matriculas.forEach((m) => {
       const curso = m.curso;
-      const periodoMatricula = m.periodo;
+      const periodoCurso = curso.periodo;
 
-      if (!agrupadoPorPeriodo[periodoMatricula]) {
-        agrupadoPorPeriodo[periodoMatricula] = {
-          periodo: periodoMatricula,
-          nombre: formatearNombrePeriodo(periodoMatricula),
-          activo: esPeriodoActual(periodoMatricula),
+      if (!agrupadoPorPeriodo[periodoCurso]) {
+        agrupadoPorPeriodo[periodoCurso] = {
+          periodo: periodoCurso,
+          es_periodo_actual: esPeriodoActual(periodoCurso),
           cursos: [],
         };
       }
 
-      agrupadoPorPeriodo[periodoMatricula].cursos.push({
+      agrupadoPorPeriodo[periodoCurso].cursos.push({
         id_curso: curso.id_curso,
         codigo: curso.codigo,
-        nombre: curso.nombre_curso,
-        seccion: curso.seccion.toString(),
+        nombre_curso: curso.nombre_curso,
+        seccion: curso.seccion,
         activo: curso.activo,
-        profesor: curso.profesor?.nombre || 'Sin asignar'
+        profesor: curso.profesor,
       });
     });
 
@@ -125,13 +113,10 @@ export const obtenerMisMatriculas = async (req, res) => {
       b.periodo.localeCompare(a.periodo)
     );
 
-    console.log('✅ Periodos agrupados:', periodosOrdenados.length);
-
     return res.json({
       ok: true,
       data: periodosOrdenados,
     });
-
   } catch (error) {
     console.error('❌ Error al obtener matrículas:', error);
     return res.status(500).json({
@@ -140,20 +125,6 @@ export const obtenerMisMatriculas = async (req, res) => {
     });
   }
 };
-
-
-
-// Helper para formatear el nombre del periodo
-function formatearNombrePeriodo(periodo) {
-  try {
-    const [year, semester] = periodo.split('-');
-    return `${year} - Semestre ${semester}`;
-  } catch {
-    return periodo;
-  }
-}
-
-// Helper para determinar si el periodo es actual
 
 /**
  * 2) ADMIN: crear matrícula (alta)
@@ -321,7 +292,7 @@ export const listarMatriculas = async (req, res) => {
   }
 };
 
-// Helper 
+// helper
 function esPeriodoActual(periodo) {
   try {
     const [year, semester] = periodo.split('-');

@@ -5,6 +5,51 @@ import SkeletonList from "../components/SkeletonList";
 
 const toast = { error: (msg) => alert(msg) };
 
+// Simulación de llamada a API (reemplaza por fetch real en producción)
+async function getMatriculas() {
+  // Simula delay
+  await new Promise((r) => setTimeout(r, 700));
+  // Simula error 409 (sin periodo activo)
+  // throw { status: 409 };
+  // Simula error 5xx
+  // throw { status: 500 };
+  // Simula datos reales
+  return [
+    {
+      periodo: "2025-1",
+      nombre: "2025 - Semestre 1",
+      activo: true,
+      cursos: [
+        {
+          codigo: "INF-101",
+          nombre: "Programación I",
+          seccion: "A",
+          profesor: "Rumencio González",
+        },
+        {
+          codigo: "MAT-201",
+          nombre: "Tópicos de Matemáticas",
+          seccion: "B",
+          profesor: "Ana Martínez",
+        },
+      ],
+    },
+    {
+      periodo: "2024-2",
+      nombre: "2024 - Semestre 2",
+      activo: false,
+      cursos: [
+        {
+          codigo: "INF-150",
+          nombre: "Bases de Datos",
+          seccion: "A",
+          profesor: "Carlos Rodríguez",
+        },
+      ],
+    },
+  ];
+}
+
 export default function MisMatriculas() {
   const [matriculas, setMatriculas] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -19,62 +64,19 @@ export default function MisMatriculas() {
     setLoading(true);
     setError409(false);
     try {
-      // Llamada real a la API
-      const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
-      const token = localStorage.getItem('token');
-      
-      let url = `${API_BASE}/api/matriculas/mismatriculas`;
-      if (historicos) {
-        url += '?historicos=true';
-      }
-
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        credentials: 'include'
-      });
-
-      // Verificar si la respuesta es JSON
-      const contentType = response.headers.get('content-type');
-      if (!contentType || !contentType.includes('application/json')) {
-        const text = await response.text();
-        throw new Error(`Respuesta no válida del servidor: ${response.status}`);
-      }
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        if (response.status === 409) {
-          setError409(true);
-          return;
-        }
-        throw new Error(result.error || `Error ${response.status} al cargar matrículas`);
-      }
-
-      if (result.ok && result.data) {
-        console.log('📦 Datos recibidos del backend:', result.data);
-        
-        // Los datos ya vienen agrupados por periodo del backend
-        const dataOrdenada = [...result.data].sort((a, b) => b.periodo.localeCompare(a.periodo));
-        
-        // Ordenar cursos por nombre y sección dentro de cada periodo
-        dataOrdenada.forEach((periodo) => {
-          if (periodo.cursos && periodo.cursos.length > 0) {
-            periodo.cursos.sort((a, b) =>
-              a.nombre.localeCompare(b.nombre) || a.seccion.localeCompare(b.seccion)
-            );
-          }
-        });
-        
-        setMatriculas(dataOrdenada);
-      } else {
-        setMatriculas([]);
-      }
+      // Aquí deberías llamar a tu API real:
+      // const data = await fetch("/api/estudiantes/matriculas").then(r => r.json());
+      const data = await getMatriculas();
+      // Ordenar periodos descendente
+      data.sort((a, b) => b.periodo.localeCompare(a.periodo));
+      // Ordenar cursos por nombre y sección
+      data.forEach((p) =>
+        p.cursos.sort((a, b) =>
+          a.nombre.localeCompare(b.nombre) || a.seccion.localeCompare(b.seccion)
+        )
+      );
+      setMatriculas(data);
     } catch (err) {
-      console.error('Error cargando matrículas:', err);
       if (err.status === 409) {
         setError409(true);
       } else {
@@ -118,10 +120,19 @@ export default function MisMatriculas() {
                 key={periodo.periodo}
                 className="bg-white dark:bg-surface rounded-lg border dark:border-app overflow-hidden"
               >
-                <div className="px-6 py-4 border-b dark:border-app">
+                <div className="px-6 py-4 border-b dark:border-app flex justify-between items-center">
                   <h2 className="text-lg font-semibold">
                     Periodo {periodo.nombre}
                   </h2>
+                  <span
+                    className={`px-2 py-1 text-sm rounded ${
+                      periodo.activo
+                        ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
+                        : "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400"
+                    }`}
+                  >
+                    {periodo.activo ? "Activo" : "Cerrado"}
+                  </span>
                 </div>
                 <div className="divide-y dark:divide-app">
                   {periodo.cursos.length === 0 ? (
@@ -129,24 +140,13 @@ export default function MisMatriculas() {
                       No tienes cursos inscritos en este periodo.
                     </div>
                   ) : (
-                    periodo.cursos.map((curso, index) => (
+                    periodo.cursos.map((curso) => (
                       <div
-                        key={`${curso.codigo}-${curso.seccion}-${index}`}
+                        key={`${curso.codigo}-${curso.seccion}`}
                         className="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between"
                       >
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-2">
-                            <h3 className="font-medium">{curso.nombre}</h3>
-                            <span
-                              className={`px-2 py-1 text-xs rounded ${
-                                curso.activo
-                                  ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
-                                  : "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400"
-                              }`}
-                            >
-                              {curso.activo ? "Activo" : "Inactivo"}
-                            </span>
-                          </div>
+                        <div>
+                          <h3 className="font-medium">{curso.nombre}</h3>
                           <p className="text-sm text-gray-600 dark:text-muted">
                             Código: {curso.codigo} • Sección: {curso.seccion}
                           </p>
