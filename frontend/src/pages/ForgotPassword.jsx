@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Footer from "../components/Footer";
 import Toast from "../components/toast";
+import { useTranslation } from "react-i18next";
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState("");
@@ -9,6 +10,7 @@ export default function ForgotPassword() {
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState(null); // { message, type }
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   // Temporizador para bloquear reenvío
   useEffect(() => {
@@ -24,7 +26,10 @@ export default function ForgotPassword() {
 
   const handleRequestCode = () => {
     if (!isValidEmail(email)) {
-      setToast({ message: "Por favor ingresa un correo válido", type: "error" });
+      setToast({
+        message: t("forgotPassword.toastInvalidEmail"),
+        type: "error",
+      });
       return;
     }
 
@@ -34,26 +39,36 @@ export default function ForgotPassword() {
     setTimeout(() => {
       setLoading(false);
       setTimer(60);
-      setToast({ message: "Se envió un código a tu correo.", type: "success" });
+      setToast({
+        message: t("forgotPassword.toastCodeSent"),
+        type: "success",
+      });
 
       // Navega a ResetPassword después de un breve delay para que se vea el toast
       setTimeout(() => navigate("/reset-password"), 700);
     }, 1500);
   };
 
+  const buttonLabel = loading
+    ? t("forgotPassword.buttonSending")
+    : timer > 0
+    ? t("forgotPassword.buttonResendIn", { seconds: timer })
+    : t("forgotPassword.buttonMain");
+
   return (
     <div className="min-h-screen flex flex-col">
-
       <main className="flex-grow flex items-center justify-center px-4">
         <div className="bg-white shadow-lg rounded-xl p-8 w-full max-w-md">
-          <h2 className="text-2xl font-bold text-gray-800 mb-4">Recuperar contraseña</h2>
+          <h2 className="text-2xl font-bold text-gray-800 mb-4">
+            {t("forgotPassword.title")}
+          </h2>
           <p className="text-gray-600 mb-6">
-            Ingresa tu correo y te enviaremos un código de verificación para restablecer tu contraseña.
+            {t("forgotPassword.description")}
           </p>
 
           <input
             type="email"
-            placeholder="Correo electrónico"
+            placeholder={t("forgotPassword.emailPlaceholder")}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className="w-full px-4 py-2 border rounded-lg mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -68,11 +83,7 @@ export default function ForgotPassword() {
                 : "bg-blue-600 hover:bg-blue-700"
             }`}
           >
-            {loading
-              ? "Enviando..."
-              : timer > 0
-              ? `Reenviar en ${timer}s`
-              : "Recuperar contraseña"}
+            {buttonLabel}
           </button>
         </div>
       </main>

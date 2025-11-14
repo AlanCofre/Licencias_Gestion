@@ -20,7 +20,7 @@ function AppLogin() {
       login(userData);
       setLoading(false);
 
-      switch(roleSelect) {
+      switch (roleSelect) {
         case "secretaria":
           navigate("/secretaria", { replace: true });
           break;
@@ -41,7 +41,7 @@ function AppLogin() {
       {/* Fondo */}
       <img
         src={bannerLogin}
-        alt="Fondo"
+        alt={t("login.bannerAlt")}
         className="fixed inset-0 w-full h-full object-cover z-0"
       />
 
@@ -74,8 +74,12 @@ function AppLogin() {
                   disabled={loading}
                 />
                 <div>
-                  <div className="font-semibold text-gray-900">{t("roles.student")}</div>
-                  <div className="text-sm text-gray-600">{t("roles.studentDesc")}</div>
+                  <div className="font-semibold text-gray-900">
+                    {t("roles.student")}
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    {t("roles.studentDesc")}
+                  </div>
                 </div>
               </label>
 
@@ -91,8 +95,12 @@ function AppLogin() {
                   disabled={loading}
                 />
                 <div>
-                  <div className="font-semibold text-gray-900">{t("roles.secretary")}</div>
-                  <div className="text-sm text-gray-600">{t("roles.secretaryDesc")}</div>
+                  <div className="font-semibold text-gray-900">
+                    {t("roles.secretary")}
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    {t("roles.secretaryDesc")}
+                  </div>
                 </div>
               </label>
 
@@ -108,8 +116,12 @@ function AppLogin() {
                   disabled={loading}
                 />
                 <div>
-                  <div className="font-semibold text-gray-900">{t("roles.teacher")}</div>
-                  <div className="text-sm text-gray-600">{t("roles.teacherDesc")}</div>
+                  <div className="font-semibold text-gray-900">
+                    {t("roles.teacher")}
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    {t("roles.teacherDesc")}
+                  </div>
                 </div>
               </label>
 
@@ -125,8 +137,12 @@ function AppLogin() {
                   disabled={loading}
                 />
                 <div>
-                  <div className="font-semibold text-gray-900">{t("roles.admin")}</div>
-                  <div className="text-sm text-gray-600">{t("roles.adminDesc")}</div>
+                  <div className="font-semibold text-gray-900">
+                    {t("roles.admin")}
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    {t("roles.adminDesc")}
+                  </div>
                 </div>
               </label>
             </div>

@@ -6,6 +6,7 @@ import Footer from "../components/Footer";
 import ConfirmModal from "../components/ConfirmModal";
 import samplePDF from "../assets/sample.pdf";
 import Toast from "../components/toast"; // añadido
+import { useTranslation } from "react-i18next";
 
 // Mock data con diferentes estudiantes
 const mockDatabase = {
@@ -14,7 +15,7 @@ const mockDatabase = {
       name: "Rumencio González",
       studentId: "20201234",
       faculty: "Ingeniería",
-      email: "rgonzalez@alu.uct.cl"
+      email: "rgonzalez@alu.uct.cl",
     },
     dates: {
       from: "2025-10-01",
@@ -22,19 +23,19 @@ const mockDatabase = {
       submitted: "2025-09-28",
       emissionDate: "2025-09-27",
       restStart: "2025-10-01",
-      restEnd: "2025-10-07"
+      restEnd: "2025-10-07",
     },
     attachment: {
       filename: "certificado_medico.pdf",
-      mimetype: "application/pdf"
-    }
+      mimetype: "application/pdf",
+    },
   },
   "456": {
     student: {
       name: "Carlos Rodríguez",
       studentId: "20195678",
       faculty: "Ingeniería",
-      email: "crodriguez@alu.uct.cl"
+      email: "crodriguez@alu.uct.cl",
     },
     dates: {
       from: "2025-09-15",
@@ -42,19 +43,19 @@ const mockDatabase = {
       submitted: "2025-09-14",
       emissionDate: "2025-09-13",
       restStart: "2025-09-15",
-      restEnd: "2025-09-20"
+      restEnd: "2025-09-20",
     },
     attachment: {
       filename: "radiografia.jpg",
-      mimetype: "image/jpeg"
-    }
+      mimetype: "image/jpeg",
+    },
   },
   "789": {
     student: {
       name: "Ana Martínez",
       studentId: "20221122",
       faculty: "Derecho",
-      email: "amartinez@alu.uct.cl"
+      email: "amartinez@alu.uct.cl",
     },
     dates: {
       from: "2025-10-03",
@@ -62,21 +63,25 @@ const mockDatabase = {
       submitted: "2025-10-02",
       emissionDate: "2025-10-01",
       restStart: "2025-10-03",
-      restEnd: "2025-10-05"
+      restEnd: "2025-10-05",
     },
     attachment: {
       filename: "receta_medica.pdf",
-      mimetype: "application/pdf"
-    }
-  }
+      mimetype: "application/pdf",
+    },
+  },
 };
-
 
 function AttachmentView({ file }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const { t } = useTranslation();
 
   if (!file) {
-    return <div className="text-sm text-gray-500">Sin archivo adjunto</div>;
+    return (
+      <div className="text-sm text-gray-500">
+        {t("evaluarLicencia.attachment.noFile")}
+      </div>
+    );
   }
 
   const { filename, mimetype } = file;
@@ -96,7 +101,11 @@ function AttachmentView({ file }) {
         <div className="flex-1">
           <div className="font-medium text-sm">{filename}</div>
           <div className="text-xs text-gray-500">
-            {isPDF ? "Documento PDF" : isImage ? "Imagen" : "Archivo adjunto"}
+            {isPDF
+              ? t("evaluarLicencia.attachment.pdfLabel")
+              : isImage
+              ? t("evaluarLicencia.attachment.imageLabel")
+              : t("evaluarLicencia.attachment.otherLabel")}
           </div>
         </div>
       </div>
@@ -108,19 +117,19 @@ function AttachmentView({ file }) {
             onClick={() => setIsModalOpen(true)}
             className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
           >
-            Previsualizar
+            {t("evaluarLicencia.attachment.preview")}
           </button>
           <a
             href={fileUrl}
             download={filename}
             className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 text-sm"
           >
-            Descargar
+            {t("evaluarLicencia.attachment.download")}
           </a>
         </div>
       ) : (
         <div className="text-xs text-gray-500">
-          * Este tipo de archivo no se puede previsualizar
+          {t("evaluarLicencia.attachment.notPreviewable")}
         </div>
       )}
 
@@ -146,7 +155,7 @@ function AttachmentView({ file }) {
               download={filename}
               className="absolute bottom-4 right-4 px-4 py-2 bg-blue-600 text-white rounded shadow hover:bg-blue-700"
             >
-              Descargar
+              {t("evaluarLicencia.attachment.download")}
             </a>
           </div>
         </div>
@@ -158,6 +167,8 @@ function AttachmentView({ file }) {
 export default function EvaluarLicencia() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { t } = useTranslation();
+
   const [license, setLicense] = useState(null);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState({ open: false, type: null });
@@ -166,20 +177,20 @@ export default function EvaluarLicencia() {
   useEffect(() => {
     const loadLicense = async () => {
       setLoading(true);
-      
+
       // Simular delay de carga
-      await new Promise(resolve => setTimeout(resolve, 800));
-      
+      await new Promise((resolve) => setTimeout(resolve, 800));
+
       // Obtener datos del mock o usar datos por defecto
       const mockData = mockDatabase[id] || mockDatabase["123"]; // fallback a 123
-      
+
       const mockLicense = {
         id: id || "123",
         student: mockData.student,
         dates: mockData.dates,
-        attachment: mockData.attachment
+        attachment: mockData.attachment,
       };
-      
+
       setLicense(mockLicense);
       setLoading(false);
     };
@@ -190,22 +201,32 @@ export default function EvaluarLicencia() {
   const goBackToBandeja = () => navigate("/pendientes");
   const openModal = (type) => setModal({ open: true, type });
   const closeModal = () => setModal({ open: false, type: null });
-  
+
   const handleConfirm = (data) => {
     // Validación: impedir rechazo sin motivo
     if (modal.type === "reject") {
       const motivo = data?.note ?? "";
       if (!motivo || !motivo.trim()) {
-        setToast({ message: "Debes indicar un motivo para rechazar", type: "error" });
+        setToast({
+          message: t("evaluarLicencia.toast.rejectReasonRequired"),
+          type: "error",
+        });
         return; // no cerrar modal ni proceder
       }
     }
 
-    const action = modal.type === "accept" ? "aceptada" : "rechazada";
-    console.log(`Licencia ${license.id} ${action}:`, data);
+    const action =
+      modal.type === "accept"
+        ? t("evaluarLicencia.toast.acceptedSuccess")
+        : t("evaluarLicencia.toast.rejectedSuccess");
 
-    // Mostrar toast de éxito en lugar de alert
-    setToast({ message: `Licencia ${action} exitosamente.`, type: "success" });
+    console.log(
+      `Licencia ${license.id} ${modal.type === "accept" ? "aceptada" : "rechazada"}:`,
+      data
+    );
+
+    // Mostrar toast de éxito
+    setToast({ message: action, type: "success" });
 
     closeModal();
     // esperar un poco antes de volver para que el toast se vea
@@ -214,12 +235,14 @@ export default function EvaluarLicencia() {
 
   if (loading) {
     return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-b from-blue-50 to-blue-100 dark:bg-app dark:bg-none">
+      <div className="min-h-screen flex flex-col bg-gradient-to-b from-blue-50 to-blue-100 dark:bg-app dark:bg-none">
         <Navbar />
         <main className="flex-1 flex items-center justify-center w-full">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p className="text-lg">Cargando licencia...</p>
+            <p className="text-lg">
+              {t("evaluarLicencia.loading")}
+            </p>
           </div>
         </main>
         <Footer />
@@ -230,45 +253,67 @@ export default function EvaluarLicencia() {
   return (
     <div className="min-h-screen flex flex-col bg-blue-50 w-full overflow-x-hidden dark:bg-app dark:bg-none">
       <Navbar />
-      
+
       <main className="flex-1 w-full">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-10 max-w-none">
           <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-lg p-6 sm:p-8">
-            
             {/* Header con navegación clara */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-4">
               <div>
-                <h1 className="text-2xl font-bold">Evaluación de Licencia</h1>
-                <p className="text-gray-500">ID de licencia: {license.id}</p>
+                <h1 className="text-2xl font-bold">
+                  {t("evaluarLicencia.headerTitle")}
+                </h1>
+                <p className="text-gray-500">
+                  {t("evaluarLicencia.headerId", { id: license.id })}
+                </p>
               </div>
               <button
                 onClick={goBackToBandeja}
                 className="btn-back inline-flex items-center gap-2 px-3 py-2 rounded-md text-sm border border-gray-200 bg-white hover:bg-white/90 dark:bg-transparent dark:border-app dark:text-text dark:hover:bg-surface/80"
               >
-                ← Volver a Bandeja
+                {"← "}
+                {t("evaluarLicencia.backToInbox")}
               </button>
             </div>
 
             {/* Datos completos del estudiante */}
             <section className="mb-6">
-              <h2 className="text-lg font-semibold mb-3 text-gray-800">Datos del Estudiante</h2>
+              <h2 className="text-lg font-semibold mb-3 text-gray-800">
+                {t("evaluarLicencia.studentSectionTitle")}
+              </h2>
               <div className="bg-gray-50 p-4 rounded-lg border">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                   <div className="flex flex-col">
-                    <span className="font-medium text-gray-600">Nombre:</span>
-                    <span className="text-gray-900">{license.student.name}</span>
+                    <span className="font-medium text-gray-600">
+                      {t("evaluarLicencia.student.name")}:
+                    </span>
+                    <span className="text-gray-900">
+                      {license.student.name}
+                    </span>
                   </div>
                   <div className="flex flex-col">
-                    <span className="font-medium text-gray-600">Legajo:</span>
-                    <span className="text-gray-900">{license.student.studentId}</span>
+                    <span className="font-medium text-gray-600">
+                      {t("evaluarLicencia.student.studentId")}:
+                    </span>
+                    <span className="text-gray-900">
+                      {license.student.studentId}
+                    </span>
                   </div>
                   <div className="flex flex-col">
-                    <span className="font-medium text-gray-600">Facultad:</span>
-                    <span className="text-gray-900">{license.student.faculty}</span>
+                    <span className="font-medium text-gray-600">
+                      {t("evaluarLicencia.student.faculty")}:
+                    </span>
+                    <span className="text-gray-900">
+                      {license.student.faculty}
+                    </span>
                   </div>
                   <div className="flex flex-col">
-                    <span className="font-medium text-gray-600">Email:</span>
-                    <span className="text-gray-900">{license.student.email}</span>
+                    <span className="font-medium text-gray-600">
+                      {t("evaluarLicencia.student.email")}:
+                    </span>
+                    <span className="text-gray-900">
+                      {license.student.email}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -276,24 +321,42 @@ export default function EvaluarLicencia() {
 
             {/* Datos completos de la licencia */}
             <section className="mb-6">
-              <h2 className="text-lg font-semibold mb-3 text-gray-800">Datos de la Licencia</h2>
+              <h2 className="text-lg font-semibold mb-3 text-gray-800">
+                {t("evaluarLicencia.licenseSectionTitle")}
+              </h2>
               <div className="bg-gray-50 p-4 rounded-lg border">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                   <div className="flex flex-col">
-                    <span className="font-medium text-gray-600">Fecha de emisión de licencia:</span>
-                    <span className="text-gray-900">{license.dates.emissionDate}</span>
+                    <span className="font-medium text-gray-600">
+                      {t("evaluarLicencia.licenseDates.emission")}:
+                    </span>
+                    <span className="text-gray-900">
+                      {license.dates.emissionDate}
+                    </span>
                   </div>
                   <div className="flex flex-col">
-                    <span className="font-medium text-gray-600">Fecha enviado:</span>
-                    <span className="text-gray-900">{license.dates.submitted}</span>
+                    <span className="font-medium text-gray-600">
+                      {t("evaluarLicencia.licenseDates.submitted")}:
+                    </span>
+                    <span className="text-gray-900">
+                      {license.dates.submitted}
+                    </span>
                   </div>
                   <div className="flex flex-col">
-                    <span className="font-medium text-gray-600">Fecha inicio reposo:</span>
-                    <span className="text-gray-900">{license.dates.restStart}</span>
+                    <span className="font-medium text-gray-600">
+                      {t("evaluarLicencia.licenseDates.restStart")}:
+                    </span>
+                    <span className="text-gray-900">
+                      {license.dates.restStart}
+                    </span>
                   </div>
                   <div className="flex flex-col">
-                    <span className="font-medium text-gray-600">Fecha fin de reposo:</span>
-                    <span className="text-gray-900">{license.dates.restEnd}</span>
+                    <span className="font-medium text-gray-600">
+                      {t("evaluarLicencia.licenseDates.restEnd")}:
+                    </span>
+                    <span className="text-gray-900">
+                      {license.dates.restEnd}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -301,7 +364,9 @@ export default function EvaluarLicencia() {
 
             {/* Archivo adjunto con opción de previsualización */}
             <section className="mb-8">
-              <h2 className="text-lg font-semibold mb-3 text-gray-800">Archivo Adjunto</h2>
+              <h2 className="text-lg font-semibold mb-3 text-gray-800">
+                {t("evaluarLicencia.attachmentSectionTitle")}
+              </h2>
               <div className="border rounded-lg p-4">
                 <AttachmentView file={license.attachment} />
               </div>
@@ -309,24 +374,27 @@ export default function EvaluarLicencia() {
 
             {/* Botones para Aceptar y Rechazar */}
             <div className="flex flex-col sm:flex-row gap-4 pt-4 border-t">
-              <button 
+              <button
                 onClick={() => openModal("accept")}
                 className="flex-1 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
               >
-                ✓ Aceptar Licencia
+                <span className="mr-1">✓</span>
+                {t("evaluarLicencia.actions.accept")}
               </button>
-              <button 
+              <button
                 onClick={() => openModal("reject")}
                 className="flex-1 px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
               >
-                ✗ Rechazar Licencia
+                <span className="mr-1">✗</span>
+                {t("evaluarLicencia.actions.reject")}
               </button>
             </div>
 
             {/* Información de ayuda */}
             <div className="mt-6 p-4 bg-blue-50 rounded-lg">
               <p className="text-sm text-blue-700">
-                <strong>Nota:</strong> Al aceptar o rechazar, podrás agregar comentarios que serán enviados al estudiante.
+                <strong>{t("evaluarLicencia.infoNoteBold")}</strong>{" "}
+                {t("evaluarLicencia.infoNote")}
               </p>
             </div>
           </div>
@@ -338,8 +406,16 @@ export default function EvaluarLicencia() {
       {/* Modal correspondiente */}
       <ConfirmModal
         open={modal.open}
-        title={modal.type === "accept" ? "Confirmar Aceptación" : "Confirmar Rechazo"}
-        confirmLabel={modal.type === "accept" ? "Aceptar Licencia" : "Rechazar Licencia"}
+        title={
+          modal.type === "accept"
+            ? t("evaluarLicencia.modal.acceptTitle")
+            : t("evaluarLicencia.modal.rejectTitle")
+        }
+        confirmLabel={
+          modal.type === "accept"
+            ? t("evaluarLicencia.modal.acceptConfirm")
+            : t("evaluarLicencia.modal.rejectConfirm")
+        }
         onClose={closeModal}
         onConfirm={handleConfirm}
       />
@@ -355,3 +431,4 @@ export default function EvaluarLicencia() {
     </div>
   );
 }
+// ...existing code...

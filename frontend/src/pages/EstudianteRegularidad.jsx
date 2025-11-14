@@ -1,10 +1,10 @@
-// ...existing code...
 import React, { useMemo } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import { useAuth } from "../context/AuthContext";
-import { Eye, FileDown, Calendar, Info } from "lucide-react";
+import { Eye, FileDown } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 // Reuse same mock dataset (duplicated for simplicity)
 const studentsMock = [
@@ -15,9 +15,21 @@ const studentsMock = [
     course: "INF101",
     section: "A",
     licenses: [
-      { id: "123", estado: "validated", fechaEmision: "2025-09-27", inicio: "2025-10-01", fin: "2025-10-03" },
-      { id: "124", estado: "rejected", fechaEmision: "2025-08-10", inicio: "2025-08-11", fin: "2025-08-12" }
-    ]
+      {
+        id: "123",
+        estado: "validated",
+        fechaEmision: "2025-09-27",
+        inicio: "2025-10-01",
+        fin: "2025-10-03",
+      },
+      {
+        id: "124",
+        estado: "rejected",
+        fechaEmision: "2025-08-10",
+        inicio: "2025-08-11",
+        fin: "2025-08-12",
+      },
+    ],
   },
   {
     id: "s2",
@@ -26,8 +38,14 @@ const studentsMock = [
     course: "INF101",
     section: "A",
     licenses: [
-      { id: "456", estado: "validated", fechaEmision: "2025-09-13", inicio: "2025-09-15", fin: "2025-09-16" }
-    ]
+      {
+        id: "456",
+        estado: "validated",
+        fechaEmision: "2025-09-13",
+        inicio: "2025-09-15",
+        fin: "2025-09-16",
+      },
+    ],
   },
   {
     id: "s3",
@@ -36,10 +54,22 @@ const studentsMock = [
     course: "DER201",
     section: "B",
     licenses: [
-      { id: "789", estado: "validated", fechaEmision: "2025-10-01", inicio: "2025-09-01", fin: "2025-09-20" },
-      { id: "790", estado: "validated", fechaEmision: "2025-10-05", inicio: "2025-10-01", fin: "2025-10-05" }
-    ]
-  }
+      {
+        id: "789",
+        estado: "validated",
+        fechaEmision: "2025-10-01",
+        inicio: "2025-09-01",
+        fin: "2025-09-20",
+      },
+      {
+        id: "790",
+        estado: "validated",
+        fechaEmision: "2025-10-05",
+        inicio: "2025-10-01",
+        fin: "2025-10-05",
+      },
+    ],
+  },
 ];
 
 function daysBetween(a, b) {
@@ -51,37 +81,61 @@ function daysBetween(a, b) {
 
 export default function EstudianteRegularidad() {
   const { studentId } = useParams();
-  const { user } = useAuth();
+  const { user } = useAuth?.() ?? {};
   const role = String(user?.role || "").toLowerCase();
   const isTeacher = role === "profesor" || role === "teacher";
-  const isAdmin = role === "admin" || role === "administrador" || role === "administrator";
+  const isAdmin =
+    role === "admin" ||
+    role === "administrador" ||
+    role === "administrator";
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
-/*   if (!isTeacher && !isAdmin) {
+  // Si quieres volver a habilitar la protección por rol, descomenta este bloque
+  /*
+  if (!isTeacher && !isAdmin) {
     return (
       <div className="min-h-screen flex flex-col">
         <Navbar />
         <main className="flex-1 flex items-center justify-center p-8">
           <div className="bg-white p-8 rounded-xl shadow text-center">
-            <h2 className="text-xl font-bold">Acceso denegado</h2>
-            <p className="text-gray-600 mt-2">Solo Profesores y Administradores pueden ver esta página.</p>
-            <button onClick={() => navigate(-1)} className="mt-4 px-4 py-2 rounded border bg-white">Volver</button>
+            <h2 className="text-xl font-bold">
+              {t("profRegularidad.accessDeniedTitle")}
+            </h2>
+            <p className="text-gray-600 mt-2">
+              {t("profRegularidad.accessDeniedBody")}
+            </p>
+            <button
+              onClick={() => navigate(-1)}
+              className="mt-4 px-4 py-2 rounded border bg-white"
+            >
+              {t("profRegularidad.accessDeniedBack")}
+            </button>
           </div>
         </main>
         <Footer />
       </div>
     );
-  } */
+  }
+  */
 
   const student = studentsMock.find((s) => s.id === studentId);
+
   if (!student) {
     return (
       <div className="min-h-screen flex flex-col">
         <Navbar />
         <main className="flex-1 flex items-center justify-center p-8">
           <div className="bg-white p-8 rounded-xl shadow text-center">
-            <h2 className="text-xl font-bold">Estudiante no encontrado</h2>
-            <Link to="/profesor/regularidad" className="mt-4 inline-block px-4 py-2 rounded border bg-white">Volver</Link>
+            <h2 className="text-xl font-bold">
+              {t("profRegularidad.notFoundTitle")}
+            </h2>
+            <Link
+              to="/profesor/regularidad"
+              className="mt-4 inline-block px-4 py-2 rounded border bg-white"
+            >
+              {t("profRegularidad.notFoundBack")}
+            </Link>
           </div>
         </main>
         <Footer />
@@ -89,8 +143,14 @@ export default function EstudianteRegularidad() {
     );
   }
 
-  const validated = student.licenses.filter((l) => l.estado === "validated");
-  const missedDays = validated.reduce((sum, l) => sum + daysBetween(l.inicio, l.fin), 0);
+  const validated = useMemo(
+    () => student.licenses.filter((l) => l.estado === "validated"),
+    [student]
+  );
+  const missedDays = useMemo(
+    () => validated.reduce((sum, l) => sum + daysBetween(l.inicio, l.fin), 0),
+    [validated]
+  );
   const missedPercent = Math.min(100, Math.round((missedDays / 20) * 100));
   const atRisk = missedPercent >= 80;
 
@@ -102,40 +162,82 @@ export default function EstudianteRegularidad() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold">{student.name}</h1>
-              <div className="text-sm text-gray-600">{student.legajo} · {student.course} · {student.section}</div>
+              <div className="text-sm text-gray-600">
+                {student.legajo} · {student.course} · {student.section}
+              </div>
             </div>
 
             <div className="text-right">
               {/* badge centrado y con ancho mínimo para evitar corte */}
-              <div className={`inline-flex items-center justify-center text-center min-w-[200px] px-4 py-2 rounded-full font-semibold ${atRisk ? "bg-red-100 text-red-800" : "bg-green-100 text-green-800"}`}>
-                {atRisk ? "En riesgo por asistencia" : "Regular"}
+              <div
+                className={`inline-flex items-center justify-center text-center min-w-[200px] px-4 py-2 rounded-full font-semibold ${
+                  atRisk
+                    ? "bg-red-100 text-red-800"
+                    : "bg-green-100 text-green-800"
+                }`}
+              >
+                {atRisk
+                  ? t("profRegularidad.header.badgeRisk")
+                  : t("profRegularidad.header.badgeRegular")}
               </div>
-              <div className="text-xs text-gray-500 mt-2">{missedDays} días de licencia validados ({missedPercent}%)</div>
+              <div className="text-xs text-gray-500 mt-2">
+                {t("profRegularidad.header.summary", {
+                  days: missedDays,
+                  percent: missedPercent,
+                })}
+              </div>
             </div>
           </div>
 
           {atRisk && (
             <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded">
-              <div className="font-semibold text-red-700">Atención: El estudiante ha excedido el umbral de faltas</div>
+              <div className="font-semibold text-red-700">
+                {t("profRegularidad.header.riskAlertTitle")}
+              </div>
               <div className="text-sm text-red-600 mt-1">
-                Según las licencias médicas validadas en el periodo activo, el estudiante ha perdido {missedPercent}% de clases. Revisa el detalle y coordina con Secretaría si corresponde.
+                {t("profRegularidad.header.riskAlertBody", {
+                  percent: missedPercent,
+                })}
               </div>
             </div>
           )}
         </div>
 
         <div className="bg-white rounded-2xl shadow p-6">
-          <h2 className="text-lg font-semibold mb-4">Licencias</h2>
+          <h2 className="text-lg font-semibold mb-4">
+            {t("profRegularidad.licensesTitle")}
+          </h2>
           <div className="space-y-3">
             {student.licenses.map((l) => (
-              <div key={l.id} className="p-3 border rounded flex items-center justify-between">
+              <div
+                key={l.id}
+                className="p-3 border rounded flex items-center justify-between"
+              >
                 <div>
-                  <div className="font-medium">Folio {l.id} · {l.estado}</div>
-                  <div className="text-sm text-gray-600">Emisión: {l.fechaEmision} · {l.inicio} → {l.fin}</div>
+                  <div className="font-medium">
+                    {t("profRegularidad.licenseRowFolio", {
+                      id: l.id,
+                      defaultValue: `Folio ${l.id}`,
+                    })}{" "}
+                    ·{" "}
+                    {t(`profRegularidad.status.${l.estado}`, {
+                      defaultValue: l.estado,
+                    })}
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    {t("profRegularidad.labels.emission")}: {l.fechaEmision} ·{" "}
+                    {l.inicio} → {l.fin}
+                  </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <button className="inline-flex items-center gap-2 px-3 py-1 rounded bg-white border">Ver <Eye className="h-4 w-4" /></button>
-                  <button className="inline-flex items-center gap-2 px-3 py-1 rounded bg-white border">Descargar <FileDown className="h-4 w-4" /></button>
+                  <button className="inline-flex items-center gap-2 px-3 py-1 rounded bg-white border">
+                    {t("profRegularidad.actions.view")}
+                    <Eye className="h-4 w-4" />
+                  </button>
+                  <button className="inline-flex items-center gap-2 px-3 py-1 rounded bg-white border">
+                    {t("profRegularidad.actions.download")}
+                    <FileDown className="h-4 w-4" />
+                  </button>
                 </div>
               </div>
             ))}
@@ -143,11 +245,15 @@ export default function EstudianteRegularidad() {
         </div>
 
         <div className="mt-6 text-center">
-          <Link to="/profesor/regularidad" className="inline-flex items-center px-4 py-2 bg-white border rounded">Volver al listado</Link>
+          <Link
+            to="/profesor/regularidad"
+            className="inline-flex items-center px-4 py-2 bg-white border rounded"
+          >
+            {t("profRegularidad.actions.backToList")}
+          </Link>
         </div>
       </main>
       <Footer />
     </div>
   );
 }
-// ...existing code...
