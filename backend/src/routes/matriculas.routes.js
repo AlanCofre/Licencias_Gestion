@@ -13,7 +13,7 @@ import { requireRole } from '../../middlewares/requireRole.js';
 const router = Router();
 
 // estudiante ve sus matrículas
-router.get('/mis', requireAuth, obtenerMisMatriculas);
+router.get('/mismatriculas', requireAuth, obtenerMisMatriculas);
 
 // admin crea
 router.post(

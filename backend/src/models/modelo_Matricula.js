@@ -6,6 +6,7 @@ import Curso from './modelo_Curso.js';
 
 class Matricula extends Model {}
 
+// backend/src/models/modelo_Matricula.js
 Matricula.init(
   {
     id_matricula: {
@@ -38,6 +39,12 @@ Matricula.init(
       defaultValue: DataTypes.NOW,
       field: 'fecha_matricula',
     },
+    periodo: {
+      type: DataTypes.STRING(10),
+      allowNull: false,
+      defaultValue: '2025-1',
+      field: 'periodo',
+    },
   },
   {
     sequelize,
@@ -46,24 +53,10 @@ Matricula.init(
     indexes: [
       {
         unique: true,
-        fields: ['id_usuario', 'id_curso', 'id_periodo'],
+        fields: ['id_usuario', 'id_curso', 'periodo'],
         name: 'uq_usuario_curso_periodo',
       },
     ],
-    hooks: {
-      // validación de que SEA estudiante
-      beforeCreate: async (matricula) => {
-        const usuario = await Usuario.findByPk(matricula.id_usuario);
-        if (!usuario) {
-          throw new Error('Usuario no encontrado');
-        }
-        // en tu BD: 2 = estudiante
-        if (usuario.id_rol !== 2) {
-          throw new Error('Solo los estudiantes pueden matricularse en cursos');
-        }
-      },
-    },
   }
 );
-
 export default Matricula;
