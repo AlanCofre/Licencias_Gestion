@@ -1047,7 +1047,7 @@ export const getLicenciasEstudianteConRegularidad = async (req, res) => {
       }
     }
 
-    // Obtener licencias del estudiante
+    // Obtener licencias del estudiante (CORREGIDO según esquema)
     const [licencias] = await db.execute(`
       SELECT 
         lm.id_licencia,
@@ -1057,19 +1057,19 @@ export const getLicenciasEstudianteConRegularidad = async (req, res) => {
         lm.fecha_fin,
         lm.estado,
         lm.motivo_rechazo,
+        lm.motivo_medico, -- 👈 NUEVO CAMPO SEGÚN ESQUEMA
         c.nombre_curso,
-        c.codigo,
-        c.periodo
+        p.codigo as periodo_codigo
       FROM licenciamedica lm
       LEFT JOIN licencias_entregas le ON lm.id_licencia = le.id_licencia
       LEFT JOIN curso c ON le.id_curso = c.id_curso
+      LEFT JOIN periodos_academicos p ON c.id_periodo = p.id_periodo
       WHERE lm.id_usuario = ?
-        AND (? IS NULL OR c.periodo = ?)
         AND (? IS NULL OR le.id_curso = ?)
       ORDER BY lm.fecha_creacion DESC
-    `, [idEstudiante, periodo, periodo, id_curso, id_curso]);
+    `, [idEstudiante, id_curso, id_curso]);
 
-    // Calcular regularidad
+    // Calcular regularidad (debes implementar esta función según tu lógica)
     const regularidad = await calcularRegularidadEstudiante(
       parseInt(idEstudiante), 
       periodo, 

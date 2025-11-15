@@ -1,42 +1,24 @@
-// backend/src/routes/matriculas.routes.js
+// backend/routes/matricula.route.js
 import { Router } from 'express';
-import {
-  crearMatriculaAdmin,
-  bajaMatriculaAdmin,
+import { 
+  obtenerMisMatriculas, 
+  crearMatriculaAdmin, 
+  eliminarMatricula, 
   listarMatriculas,
-  obtenerMisMatriculas
+  matriculasPorCurso
 } from '../../controllers/matricula.controller.js';
 import requireAuth from '../../middlewares/requireAuth.js';
-// si tienes este helper de roles, lo dejas, si no, lo quitamos:
-import { requireRole } from '../../middlewares/requireRole.js';
+import { esAdmin, esEstudiante } from '../../middlewares/roles.middleware.js';
 
 const router = Router();
 
-// estudiante ve sus matrículas
-router.get('/mis', requireAuth, obtenerMisMatriculas);
+// Estudiantes: sus propias matrículas
+router.get('/mis-matriculas', requireAuth, esEstudiante, obtenerMisMatriculas);
 
-// admin crea
-router.post(
-  '/',
-  requireAuth,
-  requireRole ? requireRole('administrador') : (req, res, next) => next(),
-  crearMatriculaAdmin
-);
-
-// admin baja
-router.patch(
-  '/:id_matricula/baja',
-  requireAuth,
-  requireRole ? requireRole('administrador') : (req, res, next) => next(),
-  bajaMatriculaAdmin
-);
-
-// admin lista
-router.get(
-  '/',
-  requireAuth,
-  requireRole ? requireRole('administrador') : (req, res, next) => next(),
-  listarMatriculas
-);
+// Administradores: gestión completa
+router.get('/', requireAuth, esAdmin, listarMatriculas);
+router.post('/', requireAuth, esAdmin, crearMatriculaAdmin);
+router.delete('/:id_matricula', requireAuth, esAdmin, eliminarMatricula);
+router.get('/curso/:id_curso', requireAuth, esAdmin, matriculasPorCurso);
 
 export default router;

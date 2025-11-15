@@ -21,7 +21,7 @@ import { attachAudit } from '../middlewares/audit.middleware.js';
 import db from '../config/db.js';
 import estudianteRoutes from './routes/estudiante.routes.js';
 import funcionarioRoutes from './routes/funcionario.routes.js';
-
+import periodoRoutes from './routes/periodo.route.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -65,6 +65,7 @@ if (process.env.NODE_ENV !== 'production') {
 /* === Rutas === */
 app.use(healthRouter);
 
+app.use('/api/periodos', periodoRoutes);
 // Archivos
 app.use('/api/archivos', archivoRoutes);
 
@@ -82,8 +83,8 @@ app.use('/archivos', insertRouter);
 app.use('/api/notificaciones', notificacionesRouter);
 app.use('/usuarios', usuarioRoutes);
 app.use('/api', perfilRouter);
-app.use('/cursos', cursoRoutes);
-app.use('/matriculas', matriculasRoutes);
+app.use('/api/cursos', cursoRoutes);
+app.use('/api/matriculas', matriculasRoutes);
 
 app.use('/funcionario', funcionarioRoutes);
 

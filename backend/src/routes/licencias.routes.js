@@ -321,38 +321,31 @@ router.get('/revisar', [validarJWT, tieneRol('profesor', 'funcionario', 'secreta
  */
 
 
-// === Endpoint: Licencias entregadas por el profesor en sus cursos ===
+// backend/src/routes/licencias.routes.js
+
+// En la ruta GET /mis-cursos
 router.get('/mis-cursos', validarJWT, tieneRol('profesor'), async (req, res) => {
-  console.log('🧪 Entró al endpoint /mis-cursos');
   const { periodo } = req.query;
   const idProfesor = req.user?.id_usuario;
 
-  console.log('🔍 req.user:', req.user);
-  console.log('🧪 Query params:', { idProfesor, periodo });
-
-  // Validaciones
-  if (!idProfesor) {
-    return res.status(401).json({ ok: false, error: "No se pudo identificar al profesor." });
-  }
-
-  if (!periodo || typeof periodo !== 'string') {
-    return res.status(400).json({ ok: false, error: "El campo 'periodo' es obligatorio y debe ser texto." });
-  }
-
   try {
     const [licencias] = await db.execute(`
-      SELECT lm.id_licencia,
-             lm.id_usuario AS id_estudiante,
-             lm.folio,
-             lm.fecha_emision,
-             lm.fecha_inicio,
-             lm.fecha_fin,
-             lm.estado
+      SELECT 
+        lm.id_licencia,
+        lm.id_usuario AS id_estudiante,
+        lm.folio,
+        lm.fecha_emision,
+        lm.fecha_inicio,
+        lm.fecha_fin,
+        lm.estado,
+        c.nombre_curso,
+        p.codigo as periodo_codigo
       FROM licenciamedica lm
       JOIN licencias_entregas le ON lm.id_licencia = le.id_licencia
       JOIN curso c ON le.id_curso = c.id_curso
+      JOIN periodos_academicos p ON c.id_periodo = p.id_periodo
       WHERE c.id_usuario = ?
-        AND c.periodo = ?
+        AND p.codigo = ?
       ORDER BY lm.fecha_emision DESC
     `, [idProfesor, periodo]);
 

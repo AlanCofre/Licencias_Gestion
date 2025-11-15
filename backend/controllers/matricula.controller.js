@@ -1,5 +1,14 @@
 // backend/controllers/matricula.controller.js
-import { Matricula, Curso, Usuario, Rol } from '../src/models/index.js';
+import { Matricula, Curso, Usuario} from '../src/models/index.js';
+import Periodo from '../src/models/modelo_Periodo.js';
+// helper simple de respuestas
+function ok(res, data, mensaje = 'OK') {
+  return res.status(200).json({ ok: true, mensaje, data });
+}
+
+function fail(res, mensaje = 'Error en la solicitud', status = 400, extra = {}) {
+  return res.status(status).json({ ok: false, mensaje, ...extra });
+}
 
 /**
  * 1) ESTUDIANTE: obtener mis matrículas
@@ -10,37 +19,26 @@ export const obtenerMisMatriculas = async (req, res) => {
     const { periodo, flat } = req.query;
 
     if (!usuarioId) {
-      return res.status(401).json({ ok: false, error: 'No autenticado' });
+      return fail(res, 'No autenticado', 401);
     }
 
-    // obtener usuario + rol
-    const usuario = await Usuario.findByPk(usuarioId, {
-      include: [
-        {
-          model: Rol,
-          attributes: ['id_rol', 'nombre_rol'],
-        },
-      ],
-    });
-
+    // obtener usuario
+    const usuario = await Usuario.findByPk(usuarioId);
     if (!usuario) {
-      return res.status(404).json({ ok: false, error: 'Usuario no encontrado' });
+      return fail(res, 'Usuario no encontrado', 404);
     }
 
     // solo estudiantes (id_rol = 2 en tu BD)
     if (usuario.id_rol !== 2) {
-      return res.status(403).json({
-        ok: false,
-        error: 'Solo estudiantes pueden acceder a esta información',
-        rol_actual: { id_rol: usuario.id_rol, nombre_rol: usuario.Rol?.nombre_rol },
-      });
+      return fail(res, 'Solo estudiantes pueden acceder a esta información', 403);
     }
 
     // armar where
     const whereConditions = { id_usuario: usuarioId };
+    
+    // Si se filtra por período, usar la relación con Curso -> Periodo
     if (periodo) {
-      // ojo: esto depende de que Curso tenga campo "periodo"
-      whereConditions['$curso.periodo$'] = periodo;
+      whereConditions['$curso.id_periodo$'] = periodo;
     }
 
     const matriculas = await Matricula.findAll({
@@ -48,19 +46,22 @@ export const obtenerMisMatriculas = async (req, res) => {
       include: [
         {
           model: Curso,
-          as: 'curso',
-          attributes: ['id_curso', 'codigo', 'nombre_curso', 'seccion', 'periodo', 'activo'],
+          attributes: ['id_curso', 'codigo', 'nombre_curso', 'seccion', 'semestre', 'id_periodo'],
           include: [
             {
               model: Usuario,
               as: 'profesor',
               attributes: ['id_usuario', 'nombre'],
             },
+            {
+              model: Periodo,
+              attributes: ['id_periodo', 'codigo', 'activo']
+            }
           ],
         },
       ],
       order: [
-        ['curso', 'periodo', 'DESC'],
+        ['curso', 'Periodo', 'codigo', 'DESC'],
         ['curso', 'nombre_curso', 'ASC'],
         ['curso', 'seccion', 'ASC'],
       ],
@@ -68,11 +69,7 @@ export const obtenerMisMatriculas = async (req, res) => {
 
     // sin cursos
     if (!matriculas.length) {
-      return res.json({
-        ok: true,
-        mensaje: 'No tienes cursos matriculados',
-        data: flat ? [] : {},
-      });
+      return ok(res, flat ? [] : {}, 'No tienes cursos matriculados');
     }
 
     // modo plano
@@ -80,21 +77,34 @@ export const obtenerMisMatriculas = async (req, res) => {
       const cursosPlano = matriculas.map((m) => ({
         id_matricula: m.id_matricula,
         fecha_matricula: m.fecha_matricula,
-        ...m.curso.toJSON(),
+        id_curso: m.curso.id_curso,
+        codigo: m.curso.codigo,
+        nombre_curso: m.curso.nombre_curso,
+        seccion: m.curso.seccion,
+        semestre: m.curso.semestre,
+        periodo: m.curso.Periodo?.codigo,
+        id_periodo: m.curso.id_periodo,
+        periodo_activo: m.curso.Periodo?.activo,
+        profesor: m.curso.profesor,
+        activo: m.curso.activo,
       }));
-      return res.json({ ok: true, data: cursosPlano });
+      return ok(res, cursosPlano);
     }
 
     // agrupado por periodo
     const agrupadoPorPeriodo = {};
     matriculas.forEach((m) => {
       const curso = m.curso;
-      const periodoCurso = curso.periodo;
+      const periodoCurso = curso.Periodo?.codigo;
+      const idPeriodo = curso.id_periodo;
+
+      if (!periodoCurso) return;
 
       if (!agrupadoPorPeriodo[periodoCurso]) {
         agrupadoPorPeriodo[periodoCurso] = {
           periodo: periodoCurso,
-          es_periodo_actual: esPeriodoActual(periodoCurso),
+          id_periodo: idPeriodo,
+          es_periodo_actual: curso.Periodo?.activo || false,
           cursos: [],
         };
       }
@@ -104,6 +114,7 @@ export const obtenerMisMatriculas = async (req, res) => {
         codigo: curso.codigo,
         nombre_curso: curso.nombre_curso,
         seccion: curso.seccion,
+        semestre: curso.semestre,
         activo: curso.activo,
         profesor: curso.profesor,
       });
@@ -113,16 +124,10 @@ export const obtenerMisMatriculas = async (req, res) => {
       b.periodo.localeCompare(a.periodo)
     );
 
-    return res.json({
-      ok: true,
-      data: periodosOrdenados,
-    });
+    return ok(res, periodosOrdenados);
   } catch (error) {
     console.error('❌ Error al obtener matrículas:', error);
-    return res.status(500).json({
-      ok: false,
-      error: 'Error interno al obtener matrículas',
-    });
+    return fail(res, 'Error interno al obtener matrículas', 500);
   }
 };
 
@@ -131,176 +136,193 @@ export const obtenerMisMatriculas = async (req, res) => {
  */
 export const crearMatriculaAdmin = async (req, res) => {
   try {
-    const { id_usuario, id_curso, id_periodo } = req.body;
+    const { id_usuario, id_curso } = req.body;
 
-    if (!id_usuario || !id_curso || !id_periodo) {
-      return res.status(400).json({
-        ok: false,
-        mensaje: 'Faltan datos: id_usuario, id_curso o id_periodo',
-      });
+    if (!id_usuario || !id_curso) {
+      return fail(res, 'Faltan datos: id_usuario, id_curso');
     }
 
     const usuario = await Usuario.findByPk(id_usuario);
     if (!usuario) {
-      return res.status(404).json({ ok: false, mensaje: 'Usuario no encontrado' });
+      return fail(res, 'Usuario no encontrado', 404);
     }
 
     // solo estudiantes
     if (usuario.id_rol !== 2) {
-      return res.status(400).json({
-        ok: false,
-        mensaje: 'Solo se pueden matricular usuarios con rol estudiante',
-      });
+      return fail(res, 'Solo se pueden matricular usuarios con rol estudiante');
     }
 
     const curso = await Curso.findByPk(id_curso);
     if (!curso) {
-      return res.status(404).json({ ok: false, mensaje: 'Curso no encontrado' });
+      return fail(res, 'Curso no encontrado', 404);
     }
 
     // ver duplicado
     const existe = await Matricula.findOne({
-      where: { id_usuario, id_curso, id_periodo },
+      where: { id_usuario, id_curso },
     });
 
     if (existe) {
-      if (existe.estado === 'baja') {
-        existe.estado = 'activa';
-        await existe.save();
-        return res.json({
-          ok: true,
-          mensaje: 'Matrícula reactivada',
-          data: existe,
-        });
-      }
-
-      return res.status(409).json({
-        ok: false,
-        mensaje: 'El estudiante ya está matriculado en este curso y período',
-      });
+      return fail(res, 'El estudiante ya está matriculado en este curso', 409);
     }
 
     const nueva = await Matricula.create({
       id_usuario,
       id_curso,
-      id_periodo,
-      estado: 'activa',
+      fecha_matricula: new Date(),
+    });
+
+    // Obtener matrícula completa con relaciones
+    const matriculaCompleta = await Matricula.findByPk(nueva.id_matricula, {
+      include: [
+        {
+          model: Usuario,
+          attributes: ['id_usuario', 'nombre', 'correo_usuario', 'id_rol']
+        },
+        {
+          model: Curso,
+          include: [
+            {
+              model: Periodo,
+              attributes: ['id_periodo', 'codigo', 'activo']
+            }
+          ]
+        }
+      ]
     });
 
     return res.status(201).json({
       ok: true,
       mensaje: 'Matrícula creada correctamente',
-      data: nueva,
+      data: matriculaCompleta,
     });
   } catch (error) {
     console.error('[matriculas] crear admin', error);
-    return res.status(500).json({
-      ok: false,
-      mensaje: 'Error interno al crear matrícula',
-      error: error.message,
-    });
+    
+    if (error.name === 'SequelizeUniqueConstraintError') {
+      return fail(res, 'El estudiante ya está matriculado en este curso', 409);
+    }
+    
+    if (error.name === 'SequelizeForeignKeyConstraintError') {
+      return fail(res, 'Error de referencia: El usuario o curso no existe', 400);
+    }
+    
+    return fail(res, 'Error interno al crear matrícula', 500);
   }
 };
 
 /**
- * 3) ADMIN: baja
+ * 3) ADMIN: eliminar matrícula
  */
-export const bajaMatriculaAdmin = async (req, res) => {
+export const eliminarMatricula = async (req, res) => {
   try {
     const { id_matricula } = req.params;
 
     const matricula = await Matricula.findByPk(id_matricula);
     if (!matricula) {
-      return res.status(404).json({ ok: false, mensaje: 'Matrícula no encontrada' });
+      return fail(res, 'Matrícula no encontrada', 404);
     }
 
-    matricula.estado = 'baja';
-    await matricula.save();
+    await matricula.destroy();
 
-    return res.json({ ok: true, mensaje: 'Matrícula dada de baja' });
+    return ok(res, null, 'Matrícula eliminada correctamente');
   } catch (error) {
-    console.error('[matriculas] baja admin', error);
-    return res.status(500).json({
-      ok: false,
-      mensaje: 'Error interno al dar de baja matrícula',
-    });
+    console.error('[matriculas] eliminar', error);
+    return fail(res, 'Error interno al eliminar matrícula', 500);
   }
 };
 
 /**
- * 4) ADMIN: listar
+ * 4) ADMIN: listar todas las matrículas
  */
 export const listarMatriculas = async (req, res) => {
   try {
-    const { id_curso, id_periodo, solo_activas } = req.query;
+    const { id_curso, id_periodo } = req.query;
 
     const where = {};
     if (id_curso) where.id_curso = id_curso;
-    if (id_periodo) where.id_periodo = id_periodo;
-    if (solo_activas === 'true') where.estado = 'activa';
 
-    // 👇 primero traemos las matrículas "peladas"
-    const mats = await Matricula.findAll({
-      where,
-      order: [['fecha_matricula', 'DESC']],
-    });
+    // Si se filtra por período, usar la relación con Curso
+    let cursoInclude = {
+      model: Curso,
+      include: [
+        {
+          model: Periodo,
+          attributes: ['id_periodo', 'codigo', 'activo']
+        }
+      ]
+    };
 
-    // si no hay, devolvemos vacío nomás
-    if (!mats.length) {
-      return res.json({ ok: true, data: [] });
+    if (id_periodo) {
+      cursoInclude.where = { id_periodo };
     }
 
-    // 👇 obtenemos ids únicos para no pegar mil consultas
-    const idsUsuarios = [...new Set(mats.map(m => m.id_usuario))];
-    const idsCursos = [...new Set(mats.map(m => m.id_curso))];
-
-    // traemos usuarios y cursos por separado
-    const usuarios = await Usuario.findAll({
-      where: { id_usuario: idsUsuarios },
-      attributes: ['id_usuario', 'nombre', 'correo_usuario', 'id_rol'],
+    const matriculas = await Matricula.findAll({
+      where,
+      include: [
+        {
+          model: Usuario,
+          attributes: ['id_usuario', 'nombre', 'correo_usuario', 'id_rol']
+        },
+        cursoInclude
+      ],
+      order: [['fecha_matricula', 'DESC']]
     });
 
-    const cursos = await Curso.findAll({
-      where: { id_curso: idsCursos },
-      attributes: ['id_curso', 'codigo', 'nombre_curso', 'seccion', 'periodo', 'activo'],
-    });
-
-    // los pasamos a mapas para armar rápido
-    const mapaUsuarios = Object.fromEntries(
-      usuarios.map(u => [u.id_usuario, u.toJSON()])
-    );
-    const mapaCursos = Object.fromEntries(
-      cursos.map(c => [c.id_curso, c.toJSON()])
-    );
-
-    // armamos la respuesta final
-    const data = mats.map(m => ({
-      id_matricula: m.id_matricula,
-      id_usuario: m.id_usuario,
-      id_curso: m.id_curso,
-      id_periodo: m.id_periodo,
-      estado: m.estado,
-      fecha_matricula: m.fecha_matricula,
-      estudiante: mapaUsuarios[m.id_usuario] ?? null,
-      curso: mapaCursos[m.id_curso] ?? null,
-    }));
-
-    return res.json({ ok: true, data });
+    return ok(res, matriculas);
   } catch (error) {
     console.error('[matriculas] listar error:', error);
-    return res.status(500).json({ ok: false, mensaje: 'Error interno al listar' });
+    return fail(res, 'Error interno al listar matrículas', 500);
   }
 };
 
-// helper
-function esPeriodoActual(periodo) {
+/**
+ * 5) ADMIN: matrículas por curso
+ */
+export const matriculasPorCurso = async (req, res) => {
   try {
-    const [year, semester] = periodo.split('-');
-    const ahora = new Date();
-    const añoActual = ahora.getFullYear();
-    const semestreActual = ahora.getMonth() < 6 ? 1 : 2;
-    return parseInt(year) === añoActual && parseInt(semester) === semestreActual;
-  } catch {
-    return false;
+    const { id_curso } = req.params;
+
+    const curso = await Curso.findByPk(id_curso, {
+      include: [
+        {
+          model: Periodo,
+          attributes: ['id_periodo', 'codigo', 'activo']
+        }
+      ]
+    });
+
+    if (!curso) {
+      return fail(res, 'Curso no encontrado', 404);
+    }
+
+    const matriculas = await Matricula.findAll({
+      where: { id_curso },
+      include: [
+        {
+          model: Usuario,
+          attributes: ['id_usuario', 'nombre', 'correo_usuario', 'id_rol']
+        }
+      ],
+      order: [['fecha_matricula', 'DESC']]
+    });
+
+    return ok(res, {
+      curso,
+      matriculas,
+      total: matriculas.length
+    });
+
+  } catch (error) {
+    console.error('[matriculas] por curso error:', error);
+    return fail(res, 'Error interno al obtener matrículas del curso', 500);
   }
-}
+};
+
+export default {
+  obtenerMisMatriculas,
+  crearMatriculaAdmin,
+  eliminarMatricula,
+  listarMatriculas,
+  matriculasPorCurso
+};

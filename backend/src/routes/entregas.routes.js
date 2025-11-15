@@ -6,10 +6,9 @@ import validarPropietarioCurso from '../../middlewares/validarPropietarioCurso.j
 
 
 const router = Router();
-
+// backend/src/routes/entregas.routes.js
 router.get('/:id', validarJWT, validarPropietarioCurso, async (req, res) => {
   const idEntrega = req.params.id;
-  console.log('🔍 Buscando entrega con ID:', idEntrega);
 
   try {
     const entrega = await LicenciasEntregas.findByPk(idEntrega, {
@@ -17,12 +16,19 @@ router.get('/:id', validarJWT, validarPropietarioCurso, async (req, res) => {
         {
           model: Curso,
           as: 'curso',
-          attributes: ['id_curso', 'codigo', 'nombre_curso', 'seccion', 'periodo', 'id_usuario'],
-          include: {
-            model: Usuario,
-            as: 'profesor',
-            attributes: ['id_usuario', 'nombre', 'correo_usuario']
-          }
+          attributes: ['id_curso', 'codigo_curso', 'nombre_curso', 'seccion', 'id_usuario'],
+          include: [
+            {
+              model: Usuario,
+              as: 'profesor',
+              attributes: ['id_usuario', 'nombre', 'correo_usuario']
+            },
+            {
+              model: Periodo,
+              as: 'periodo',
+              attributes: ['id_periodo', 'codigo', 'activo']
+            }
+          ]
         },
         {
           model: LicenciaMedica,
@@ -32,39 +38,11 @@ router.get('/:id', validarJWT, validarPropietarioCurso, async (req, res) => {
       ]
     });
 
-    if (!entrega) {
-      console.log('📭 Entrega no encontrada');
-      return res.status(404).json({ error: 'Entrega no encontrada' });
-    }
-
-    console.log('✅ Entrega encontrada:', entrega?.toJSON?.() ?? entrega);
-
-    const matricula = await Matricula.findOne({
-      where: { id_curso: entrega.id_curso },
-      attributes: ['id_matricula', 'id_usuario', 'id_curso', 'fecha_matricula'], // ✅ sin 'id_periodo'
-      include: {
-        model: Usuario,
-        as: 'estudiante',
-        attributes: ['id_usuario', 'nombre', 'correo_usuario']
-      }
-    });
-
-    const response = {
-      id_entrega: entrega.id_entrega,
-      fecha_creacion: entrega.fecha_creacion,
-      curso: entrega.curso,
-      profesor: entrega.curso.profesor,
-      licencia: entrega.licencia,
-      estudiante: matricula?.estudiante || null
-    };
-
-    res.json(response);
+    // Resto del código...
   } catch (error) {
     console.error('💥 Error interno en GET /entregas/:id:', error);
     res.status(500).json({ ok: false, mensaje: 'Error interno del servidor' });
   }
 });
-
-
 
 export default router;

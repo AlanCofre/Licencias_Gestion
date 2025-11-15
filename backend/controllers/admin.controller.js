@@ -2,42 +2,63 @@ import { Op } from "sequelize";
 import Curso from "../src/models/modelo_Curso.js";
 import Matricula from "../src/models/modelo_Matricula.js";
 import Usuario from "../src/models/modelo_Usuario.js";
+import Periodo from "../src/models/modelo_Periodo.js";
 
 export async function listarCursosMatriculas(req, res) {
   try {
     const { periodo, profesor, curso, codigo, seccion, activo } = req.query;
 
     const whereCurso = {};
-    if (periodo) whereCurso.periodo = { [Op.like]: `%${periodo}%` };
+    const includePeriodo = [];
+    
+    // Filtro por periodo activo
+    if (activo !== undefined) {
+      includePeriodo.push({
+        model: Periodo,
+        as: "periodo",
+        where: { activo: activo === 'true' ? 1 : 0 } // 👈 CORREGIDO: activo es tinyint(1)
+      });
+    } else if (periodo) {
+      // Filtro por código de periodo
+      includePeriodo.push({
+        model: Periodo,
+        as: "periodo",
+        where: { codigo: { [Op.like]: `%${periodo}%` } }
+      });
+    } else {
+      includePeriodo.push({
+        model: Periodo,
+        as: "periodo"
+      });
+    }
+    
+    // Filtros del curso
     if (profesor) whereCurso.id_usuario = Number(profesor);
     if (curso) whereCurso.id_curso = Number(curso);
-    if (codigo) whereCurso.codigo = { [Op.like]: `%${codigo}%` };
+    if (codigo) whereCurso.codigo_curso = { [Op.like]: `%${codigo}%` };
     if (seccion) whereCurso.seccion = Number(seccion);
-    if (activo === undefined) whereCurso.activo = 1;
-    else whereCurso.activo = Number(activo);
 
     const cursos = await Curso.findAll({
       where: whereCurso,
       attributes: [
         "id_curso",
-        "codigo",
+        "codigo_curso",
         "nombre_curso",
         "semestre",
         "seccion",
-        "periodo",
-        "activo",
+        "id_periodo",
         "id_usuario",
       ],
       include: [
         {
           model: Usuario,
-          as: "profesor", // 👈 alias exacto de index.js
+          as: "profesor",
           attributes: ["id_usuario", "nombre", "correo_usuario"],
         },
         {
           model: Matricula,
-          as: "estudiantesMatriculados", // 👈 alias exacto de index.js
-          attributes: ["id_matricula", "id_usuario", "estado", "fecha_matricula"],
+          as: "estudiantesMatriculados",
+          attributes: ["id_matricula", "id_usuario", "fecha_matricula"], // 👈 CORREGIDO: no existe campo 'estado'
           include: [
             {
               model: Usuario,
@@ -46,9 +67,10 @@ export async function listarCursosMatriculas(req, res) {
             },
           ],
         },
+        ...includePeriodo
       ],
       order: [
-        ["periodo", "DESC"],
+        [{ model: Periodo, as: "periodo" }, "codigo", "DESC"],
         ["nombre_curso", "ASC"],
         [{ model: Matricula, as: "estudiantesMatriculados" }, "id_matricula", "ASC"],
       ],
@@ -56,12 +78,15 @@ export async function listarCursosMatriculas(req, res) {
 
     const data = cursos.map((c) => ({
       id_curso: c.id_curso,
-      codigo: c.codigo,
+      codigo: c.codigo_curso,
       nombre_curso: c.nombre_curso,
       semestre: c.semestre,
       seccion: c.seccion,
-      periodo: c.periodo,
-      activo: !!c.activo,
+      periodo: c.periodo ? {
+        id_periodo: c.periodo.id_periodo,
+        codigo: c.periodo.codigo,
+        activo: !!c.periodo.activo // 👈 Convertir tinyint(1) a boolean
+      } : null,
       profesor: c.profesor
         ? {
             id: c.profesor.id_usuario,
@@ -74,7 +99,6 @@ export async function listarCursosMatriculas(req, res) {
         id_estudiante: m.estudiante?.id_usuario ?? m.id_usuario,
         nombre: m.estudiante?.nombre ?? null,
         correo: m.estudiante?.correo_usuario ?? null,
-        estado: m.estado ?? "activa",
         fecha_matricula: m.fecha_matricula ?? null,
       })),
     }));
