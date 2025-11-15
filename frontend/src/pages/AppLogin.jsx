@@ -3,6 +3,7 @@ import bannerLogin from "../assets/banner-login.png";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useTranslation } from "react-i18next";
+import LoadingSpinner from "../components/LoadingSpinner";
 
 function AppLogin() {
   const { login } = useAuth();
@@ -153,7 +154,14 @@ function AppLogin() {
             className="w-full h-14 bg-[#00AAFF] text-white text-xl font-semibold rounded-md hover:brightness-110 transition disabled:opacity-50"
             disabled={loading}
           >
-            {loading ? t("login.loading") : t("login.submit")}
+            {loading ? (
+              <div className="flex items-center justify-center gap-2">
+                <LoadingSpinner size="small" color="white" />
+                {t("login.loading")}
+              </div>
+            ) : (
+              t("login.submit")
+            )}
           </button>
         </form>
       </div>

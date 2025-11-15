@@ -2,6 +2,7 @@ import React from "react";
 import { BrowserRouter } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import { AccessibilityProvider } from "./context/AccessibilityContext";
+import { ToastProvider } from "./context/ToastContext";
 import AccessibilityWidget from "./components/AccessibilityWidget";
 import AppRoutes from "./routes";
 
@@ -12,8 +13,10 @@ function App() {
     <BrowserRouter>
       <AuthProvider>
         <AccessibilityProvider>
-          <AppRoutes />
-          <AccessibilityWidget />
+          <ToastProvider>
+            <AppRoutes />
+            <AccessibilityWidget />
+          </ToastProvider>
         </AccessibilityProvider>
       </AuthProvider>
     </BrowserRouter>

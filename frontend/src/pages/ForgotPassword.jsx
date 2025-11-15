@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Footer from "../components/Footer";
 import Toast from "../components/toast";
+import LoadingSpinner from "../components/LoadingSpinner";
 import { useTranslation } from "react-i18next";
 
 export default function ForgotPassword() {
@@ -71,7 +72,8 @@ export default function ForgotPassword() {
             placeholder={t("forgotPassword.emailPlaceholder")}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full px-4 py-2 border rounded-lg mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            disabled={loading || timer > 0}
+            className="w-full px-4 py-2 border rounded-lg mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
           />
 
           <button
@@ -83,7 +85,14 @@ export default function ForgotPassword() {
                 : "bg-blue-600 hover:bg-blue-700"
             }`}
           >
-            {buttonLabel}
+            {loading ? (
+              <div className="flex items-center justify-center gap-2">
+                <LoadingSpinner size="small" color="white" />
+                {t("forgotPassword.buttonSending")}
+              </div>
+            ) : (
+              buttonLabel
+            )}
           </button>
         </div>
       </main>

@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Footer from "../components/Footer";
 import Toast from "../components/toast";
+import LoadingSpinner from "../components/LoadingSpinner";
 
 export default function ResetPassword() {
   const [code, setCode] = useState("");
@@ -41,7 +42,8 @@ export default function ResetPassword() {
             placeholder="Código de verificación"
             value={code}
             onChange={(e) => setCode(e.target.value)}
-            className="w-full px-4 py-2 border rounded-lg mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            disabled={loading}
+            className="w-full px-4 py-2 border rounded-lg mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
           />
 
           <input
@@ -49,7 +51,8 @@ export default function ResetPassword() {
             placeholder="Nueva contraseña"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full px-4 py-2 border rounded-lg mb-6 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            disabled={loading}
+            className="w-full px-4 py-2 border rounded-lg mb-6 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
           />
 
           <button
@@ -61,7 +64,14 @@ export default function ResetPassword() {
                 : "bg-green-600 hover:bg-green-700"
             }`}
           >
-            {loading ? "Guardando..." : "Guardar nueva contraseña"}
+            {loading ? (
+              <div className="flex items-center justify-center gap-2">
+                <LoadingSpinner size="small" color="white" />
+                Guardando...
+              </div>
+            ) : (
+              "Guardar nueva contraseña"
+            )}
           </button>
         </div>
       </main>
