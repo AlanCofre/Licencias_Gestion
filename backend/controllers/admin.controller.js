@@ -35,14 +35,14 @@ export async function listarCursosMatriculas(req, res) {
     // Filtros del curso
     if (profesor) whereCurso.id_usuario = Number(profesor);
     if (curso) whereCurso.id_curso = Number(curso);
-    if (codigo) whereCurso.codigo_curso = { [Op.like]: `%${codigo}%` };
+    if (codigo) whereCurso.codigo = { [Op.like]: `%${codigo}%` };
     if (seccion) whereCurso.seccion = Number(seccion);
 
     const cursos = await Curso.findAll({
       where: whereCurso,
       attributes: [
         "id_curso",
-        "codigo_curso",
+        "codigo",
         "nombre_curso",
         "semestre",
         "seccion",

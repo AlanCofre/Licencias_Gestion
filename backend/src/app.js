@@ -22,7 +22,7 @@ import db from '../config/db.js';
 import estudianteRoutes from './routes/estudiante.routes.js';
 import funcionarioRoutes from './routes/funcionario.routes.js';
 import periodoRoutes from './routes/periodo.route.js';
-
+import entregasRoutes from './routes/entregas.routes.js';
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -78,7 +78,7 @@ app.use('/api/estudiantes', estudianteRoutes);
 // Rutas legacy / auxiliares
 app.use('/licencias', detailsRouter);
 app.use('/archivos', insertRouter);
-
+app.use('/api/entregas', entregasRoutes);
 // Notificaciones y usuarios / perfil
 app.use('/api/notificaciones', notificacionesRouter);
 app.use('/usuarios', usuarioRoutes);

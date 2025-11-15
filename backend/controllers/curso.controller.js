@@ -19,10 +19,11 @@ function fail(res, mensaje = 'Error en la solicitud', status = 400, extra = {}) 
 // === POST /cursos  (crear curso - solo admin) ===
 export const crearCurso = async (req, res) => {
   try {
-    const { codigo_curso, nombre_curso, semestre, seccion, id_periodo, id_usuario } = req.body;
+    // 👈 CORREGIDO: usar 'codigo' en lugar de 'codigo_curso'
+    const { codigo, nombre_curso, semestre, seccion, id_periodo, id_usuario } = req.body;
 
-    if (!codigo_curso || !nombre_curso || !semestre || !seccion || !id_periodo || !id_usuario) {
-      return fail(res, 'Faltan datos obligatorios: (codigo_curso, nombre_curso, semestre, seccion, id_periodo, id_usuario)');
+    if (!codigo || !nombre_curso || !semestre || !seccion || !id_periodo || !id_usuario) {
+      return fail(res, 'Faltan datos obligatorios: (codigo, nombre_curso, semestre, seccion, id_periodo, id_usuario)');
     }
 
     // Validar que el periodo existe
@@ -38,12 +39,12 @@ export const crearCurso = async (req, res) => {
 
     // Validar unicidad (codigo + seccion + id_periodo)
     const existe = await Curso.findOne({ 
-      where: { codigo_curso, seccion, id_periodo } 
+      where: { codigo, seccion, id_periodo } // 👈 CORREGIDO: usar 'codigo'
     });
     if (existe) return fail(res, 'Ya existe un curso con ese código, sección y período', 409);
 
     const nuevo = await Curso.create({ 
-      codigo_curso, 
+      codigo, // 👈 CORREGIDO: usar 'codigo'
       nombre_curso, 
       semestre, 
       seccion, 
@@ -87,7 +88,8 @@ export const crearCurso = async (req, res) => {
 export const actualizarCurso = async (req, res) => {
   try {
     const { id } = req.params;
-    const { codigo_curso, nombre_curso, semestre, seccion, id_periodo, id_usuario } = req.body;
+    // 👈 CORREGIDO: usar 'codigo' en lugar de 'codigo_curso'
+    const { codigo, nombre_curso, semestre, seccion, id_periodo, id_usuario } = req.body;
 
     const curso = await Curso.findByPk(id, {
       include: [
@@ -112,14 +114,14 @@ export const actualizarCurso = async (req, res) => {
       }
     }
 
-    const codigoFinal = codigo_curso ?? curso.codigo_curso;
+    const codigoFinal = codigo ?? curso.codigo;
     const seccionFinal = seccion ?? curso.seccion;
     const periodoFinal = id_periodo ?? curso.id_periodo;
 
     // Validar unicidad (excluyendo el curso actual)
     const existe = await Curso.findOne({ 
       where: { 
-        codigo_curso: codigoFinal, 
+        codigo: codigoFinal, // 👈 CORREGIDO: usar 'codigo'
         seccion: seccionFinal, 
         id_periodo: periodoFinal 
       } 
@@ -129,7 +131,7 @@ export const actualizarCurso = async (req, res) => {
     }
 
     // Actualizar campos
-    curso.codigo_curso = codigoFinal;
+    curso.codigo = codigoFinal; // 👈 CORREGIDO: usar 'codigo'
     curso.nombre_curso = nombre_curso ?? curso.nombre_curso;
     curso.semestre = semestre ?? curso.semestre;
     curso.seccion = seccionFinal;
@@ -181,7 +183,7 @@ export const listarCursos = async (req, res) => {
           as: 'periodo'
         }
       ],
-      order: [['codigo_curso', 'ASC']]
+      order: [['codigo', 'ASC']] // 👈 CORREGIDO: usar 'codigo'
     });
     return ok(res, cursos);
   } catch (err) {
@@ -252,7 +254,7 @@ export const cursosPorProfesor = async (req, res) => {
           attributes: ['id_periodo', 'codigo', 'activo']
         }
       ],
-      order: [['codigo', 'ASC']]
+      order: [['codigo', 'ASC']] // 👈 CORREGIDO: usar 'codigo'
     });
 
     return ok(res, cursos);
@@ -280,7 +282,7 @@ export const cursosPorPeriodo = async (req, res) => {
           attributes: ['id_usuario', 'nombre', 'correo_usuario', 'id_rol'] 
         }
       ],
-      order: [['codigo', 'ASC']]
+      order: [['codigo', 'ASC']] // 👈 CORREGIDO: usar 'codigo'
     });
 
     return ok(res, cursos);

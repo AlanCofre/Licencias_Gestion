@@ -550,6 +550,8 @@
 <div id="resultadoEntrega"></div>
 
 <script>
+  // En tu archivo index.test.html, actualiza la función buscarEntregaPorId:
+
   async function buscarEntregaPorId() {
     const idEntrega = document.getElementById('inputEntrega').value;
     const resultado = document.getElementById('resultadoEntrega');
@@ -579,18 +581,19 @@
         throw new Error(data.error || data.msg || `Error HTTP ${res.status}`);
       }
 
-      const { curso, profesor, licencia, estudiante, fecha_creacion } = data;
+      const { curso, profesor, licencia, estudiante, fecha_creacion } = data.entrega;
 
       resultado.innerHTML = `
         <h3>📄 Detalles de la entrega</h3>
         <ul>
           <li><strong>Curso:</strong> ${curso.nombre_curso} (${curso.codigo})</li>
-          <li><strong>Periodo:</strong> ${curso.periodo}</li>
+          <li><strong>Periodo:</strong> ${curso.periodo?.codigo || 'N/A'}</li>
           <li><strong>Profesor:</strong> ${profesor?.nombre} (${profesor?.correo_usuario})</li>
           <li><strong>Estudiante:</strong> ${estudiante?.nombre || 'N/A'} (${estudiante?.correo_usuario || 'N/A'})</li>
           <li><strong>Folio licencia:</strong> ${licencia?.folio || 'N/A'}</li>
           <li><strong>Estado:</strong> ${licencia?.estado || 'N/A'}</li>
-          <li><strong>Desde:</strong> ${licencia?.fecha_emision || 'N/A'}</li>
+          <li><strong>Fecha emisión:</strong> ${licencia?.fecha_emision || 'N/A'}</li>
+          <li><strong>Desde:</strong> ${licencia?.fecha_inicio || 'N/A'}</li>
           <li><strong>Hasta:</strong> ${licencia?.fecha_fin || 'N/A'}</li>
           <li><strong>Fecha de entrega:</strong> ${fecha_creacion}</li>
         </ul>
