@@ -17,11 +17,11 @@ export const obtenerMisCursos = async (req, res) => {
       });
     }
 
-    // Determinar el período activo si no se especifica
+    // 👈 CORREGIDO: Consulta actualizada según nueva estructura
     let periodoActivo = periodo;
     if (!periodoActivo) {
       const [periodos] = await db.execute(
-        'SELECT periodo FROM curso WHERE activo = 1 ORDER BY id_curso DESC LIMIT 1'
+        'SELECT codigo FROM periodos_academicos WHERE activo = 1 ORDER BY id_periodo DESC LIMIT 1'
       );
       
       if (periodos.length === 0) {
@@ -30,7 +30,7 @@ export const obtenerMisCursos = async (req, res) => {
           error: 'No existe un período activo en el sistema' 
         });
       }
-      periodoActivo = periodos[0].periodo;
+      periodoActivo = periodos[0].codigo;
     }
 
     // Obtener cursos matriculados del estudiante
@@ -40,15 +40,16 @@ export const obtenerMisCursos = async (req, res) => {
         c.codigo,
         c.nombre_curso as nombre,
         c.seccion,
-        c.periodo,
-        c.activo,
+        c.semestre,
+        p.codigo as periodo,
         u.nombre as profesor_nombre
       FROM matriculas m
       JOIN curso c ON m.id_curso = c.id_curso
       JOIN usuario u ON c.id_usuario = u.id_usuario
+      JOIN periodos_academicos p ON c.id_periodo = p.id_periodo
       WHERE m.id_usuario = ? 
-        AND c.periodo = ?
-        AND c.activo = 1
+        AND p.codigo = ?
+        AND p.activo = 1
       ORDER BY c.nombre_curso ASC, c.seccion ASC`,
       [usuarioId, periodoActivo]
     );
@@ -59,7 +60,9 @@ export const obtenerMisCursos = async (req, res) => {
       codigo: curso.codigo,
       nombre: curso.nombre,
       seccion: curso.seccion,
-      periodo: curso.periodo
+      semestre: curso.semestre,
+      periodo: curso.periodo,
+      profesor: curso.profesor_nombre
     }));
 
     return res.status(200).json({
