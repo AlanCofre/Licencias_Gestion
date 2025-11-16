@@ -65,8 +65,4 @@ Matricula.init(
   }
 );
 
-// Definir asociaciones
-Matricula.belongsTo(Usuario, { foreignKey: 'id_usuario' });
-Matricula.belongsTo(Curso, { foreignKey: 'id_curso' });
-
 export default Matricula;

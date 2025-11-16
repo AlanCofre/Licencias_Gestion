@@ -1,3 +1,4 @@
+// backend/src/models/modelo_Curso.js
 import { DataTypes, Model } from 'sequelize';
 import sequelize from '../../db/sequelize.js';
 import Usuario from './modelo_Usuario.js';
@@ -54,7 +55,6 @@ Curso.init(
   }
 );
 
-// Definir asociaciones
 Curso.belongsTo(Usuario, { foreignKey: 'id_usuario' });
 Curso.belongsTo(Periodo, { foreignKey: 'id_periodo' });
 

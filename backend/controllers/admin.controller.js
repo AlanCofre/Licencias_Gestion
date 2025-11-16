@@ -78,15 +78,17 @@ export async function listarCursosMatriculas(req, res) {
 
     const data = cursos.map((c) => ({
       id_curso: c.id_curso,
-      codigo: c.codigo_curso,
+      codigo: c.codigo,              // ✅ correcto
       nombre_curso: c.nombre_curso,
       semestre: c.semestre,
       seccion: c.seccion,
-      periodo: c.periodo ? {
-        id_periodo: c.periodo.id_periodo,
-        codigo: c.periodo.codigo,
-        activo: !!c.periodo.activo // 👈 Convertir tinyint(1) a boolean
-      } : null,
+      periodo: c.periodo
+        ? {
+            id_periodo: c.periodo.id_periodo,
+            codigo: c.periodo.codigo,
+            activo: !!c.periodo.activo,
+          }
+        : null,
       profesor: c.profesor
         ? {
             id: c.profesor.id_usuario,
