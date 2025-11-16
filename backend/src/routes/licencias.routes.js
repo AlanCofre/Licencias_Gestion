@@ -329,30 +329,78 @@ router.get('/mis-cursos', validarJWT, tieneRol('profesor'), async (req, res) => 
   const idProfesor = req.user?.id_usuario;
 
   try {
-    const [licencias] = await db.execute(`
+    if (!idProfesor) {
+      return res.status(401).json({ ok: false, error: 'No autenticado' });
+    }
+
+    if (!periodo) {
+      return res.status(400).json({
+        ok: false,
+        error: 'Debe indicar el código de período (?periodo=2025-1, por ejemplo)',
+      });
+    }
+
+    const [rows] = await db.execute(
+      `
       SELECT 
         lm.id_licencia,
-        lm.id_usuario AS id_estudiante,
+        lm.id_usuario              AS id_estudiante,
         lm.folio,
         lm.fecha_emision,
         lm.fecha_inicio,
         lm.fecha_fin,
         lm.estado,
-        c.nombre_curso,
-        p.codigo as periodo_codigo
-      FROM licenciamedica lm
-      JOIN licencias_entregas le ON lm.id_licencia = le.id_licencia
-      JOIN curso c ON le.id_curso = c.id_curso
-      JOIN periodos_academicos p ON c.id_periodo = p.id_periodo
-      WHERE c.id_usuario = ?
-        AND p.codigo = ?
-      ORDER BY lm.fecha_emision DESC
-    `, [idProfesor, periodo]);
+        lm.motivo_rechazo,
+        lm.fecha_creacion,         -- 👈 la usamos como "fecha_envio"
 
-    return res.status(200).json({ ok: true, licencias });
+        u.nombre          AS nombre_estudiante,
+        u.correo_usuario  AS correo_estudiante,
+
+        c.id_curso,
+        c.nombre_curso,
+        c.seccion,
+
+        p.id_periodo,
+        p.codigo          AS periodo_codigo
+      FROM licenciamedica lm
+      JOIN licencias_entregas   le ON lm.id_licencia = le.id_licencia
+      JOIN curso                c  ON le.id_curso     = c.id_curso
+      JOIN periodos_academicos  p  ON c.id_periodo    = p.id_periodo
+      JOIN usuario              u  ON lm.id_usuario   = u.id_usuario
+      WHERE c.id_usuario = ?      -- profesor dueño del curso
+        AND p.codigo    = ?       -- período filtrado
+      ORDER BY lm.fecha_creacion DESC
+      `,
+      [idProfesor, periodo]
+    );
+
+    const data = rows.map((r) => ({
+      id_licencia:   r.id_licencia,
+      estado:        r.estado,
+      fecha_envio:   r.fecha_creacion,
+      fecha_inicio:  r.fecha_inicio,
+      fecha_fin:     r.fecha_fin,
+      folio:         r.folio,
+
+      estudiante: {
+        id:     r.id_estudiante,
+        nombre: r.nombre_estudiante,
+        correo: r.correo_estudiante,
+      },
+      curso: {
+        id:             r.id_curso,
+        nombre:         r.nombre_curso,
+        seccion:        r.seccion,
+        periodo_codigo: r.periodo_codigo,
+      },
+    }));
+
+    return res.status(200).json({ ok: true, data });
   } catch (error) {
     console.error('❌ Error al obtener licencias del profesor:', error);
-    return res.status(500).json({ ok: false, error: 'Error interno del servidor' });
+    return res
+      .status(500)
+      .json({ ok: false, error: 'Error interno del servidor' });
   }
 });
 

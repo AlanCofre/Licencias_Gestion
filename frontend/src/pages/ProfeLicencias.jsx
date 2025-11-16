@@ -2,13 +2,14 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
-import { Eye, Clock, Search, Calendar, X } from "lucide-react";
+import { Eye, Clock, Search, X } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
 const PAGE_SIZE = 10;
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
 
-/* -------------------- MOCK DE LICENCIAS (ejemplos) -------------------- */
-/* En producción reemplazar por fetch("/profesores/licencias?periodo=activo") */
+/* -------------------- MOCK DE LICENCIAS (solo para pruebas locales) -------------------- */
+/* Ya no se usa en producción; queda por si necesitas testear sin backend */
 const mockLicencias = [
   {
     id: "123",
@@ -76,7 +77,7 @@ function inDateRange(valueDateStr, startStr, endStr) {
 
 /* -------------------- COMPONENTE PRINCIPAL -------------------- */
 export default function ProfeLicencias() {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
 
   /* estado de datos */
   const [items, setItems] = useState([]); // licencias cargadas
@@ -92,22 +93,91 @@ export default function ProfeLicencias() {
   const [searchTerm, setSearchTerm] = useState(searchParams.get("q") || "");
   const [page, setPage] = useState(Number(searchParams.get("page") || 1));
 
-  /* cargar datos (mock) */
+  /* determinar período activo (URL > localStorage > fallback) */
+  const periodoFromUrl = searchParams.get("periodo");
+  const periodoFromStorage = (() => {
+    try {
+      return localStorage.getItem("periodo_activo_codigo") || null;
+    } catch {
+      return null;
+    }
+  })();
+  const periodoActivo = periodoFromUrl || periodoFromStorage || "2025-1";
+
+  /* cargar datos desde backend /profesor/licencias */
   useEffect(() => {
     let mounted = true;
-    setLoading(true);
-    setError(null);
-    // simulación de fetch
-    const t = setTimeout(() => {
-      if (!mounted) return;
-      setItems(mockLicencias);
-      setLoading(false);
-    }, 450);
+    const controller = new AbortController();
+
+    async function load() {
+      setLoading(true);
+      setError(null);
+
+      if (!token) {
+        setLoading(false);
+        setError("No hay token de autenticación.");
+        return;
+      }
+
+      try {
+        const params = new URLSearchParams();
+        if (periodoActivo) params.set("periodo", periodoActivo);
+
+        const url = `${API_BASE}/profesor/licencias${
+          params.toString() ? `?${params.toString()}` : ""
+        }`;
+
+        const res = await fetch(url, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          signal: controller.signal,
+        });
+
+        if (!res.ok) {
+          const txt = await res.text();
+          throw new Error(txt || `HTTP ${res.status}`);
+        }
+
+        const json = await res.json();
+        if (!json.ok) {
+          throw new Error(json.mensaje || json.error || "Respuesta no válida del servidor");
+        }
+
+        // El backend ya entrega el shape ideal:
+        // { id, studentName, studentId, courseCode, section, fechaEmision, fechaInicio, fechaFin, estado }
+        const normalized = (json.data || []).map((row) => ({
+          id: row.id_licencia,
+          studentName: row.nombre_estudiante,
+          studentId: row.correo_estudiante,   // o row.id_estudiante, según quieras mostrar
+          courseCode: row.codigo_curso,
+          section: row.seccion,
+          fechaEmision: row.fecha_emision?.slice(0,10),
+          fechaInicio: row.fecha_inicio?.slice(0,10),
+          fechaFin: row.fecha_fin?.slice(0,10),
+          estado: row.estado,
+        }));
+
+        if (!mounted) return;
+        setItems(normalized);
+        setLoading(false);
+      } catch (err) {
+        if (!mounted) return;
+        console.error("❌ Error cargando licencias del profesor:", err);
+        setError(err.message || String(err));
+        setLoading(false);
+      }
+    }
+
+    load();
+
     return () => {
       mounted = false;
-      clearTimeout(t);
+      controller.abort();
     };
-  }, [user?.id]);
+  }, [token, user?.id_usuario, periodoActivo]);
 
   /* sincronizar filtros al cambiar searchParams (por si el usuario pega URL) */
   useEffect(() => {
@@ -168,7 +238,6 @@ export default function ProfeLicencias() {
     // filtro por rango de fechas (si se entrega start y/o end)
     if (startDate || endDate) {
       out = out.filter((it) => {
-        // consideramos fecha de emisión y fecha de inicio como posibles fechas relevantes
         return (
           inDateRange(it.fechaEmision, startDate, endDate) ||
           inDateRange(it.fechaInicio, startDate, endDate)
@@ -243,7 +312,12 @@ export default function ProfeLicencias() {
                 </div>
                 <div className="flex-1">
                   <h1 className="text-2xl font-bold text-gray-900">Licencias — Mis cursos</h1>
-                  <p className="text-gray-600 mt-1">Filtra la bandeja para localizar rápidamente licencias.</p>
+                  <p className="text-gray-600 mt-1">
+                    Filtra la bandeja para localizar rápidamente licencias.
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Período activo: <span className="font-semibold">{periodoActivo}</span>
+                  </p>
                 </div>
 
                 {/* botón limpiar filtros visible en header */}
@@ -263,33 +337,46 @@ export default function ProfeLicencias() {
               <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
                 {/* dropdown curso */}
                 <div>
-                  <label htmlFor="filterCourse" className="text-sm text-gray-600">Ramo</label>
+                  <label htmlFor="filterCourse" className="text-sm text-gray-600">
+                    Ramo
+                  </label>
                   <select
                     id="filterCourse"
                     value={filterCourse}
-                    onChange={(e) => { setFilterCourse(e.target.value); setPage(1); }}
+                    onChange={(e) => {
+                      setFilterCourse(e.target.value);
+                      setPage(1);
+                    }}
                     className="mt-1 block w-full border border-gray-200 bg-white px-3 py-2 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#048FD4]"
                   >
                     <option value="">Todos los ramos</option>
                     {courseOptions.map((c) => (
-                      <option key={c} value={c}>{c}</option>
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
                     ))}
                   </select>
                 </div>
 
                 {/* dropdown estado */}
                 <div>
-                  <label htmlFor="filterEstado" className="text-sm text-gray-600">Estado</label>
+                  <label htmlFor="filterEstado" className="text-sm text-gray-600">
+                    Estado
+                  </label>
                   <select
                     id="filterEstado"
                     value={filterEstado}
-                    onChange={(e) => { setFilterEstado(e.target.value); setPage(1); }}
+                    onChange={(e) => {
+                      setFilterEstado(e.target.value);
+                      setPage(1);
+                    }}
                     className="mt-1 block w-full border border-gray-200 bg-white px-3 py-2 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#048FD4]"
                   >
                     <option value="">Todos los estados</option>
-                    {/* permitimos mostrar opciones dinámicas según lo entregue el BE */}
                     {estadoOptions.map((e) => (
-                      <option key={e} value={e}>{e}</option>
+                      <option key={e} value={e}>
+                        {e}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -297,42 +384,57 @@ export default function ProfeLicencias() {
                 {/* date range local (start / end) */}
                 <div className="flex gap-2">
                   <div className="w-1/2">
-                    <label htmlFor="startDate" className="text-sm text-gray-600">Desde</label>
+                    <label htmlFor="startDate" className="text-sm text-gray-600">
+                      Desde
+                    </label>
                     <div className="relative mt-1">
                       <input
                         id="startDate"
                         type="date"
                         value={startDate}
-                        onChange={(e) => { setStartDate(e.target.value); setPage(1); }}
+                        onChange={(e) => {
+                          setStartDate(e.target.value);
+                          setPage(1);
+                        }}
                         className="block w-full border border-gray-200 bg-white px-3 py-2 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#048FD4]"
                       />
                     </div>
                   </div>
 
                   <div className="w-1/2">
-                    <label htmlFor="endDate" className="text-sm text-gray-600">Hasta</label>
+                    <label htmlFor="endDate" className="text-sm text-gray-600">
+                      Hasta
+                    </label>
                     <div className="relative mt-1">
                       <input
                         id="endDate"
                         type="date"
                         value={endDate}
-                        onChange={(e) => { setEndDate(e.target.value); setPage(1); }}
+                        onChange={(e) => {
+                          setEndDate(e.target.value);
+                          setPage(1);
+                        }}
                         className="block w-full border border-gray-200 bg-white px-3 py-2 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#048FD4]"
                       />
                     </div>
                   </div>
                 </div>
 
-                {/* búsqueda global (alumno / legajo) - ocupa toda la fila en md */}
+                {/* búsqueda global */}
                 <div className="md:col-span-3">
-                  <label htmlFor="searchTerm" className="text-sm text-gray-600">Buscar</label>
+                  <label htmlFor="searchTerm" className="text-sm text-gray-600">
+                    Buscar
+                  </label>
                   <div className="relative mt-1">
                     <input
                       id="searchTerm"
                       type="text"
                       placeholder="Alumno o legajo"
                       value={searchTerm}
-                      onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
+                      onChange={(e) => {
+                        setSearchTerm(e.target.value);
+                        setPage(1);
+                      }}
                       className="pl-10 pr-3 py-2 border border-gray-200 rounded-md w-full text-sm focus:outline-none focus:ring-2 focus:ring-[#048FD4] bg-white"
                     />
                     <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
@@ -348,39 +450,58 @@ export default function ProfeLicencias() {
               <table className="w-full">
                 <thead className="bg-gradient-to-r from-blue-50 to-indigo-50">
                   <tr>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">Estudiante</th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">Ramo</th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">Fechas</th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">Estado</th>
-                    <th className="px-6 py-4 text-center text-sm font-semibold text-gray-700 uppercase tracking-wider">Acción</th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">
+                      Estudiante
+                    </th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">
+                      Ramo
+                    </th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">
+                      Fechas
+                    </th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">
+                      Estado
+                    </th>
+                    <th className="px-6 py-4 text-center text-sm font-semibold text-gray-700 uppercase tracking-wider">
+                      Acción
+                    </th>
                   </tr>
                 </thead>
 
                 <tbody className="bg-white divide-y divide-gray-100">
                   {loading ? (
-                    /* esqueleto de carga */
                     Array.from({ length: 6 }).map((_, i) => (
                       <tr key={i} className="animate-pulse">
-                        <td className="px-6 py-5"><div className="h-4 bg-gray-200 rounded w-32" /></td>
-                        <td className="px-6 py-5"><div className="h-4 bg-gray-200 rounded w-40" /></td>
-                        <td className="px-6 py-5"><div className="h-4 bg-gray-200 rounded w-48" /></td>
-                        <td className="px-6 py-5"><div className="h-4 bg-gray-200 rounded w-24" /></td>
-                        <td className="px-6 py-5 text-center"><div className="h-8 w-24 bg-gray-200 rounded mx-auto" /></td>
+                        <td className="px-6 py-5">
+                          <div className="h-4 bg-gray-200 rounded w-32" />
+                        </td>
+                        <td className="px-6 py-5">
+                          <div className="h-4 bg-gray-200 rounded w-40" />
+                        </td>
+                        <td className="px-6 py-5">
+                          <div className="h-4 bg-gray-200 rounded w-48" />
+                        </td>
+                        <td className="px-6 py-5">
+                          <div className="h-4 bg-gray-200 rounded w-24" />
+                        </td>
+                        <td className="px-6 py-5 text-center">
+                          <div className="h-8 w-24 bg-gray-200 rounded mx-auto" />
+                        </td>
                       </tr>
                     ))
                   ) : paged.length === 0 ? (
-                    /* estado vacío */
                     <tr>
                       <td colSpan={5} className="p-12 text-center">
                         <div className="bg-gray-100 rounded-full w-24 h-24 flex items-center justify-center mx-auto mb-6">
                           <Clock className="h-12 w-12 text-gray-400" />
                         </div>
                         <h2 className="text-2xl font-bold text-gray-700 mb-2">No hay licencias</h2>
-                        <p className="text-gray-500">No se encontraron licencias para los filtros seleccionados.</p>
+                        <p className="text-gray-500">
+                          No se encontraron licencias para los filtros seleccionados.
+                        </p>
                       </td>
                     </tr>
                   ) : (
-                    /* filas con datos */
                     paged.map((lic) => {
                       const courseLabel = `${lic.courseCode || "UNK"} - ${lic.section || "?"}`;
                       const studentName = lic.studentName || "Sin nombre";
@@ -389,7 +510,10 @@ export default function ProfeLicencias() {
                       const fechaFin = lic.fechaFin || "-";
 
                       return (
-                        <tr key={lic.id} className="hover:bg-blue-50 transition-colors duration-200">
+                        <tr
+                          key={lic.id}
+                          className="hover:bg-blue-50 transition-colors duration-200"
+                        >
                           <td className="px-6 py-5 whitespace-nowrap">
                             <div className="flex items-center gap-3">
                               <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-800 font-semibold">
@@ -454,7 +578,7 @@ export default function ProfeLicencias() {
 
             {/* Paginación */}
             {!loading && filtered.length > 0 && (
-              <div className="flex items-center justify-between p-4 border-t">
+              <div className="flex items-center justify_between p-4 border-t">
                 <div className="text-sm text-gray-600">
                   Mostrando {filtered.length} resultados — Página {page} de {totalPages}
                 </div>
@@ -469,7 +593,7 @@ export default function ProfeLicencias() {
                   <button
                     onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                     disabled={page === totalPages}
-                    className="px-3 py-1 rounded border bg-white hover:bg-gray-50 disabled:opacity-50"
+                    className="px-3 py-1 rounded border bg_white hover:bg-gray-50 disabled:opacity-50"
                   >
                     Siguiente
                   </button>

@@ -23,6 +23,7 @@ import estudianteRoutes from './routes/estudiante.routes.js';
 import funcionarioRoutes from './routes/funcionario.routes.js';
 import periodoRoutes from './routes/periodo.route.js';
 import entregasRoutes from './routes/entregas.routes.js';
+import profesorRoutes from './routes/profesor.routes.js';
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -90,6 +91,9 @@ app.use('/funcionario', funcionarioRoutes);
 
 // Admin
 app.use('/admin', adminRoutes);
+
+// Profesor
+app.use('/profesor', profesorRoutes);
 
 // Reportes (SIN prefijo → /reportes/licencias/exceso)
 app.use(reportesRouter);
