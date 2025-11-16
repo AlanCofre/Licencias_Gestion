@@ -15,201 +15,213 @@ import {
   Trash2,
 } from "lucide-react";
 
-// ⛳ Cambia a false cuando conectes tu backend
-const USE_MOCK = true;
+// ⛳ Cambia a true si necesitas usar mocks temporalmente
+const USE_MOCK = false;
 
-/** ========= API LAYER =========
- * GET    /admin/periodos
- * GET    /admin/profesores
- * GET    /admin/cursos?periodo_id=&profesor_id=
- * POST   /admin/cursos
- * PUT    /admin/cursos/:id
- * DELETE /admin/cursos/:id
- * Errores: 409 duplicado (codigo+seccion+periodo), 422 referencias inválidas
- */
+/** ========= API LAYER ========= */
 async function apiRequest(path, opts = {}) {
   if (USE_MOCK) return mockApi(path, opts);
 
-  const res = await fetch(`/api${path}`, {
+  const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+  const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+  
+  const response = await fetch(`${API_BASE}/api${path}`, {
     credentials: "include",
-    headers: { "Content-Type": "application/json" },
+    headers: { 
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`
+    },
     ...opts,
   });
-  if (!res.ok) {
-    const msg = await res.text();
-    const err = new Error(msg || "request_failed");
-    err.status = res.status;
+
+  if (!response.ok) {
+    let errorMessage = "Error en la solicitud";
+    try {
+      const errorData = await response.json();
+      errorMessage = errorData.mensaje || errorMessage;
+    } catch {
+      errorMessage = await response.text() || `Error ${response.status}`;
+    }
+    
+    const err = new Error(errorMessage);
+    err.status = response.status;
     throw err;
   }
-  const ct = res.headers.get("content-type") || "";
-  if (ct.includes("application/json")) return res.json();
-  return res.blob();
+
+  const contentType = response.headers.get("content-type") || "";
+  if (contentType.includes("application/json")) {
+    const data = await response.json();
+    // Manejar diferentes formatos de respuesta del backend
+    return data.data !== undefined ? data.data : data;
+  }
+  
+  return response.blob();
 }
 
 const api = {
-  getPeriodos: () => apiRequest("/admin/periodos"),
+  // Obtener periodos académicos
+  getPeriodos: () => apiRequest("/periodos"),
+  
+  // Obtener profesores (usuarios con rol profesor)
   getProfesores: () => apiRequest("/admin/profesores"),
+  
+  // Obtener cursos con filtros
   getCursos: ({ periodoId, profesorId }) => {
-    const p = new URLSearchParams();
-    if (periodoId) p.set("periodo_id", periodoId);
-    if (profesorId) p.set("profesor_id", profesorId);
-    const qs = p.toString();
-    return apiRequest(`/admin/cursos${qs ? "?" + qs : ""}`);
+    const params = new URLSearchParams();
+    if (periodoId) params.set("id_periodo", periodoId);
+    if (profesorId) params.set("id_profesor", profesorId);
+    const queryString = params.toString();
+    return apiRequest(`/cursos${queryString ? "?" + queryString : ""}`);
   },
+  
+  // Crear nuevo curso
   createCurso: (payload) =>
-    apiRequest("/admin/cursos", { method: "POST", body: JSON.stringify(payload) }),
+    apiRequest("/cursos", { 
+      method: "POST", 
+      body: JSON.stringify(payload) 
+    }),
+  
+  // Actualizar curso existente
   updateCurso: (id, payload) =>
-    apiRequest(`/admin/cursos/${id}`, { method: "PUT", body: JSON.stringify(payload) }),
-  deleteCurso: (id) => apiRequest(`/admin/cursos/${id}`, { method: "DELETE" }),
+    apiRequest(`/cursos/${id}`, { 
+      method: "PUT", 
+      body: JSON.stringify(payload) 
+    }),
+  
+  // Eliminar curso
+  deleteCurso: (id) => 
+    apiRequest(`/cursos/${id}`, { 
+      method: "DELETE" 
+    }),
 };
 
-// ======= MOCKS (para desarrollo sin backend) =======
+// ======= MOCKS CON DATOS DE TU BD REAL =======
 async function mockApi(path, opts = {}) {
   await new Promise((r) => setTimeout(r, 350));
-  const url = new URL("http://x" + path);
-
-  if (!window.__COURSES_MOCK__) {
-    const periodos = [
-      { id: "2025-1", nombre: "2025 - Semestre 1" },
-      { id: "2025-2", nombre: "2025 - Semestre 2" },
-      { id: "2026-1", nombre: "2026 - Semestre 1" },
-    ];
-    const profesores = [
-      { id: "p1", nombre: "María López", email: "mlopez@uct.cl" },
-      { id: "p2", nombre: "Juan Pérez", email: "jperez@uct.cl" },
-      { id: "p3", nombre: "Carolina Soto", email: "csoto@uct.cl" },
-      { id: "p4", nombre: "Diego Rivas", email: "drivas@uct.cl" },
-    ];
-    const cursos = [
-      // 2025-1
-      { id: "c1", codigo: "INF-101", nombre: "Intro a la Programación", seccion: "001", semestre: 1, periodo_id: "2025-1", profesor_id: "p1" },
-      { id: "c2", codigo: "INF-101", nombre: "Intro a la Programación", seccion: "002", semestre: 1, periodo_id: "2025-1", profesor_id: "p2" },
-      { id: "c3", codigo: "MAT-201", nombre: "Cálculo II",              seccion: "001", semestre: 3, periodo_id: "2025-1", profesor_id: "p3" },
-      // 2025-2
-      { id: "c4", codigo: "INF-240", nombre: "Programación Web",        seccion: "001", semestre: 4, periodo_id: "2025-2", profesor_id: "p2" },
-      { id: "c5", codigo: "INF-220", nombre: "Bases de Datos",          seccion: "001", semestre: 4, periodo_id: "2025-2", profesor_id: "p1" },
-      // 2026-1
-      { id: "c6", codigo: "INF-310", nombre: "Sistemas Operativos",     seccion: "001", semestre: 5, periodo_id: "2026-1", profesor_id: "p4" },
-    ];
-    let seq = 100;
-    window.__COURSES_MOCK__ = { periodos, profesores, cursos, seq };
-  }
+  
+  
   const DB = window.__COURSES_MOCK__;
-
-  // GETs
-  if (path.startsWith("/admin/periodos")) return structuredClone(DB.periodos);
-  if (path.startsWith("/admin/profesores")) return structuredClone(DB.profesores);
-
-  if (path.startsWith("/admin/cursos") && (!opts.method || opts.method === "GET")) {
-    const periodo_id = url.searchParams.get("periodo_id");
-    const profesor_id = url.searchParams.get("profesor_id");
-    let rows = DB.cursos.map((c) => ({
-      ...c,
-      profesor: structuredClone(DB.profesores.find((p) => p.id === c.profesor_id)),
-    }));
-    if (periodo_id) rows = rows.filter((c) => c.periodo_id === periodo_id);
-    if (profesor_id) rows = rows.filter((c) => c.profesor_id === profesor_id);
-    return structuredClone(rows);
+  
+  // GET /periodos
+  if (path === "/periodos") return DB.periodos;
+  
+  // GET /admin/profesores
+  if (path === "/admin/profesores") return DB.profesores;
+  
+  // GET /cursos
+  if (path.startsWith("/cursos") && (!opts.method || opts.method === "GET")) {
+    const url = new URL("http://x" + path);
+    const id_periodo = url.searchParams.get("id_periodo");
+    const id_profesor = url.searchParams.get("id_profesor");
+    
+    let rows = DB.cursos;
+    if (id_periodo) rows = rows.filter(c => c.id_periodo == id_periodo);
+    if (id_profesor) rows = rows.filter(c => c.id_usuario == id_profesor);
+    
+    return rows;
   }
-
-  // POST
-  if (path === "/admin/cursos" && opts.method === "POST") {
+  
+  // POST /cursos
+  if (path === "/cursos" && opts.method === "POST") {
     const body = JSON.parse(opts.body || "{}");
-    const { codigo, nombre, seccion, semestre, periodo_id, profesor_id } = body || {};
-    if (!codigo || !nombre || !seccion || !semestre || !periodo_id || !profesor_id) {
-      const e = new Error("unprocessable");
+    const { codigo, nombre_curso, seccion, semestre, id_periodo, id_usuario } = body;
+    
+    if (!codigo || !nombre_curso || !seccion || !semestre || !id_periodo || !id_usuario) {
+      const e = new Error("Faltan datos obligatorios");
       e.status = 422;
       throw e;
     }
-    // unicidad: codigo+seccion+periodo
-    const dup = DB.cursos.some(
-      (c) =>
-        c.codigo.trim().toLowerCase() === String(codigo).trim().toLowerCase() &&
-        c.seccion.trim().toLowerCase() === String(seccion).trim().toLowerCase() &&
-        c.periodo_id === periodo_id
+    
+    const exists = DB.cursos.some(c => 
+      c.codigo === codigo && 
+      c.seccion == seccion && 
+      c.id_periodo == id_periodo
     );
-    if (dup) {
-      const e = new Error("duplicate");
+    
+    if (exists) {
+      const e = new Error("Ya existe un curso con ese código, sección y período");
       e.status = 409;
       throw e;
     }
-    const prof = DB.profesores.find((p) => p.id === profesor_id);
-    if (!prof || !DB.periodos.find((p) => p.id === periodo_id)) {
-      const e = new Error("unprocessable");
-      e.status = 422;
-      throw e;
-    }
-    const id = "c" + DB.seq++;
-    const nuevo = { id, codigo, nombre, seccion: String(seccion), semestre: Number(semestre), periodo_id, profesor_id };
-    DB.cursos.push(nuevo);
-    return { ...nuevo, profesor: structuredClone(prof) };
-  }
-
-  // PUT
-  if (path.startsWith("/admin/cursos/") && opts.method === "PUT") {
-    const id = path.split("/").pop();
-    const body = JSON.parse(opts.body || "{}");
-    const { codigo, nombre, seccion, semestre, periodo_id, profesor_id } = body || {};
-    if (!codigo || !nombre || !seccion || !semestre || !periodo_id || !profesor_id) {
-      const e = new Error("unprocessable");
-      e.status = 422;
-      throw e;
-    }
-    const idx = DB.cursos.findIndex((c) => c.id === id);
-    if (idx < 0) {
-      const e = new Error("unprocessable");
-      e.status = 422;
-      throw e;
-    }
-    const dup = DB.cursos.some(
-      (c) =>
-        c.id !== id &&
-        c.codigo.trim().toLowerCase() === String(codigo).trim().toLowerCase() &&
-        c.seccion.trim().toLowerCase() === String(seccion).trim().toLowerCase() &&
-        c.periodo_id === periodo_id
-    );
-    if (dup) {
-      const e = new Error("duplicate");
-      e.status = 409;
-      throw e;
-    }
-    const prof = DB.profesores.find((p) => p.id === profesor_id);
-    if (!prof || !DB.periodos.find((p) => p.id === periodo_id)) {
-      const e = new Error("unprocessable");
-      e.status = 422;
-      throw e;
-    }
-    DB.cursos[idx] = {
-      id,
+    
+    const newCourse = {
+      id_curso: DB.seq++,
       codigo,
-      nombre,
-      seccion: String(seccion),
+      nombre_curso,
+      seccion: Number(seccion),
       semestre: Number(semestre),
-      periodo_id,
-      profesor_id,
+      id_periodo: Number(id_periodo),
+      id_usuario: Number(id_usuario),
+      usuario: DB.profesores.find(p => p.id_usuario == id_usuario),
+      periodo: DB.periodos.find(p => p.id_periodo == id_periodo)
     };
-    return { ...DB.cursos[idx], profesor: structuredClone(prof) };
+    
+    DB.cursos.push(newCourse);
+    return newCourse;
   }
-
-  // DELETE
-  if (path.startsWith("/admin/cursos/") && opts.method === "DELETE") {
+  
+  // PUT /cursos/:id
+  if (path.startsWith("/cursos/") && opts.method === "PUT") {
     const id = path.split("/").pop();
-    const idx = DB.cursos.findIndex((c) => c.id === id);
-    if (idx < 0) {
-      const e = new Error("unprocessable");
-      e.status = 422;
+    const body = JSON.parse(opts.body || "{}");
+    const { codigo, nombre_curso, seccion, semestre, id_periodo, id_usuario } = body;
+    
+    const index = DB.cursos.findIndex(c => c.id_curso == id);
+    if (index === -1) {
+      const e = new Error("Curso no encontrado");
+      e.status = 404;
       throw e;
     }
-    DB.cursos.splice(idx, 1);
+    
+    const exists = DB.cursos.some(c => 
+      c.id_curso != id &&
+      c.codigo === codigo && 
+      c.seccion == seccion && 
+      c.id_periodo == id_periodo
+    );
+    
+    if (exists) {
+      const e = new Error("Ya existe un curso con ese código, sección y período");
+      e.status = 409;
+      throw e;
+    }
+    
+    DB.cursos[index] = {
+      ...DB.cursos[index],
+      codigo,
+      nombre_curso,
+      seccion: Number(seccion),
+      semestre: Number(semestre),
+      id_periodo: Number(id_periodo),
+      id_usuario: Number(id_usuario),
+      usuario: DB.profesores.find(p => p.id_usuario == id_usuario),
+      periodo: DB.periodos.find(p => p.id_periodo == id_periodo)
+    };
+    
+    return DB.cursos[index];
+  }
+  
+  // DELETE /cursos/:id
+  if (path.startsWith("/cursos/") && opts.method === "DELETE") {
+    const id = path.split("/").pop();
+    const index = DB.cursos.findIndex(c => c.id_curso == id);
+    
+    if (index === -1) {
+      const e = new Error("Curso no encontrado");
+      e.status = 404;
+      throw e;
+    }
+    
+    DB.cursos.splice(index, 1);
     return { ok: true };
   }
-
-  const e = new Error("not_implemented");
-  e.status = 500;
+  
+  const e = new Error("Ruta no implementada");
+  e.status = 501;
   throw e;
 }
 
-// ======= UI helpers =======
+// ======= UI COMPONENTS =======
 function Toast({ toast, onClose }) {
   if (!toast) return null;
   const base =
@@ -273,90 +285,147 @@ function ConfirmDialog({ open, title = "Confirmar", message, onCancel, onConfirm
   );
 }
 
-// ============= PAGE =============
+// ============= MAIN COMPONENT =============
 export default function AdminCursos() {
   const [periodos, setPeriodos] = useState([]);
   const [profesores, setProfesores] = useState([]);
   const [cursos, setCursos] = useState([]);
   const [loadingList, setLoadingList] = useState(true);
+  const [loadingInitial, setLoadingInitial] = useState(true);
 
-  // filtros
+  // Filtros
   const [periodoId, setPeriodoId] = useState("");
   const [profesorId, setProfesorId] = useState("");
 
-  // modal form
+  // Modal form
   const [modalOpen, setModalOpen] = useState(false);
-  const [editing, setEditing] = useState(null); // curso o null
+  const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({
     codigo: "",
-    nombre: "",
+    nombre_curso: "",
     seccion: "",
     semestre: 1,
-    periodo_id: "",
-    profesor_id: "",
+    id_periodo: "",
+    id_usuario: "",
   });
   const [saving, setSaving] = useState(false);
 
-  // eliminar
+  // Eliminar
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [toDelete, setToDelete] = useState(null);
 
-  // toasts
+  // Toasts
   const [toast, setToast] = useState(null);
   const showToast = (type, message) => {
     setToast({ type, message });
     setTimeout(() => setToast(null), 3200);
   };
 
-  // bootstrap
+  // Cargar datos iniciales con DEBUG
   useEffect(() => {
     let alive = true;
-    (async () => {
+    
+    const loadInitialData = async () => {
       try {
-        const [ps, profs] = await Promise.all([api.getPeriodos(), api.getProfesores()]);
+        setLoadingInitial(true);
+        console.log('🔄 Cargando datos iniciales...');
+        
+        const [periodosData, profesoresData] = await Promise.all([
+          api.getPeriodos(),
+          api.getProfesores()
+        ]);
+        
         if (!alive) return;
-        setPeriodos(ps);
-        setProfesores(profs);
-        if (ps?.length && !periodoId) setPeriodoId(ps[0].id);
-      } catch {
+        
+        console.log('📊 Periodos recibidos:', periodosData);
+        console.log('👨‍🏫 Profesores recibidos:', profesoresData);
+        
+        // Asegurarse de que los datos sean arrays
+        const safePeriodos = Array.isArray(periodosData) ? periodosData : [];
+        const safeProfesores = Array.isArray(profesoresData) ? profesoresData : [];
+        
+        setPeriodos(safePeriodos);
+        setProfesores(safeProfesores);
+        
+        // Si hay periodos, seleccionar el primero
+        if (safePeriodos.length > 0) {
+          setPeriodoId(String(safePeriodos[0].id_periodo));
+        }
+        
+      } catch (error) {
+        console.error('❌ Error cargando datos iniciales:', error);
         showToast("error", "No se pudieron cargar periodos/profesores.");
+        setPeriodos([]);
+        setProfesores([]);
+      } finally {
+        if (alive) setLoadingInitial(false);
       }
-    })();
+    };
+
+    loadInitialData();
+    
     return () => {
       alive = false;
     };
   }, []);
 
-  // cargar cursos según filtros
+  // Cargar cursos según filtros con DEBUG
   useEffect(() => {
     let alive = true;
-    (async () => {
+    
+    const loadCursos = async () => {
+      if (loadingInitial) {
+        console.log('⏳ Esperando datos iniciales...');
+        return;
+      }
+      
+      console.log('🔄 Cargando cursos con filtros:', { periodoId, profesorId });
       setLoadingList(true);
+      
       try {
-        const list = await api.getCursos({ periodoId, profesorId });
+        const cursosData = await api.getCursos({ 
+          periodoId, 
+          profesorId 
+        });
+        
         if (!alive) return;
-        setCursos(list);
-      } catch {
+        
+        console.log('📚 Cursos recibidos:', cursosData);
+        
+        // Asegurarse de que los cursos sean un array
+        const safeCursos = Array.isArray(cursosData) ? cursosData : [];
+        setCursos(safeCursos);
+        
+        if (safeCursos.length === 0) {
+          console.log('ℹ️  No se encontraron cursos con los filtros actuales');
+        }
+      } catch (error) {
+        console.error('❌ Error cargando cursos:', error);
         showToast("error", "No se pudo cargar la oferta de cursos.");
+        setCursos([]);
       } finally {
         if (alive) setLoadingList(false);
       }
-    })();
+    };
+
+    loadCursos();
+    
     return () => {
       alive = false;
     };
-  }, [periodoId, profesorId]);
+  }, [periodoId, profesorId, loadingInitial]);
 
+  // CORREGIDO: Reset form - manejo correcto de valores
   const resetForm = (preset = {}) => {
     setForm({
       codigo: preset.codigo || "",
-      nombre: preset.nombre || "",
-      seccion: preset.seccion || "",
+      nombre_curso: preset.nombre_curso || "",
+      seccion: preset.seccion !== undefined ? String(preset.seccion) : "",
       semestre: preset.semestre || 1,
-      periodo_id: preset.periodo_id || periodoId || "",
-      profesor_id: preset.profesor?.id || preset.profesor_id || "",
+      id_periodo: preset.periodo?.id_periodo || preset.id_periodo || "", // CORREGIDO: usar periodo.id_periodo
+      id_usuario: preset.profesor?.id_usuario || preset.id_usuario || "", // CORREGIDO: usar profesor.id_usuario
     });
-  };
+};
 
   const openCreate = () => {
     setEditing(null);
@@ -370,20 +439,38 @@ export default function AdminCursos() {
     setModalOpen(true);
   };
 
+
+
+  // CORREGIDO: Función onChange mejorada
   const onChange = (e) => {
     const { name, value } = e.target;
-    setForm((f) => ({ ...f, [name]: name === "semestre" ? Number(value) : value }));
+    
+    if (name === "semestre" || name === "seccion") {
+      setForm((f) => ({ 
+        ...f, 
+        [name]: value === "" ? "" : Number(value) 
+      }));
+    } else if (name === "id_periodo" || name === "id_usuario") {
+      setForm((f) => ({ 
+        ...f, 
+        [name]: value === "" ? "" : Number(value) 
+      }));
+    } else {
+      setForm((f) => ({ ...f, [name]: value }));
+    }
   };
 
+  // CORREGIDO: Validación mejorada
   const canSave =
     form.codigo.trim() &&
-    form.nombre.trim() &&
-    form.seccion.trim() &&
+    form.nombre_curso.trim() &&
+    form.seccion !== "" && // Sección puede ser 0
     Number(form.semestre) >= 1 &&
     Number(form.semestre) <= 10 &&
-    form.periodo_id &&
-    form.profesor_id;
+    form.id_periodo && // Estos deben ser truthy (no vacíos)
+    form.id_usuario;   // Estos deben ser truthy (no vacíos)
 
+  // CORREGIR la función handleSave:
   const handleSave = async (ev) => {
     ev?.preventDefault();
     if (!canSave || saving) return;
@@ -391,66 +478,91 @@ export default function AdminCursos() {
 
     const payload = {
       codigo: form.codigo.trim(),
-      nombre: form.nombre.trim(),
-      seccion: String(form.seccion).trim(),
+      nombre_curso: form.nombre_curso.trim(),
+      seccion: Number(form.seccion),
       semestre: Number(form.semestre),
-      periodo_id: form.periodo_id,
-      profesor_id: form.profesor_id,
+      id_periodo: Number(form.id_periodo),
+      id_usuario: Number(form.id_usuario),
     };
 
     try {
       if (editing) {
-        const updated = await api.updateCurso(editing.id, payload);
-        setCursos((prev) => prev.map((c) => (c.id === editing.id ? updated : c)));
+        const updated = await api.updateCurso(editing.id_curso, payload);
+        // En lugar de actualizar solo el curso editado, recargamos todos los cursos
+        // para asegurar que tenemos las relaciones actualizadas
+        const cursosActualizados = await api.getCursos({ periodoId, profesorId });
+        setCursos(cursosActualizados);
         showToast("success", "Curso actualizado correctamente.");
       } else {
         const created = await api.createCurso(payload);
-        setCursos((prev) => [created, ...prev]);
+        // Recargar cursos después de crear uno nuevo
+        const cursosActualizados = await api.getCursos({ periodoId, profesorId });
+        setCursos(cursosActualizados);
         showToast("success", "Curso creado correctamente.");
       }
       setModalOpen(false);
       setEditing(null);
-    } catch (e) {
-      if (e.status === 409) {
-        showToast("error", "Duplicado: Código + Sección ya existe en ese Periodo (409).");
-      } else if (e.status === 422) {
-        showToast("error", "Datos inválidos: verifica periodo/profesor/semestre (422).");
+    } catch (error) {
+      console.error('❌ Error guardando curso:', error);
+      if (error.status === 409) {
+        showToast("error", "Ya existe un curso con ese código, sección y período.");
+      } else if (error.status === 422) {
+        showToast("error", "Datos inválidos: verifica que todos los campos sean correctos.");
       } else {
-        showToast("error", "No se pudo guardar el curso.");
+        showToast("error", error.message || "No se pudo guardar el curso.");
       }
     } finally {
       setSaving(false);
     }
   };
-
-  // eliminar
+  // Eliminar curso
   const askDelete = (curso) => {
     setToDelete(curso);
     setConfirmOpen(true);
   };
 
   const doDelete = async () => {
-    const c = toDelete;
-    if (!c) return;
+    const curso = toDelete;
+    if (!curso) return;
+    
     setConfirmOpen(false);
     setToDelete(null);
-    // optimista
+    
+    // Optimistic update
     const snapshot = [...cursos];
-    setCursos((prev) => prev.filter((x) => x.id !== c.id));
+    setCursos((prev) => prev.filter((c) => c.id_curso !== curso.id_curso));
+    
     try {
-      await api.deleteCurso(c.id);
-      showToast("success", "Curso eliminado.");
-    } catch (e) {
+      await api.deleteCurso(curso.id_curso);
+      showToast("success", "Curso eliminado correctamente.");
+    } catch (error) {
+      // Revertir en caso de error
       setCursos(snapshot);
-      if (e.status === 422) {
-        showToast("error", "No se pudo eliminar: referencia inválida (422).");
+      if (error.status === 400) {
+        showToast("error", "No se puede eliminar el curso porque tiene matrículas asociadas.");
       } else {
-        showToast("error", "Error al eliminar el curso.");
+        showToast("error", error.message || "Error al eliminar el curso.");
       }
     }
   };
 
   const filteredCount = cursos.length;
+
+  // Renderizado condicional mejorado
+  if (loadingInitial) {
+    return (
+      <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-50 to-indigo-100">
+        <Navbar />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-blue-600" />
+            <p className="text-gray-600">Cargando datos iniciales...</p>
+          </div>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-50 to-indigo-100 dark:bg-app dark:bg-none">
@@ -475,8 +587,7 @@ export default function AdminCursos() {
                 </div>
               </div>
 
-              {/* Filtros — alineación mejorada */}
-              {/* Usamos un grid de 12 columnas para alinear labels e inputs con alturas iguales */}
+              {/* Filtros - CORREGIDOS */}
               <div className="mt-4 grid grid-cols-12 gap-3 items-end">
                 {/* Periodo */}
                 <div className="col-span-12 md:col-span-4">
@@ -488,16 +599,22 @@ export default function AdminCursos() {
                     <select
                       id="periodo"
                       value={periodoId}
-                      onChange={(e) => setPeriodoId(e.target.value)}
+                      onChange={(e) => {
+                        console.log('🎯 Cambiando periodo a:', e.target.value);
+                        setPeriodoId(e.target.value);
+                      }}
                       className="w-full border border-gray-200 bg-white px-3 py-2 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#048FD4]"
                     >
-                      {periodos.length === 0 && <option>—</option>}
+                      <option value="">Todos los periodos</option>
                       {periodos.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.nombre}
+                        <option key={p.id_periodo} value={String(p.id_periodo)}>
+                          {p.codigo} {p.activo ? "(Activo)" : ""}
                         </option>
                       ))}
                     </select>
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1">
+                    {periodos.length} periodo(s) cargado(s)
                   </div>
                 </div>
 
@@ -511,16 +628,22 @@ export default function AdminCursos() {
                     <select
                       id="profesor"
                       value={profesorId}
-                      onChange={(e) => setProfesorId(e.target.value)}
+                      onChange={(e) => {
+                        console.log('👨‍🏫 Cambiando profesor a:', e.target.value);
+                        setProfesorId(e.target.value);
+                      }}
                       className="w-full border border-gray-200 bg-white px-3 py-2 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#048FD4]"
                     >
-                      <option value="">Todos</option>
+                      <option value="">Todos los profesores</option>
                       {profesores.map((p) => (
-                        <option key={p.id} value={p.id}>
+                        <option key={p.id_usuario} value={String(p.id_usuario)}>
                           {p.nombre}
                         </option>
                       ))}
                     </select>
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1">
+                    {profesores.length} profesor(es) cargado(s)
                   </div>
                 </div>
 
@@ -528,13 +651,14 @@ export default function AdminCursos() {
                 <div className="col-span-12 md:col-span-4">
                   <div className="flex flex-col md:flex-row items-stretch md:items-end gap-2 md:justify-end">
                     <div className="flex items-center justify-between md:justify-end gap-2">
-                      <div className="inline-flex items-center   text-gray-600 text-sm px-3 py-2">
+                      <div className="inline-flex items-center text-gray-600 text-sm px-3 py-2">
                         <Filter size={16} className="mr-2" />
                         {filteredCount} resultados
                       </div>
                       <button
                         onClick={openCreate}
-                        className="inline-flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-medium rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all shadow-sm"
+                        disabled={periodos.length === 0 || profesores.length === 0}
+                        className="inline-flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-medium rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <Plus className="h-4 w-4" />
                         Crear curso
@@ -546,7 +670,7 @@ export default function AdminCursos() {
             </div>
           </div>
 
-          {/* Lista */}
+          {/* Lista de cursos - CORREGIDO: mostrar profesor correctamente */}
           <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
             {loadingList ? (
               <div className="flex items-center justify-center py-16 text-gray-600">
@@ -555,7 +679,12 @@ export default function AdminCursos() {
               </div>
             ) : cursos.length === 0 ? (
               <div className="text-center text-gray-500 text-sm py-16">
-                No hay cursos para los filtros seleccionados.
+                {periodos.length === 0 
+                  ? "No hay periodos académicos configurados. Contacta al administrador."
+                  : profesores.length === 0
+                  ? "No hay profesores disponibles para asignar cursos."
+                  : "No hay cursos para los filtros seleccionados."
+                }
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -586,27 +715,31 @@ export default function AdminCursos() {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-100">
-                    {cursos.map((c) => (
-                      <tr key={c.id} className="hover:bg-blue-50 transition-colors">
+                    {cursos.map((curso) => (
+                      <tr key={curso.id_curso} className="hover:bg-blue-50 transition-colors">
                         <td className="px-6 py-4 text-sm font-semibold text-gray-900">
-                          {c.codigo}
+                          {curso.codigo}
                         </td>
-                        <td className="px-6 py-4 text-sm text-gray-800">{c.nombre}</td>
-                        <td className="px-6 py-4 text-sm text-gray-800">{c.seccion}</td>
-                        <td className="px-6 py-4 text-sm text-gray-800">{c.semestre}</td>
-                        <td className="px-6 py-4 text-sm text-gray-800">{c.periodo_id}</td>
-                        <td className="px-6 py-4 text-sm text-gray-800">{c.profesor?.nombre}</td>
+                        <td className="px-6 py-4 text-sm text-gray-800">{curso.nombre_curso}</td>
+                        <td className="px-6 py-4 text-sm text-gray-800">{curso.seccion}</td>
+                        <td className="px-6 py-4 text-sm text-gray-800">{curso.semestre}</td>
+                        <td className="px-6 py-4 text-sm text-gray-800">
+                          {curso.periodo?.codigo || "N/A"}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-800">
+                          {curso.Usuario?.nombre || "No asignado"}
+                        </td>
                         <td className="px-6 py-4 text-center">
                           <div className="flex items-center gap-2 justify-center">
                             <button
-                              onClick={() => openEdit(c)}
+                              onClick={() => openEdit(curso)}
                               className="inline-flex items-center gap-2 px-3 py-2 bg-white hover:bg-blue-50 text-blue-700 text-sm font-medium rounded-lg border border-blue-200 transition-all shadow-sm"
                             >
                               <Pencil className="h-4 w-4" />
                               Editar
                             </button>
                             <button
-                              onClick={() => askDelete(c)}
+                              onClick={() => askDelete(curso)}
                               className="inline-flex items-center gap-2 px-3 py-2 bg-white hover:bg-red-50 text-red-600 text-sm font-medium rounded-lg border border-red-200 transition-all shadow-sm"
                             >
                               <Trash2 className="h-4 w-4" />
@@ -623,7 +756,7 @@ export default function AdminCursos() {
           </div>
         </div>
 
-        {/* Modal Crear/Editar */}
+        {/* Modal Crear/Editar - CORREGIDO: combobox funcionando */}
         <Modal
           open={modalOpen}
           title={editing ? "Editar curso" : "Crear curso"}
@@ -634,37 +767,43 @@ export default function AdminCursos() {
         >
           <form onSubmit={handleSave} className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Código</label>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Código *</label>
               <input
                 name="codigo"
                 value={form.codigo}
                 onChange={onChange}
                 placeholder="INF-101"
                 className="w-full border border-gray-200 bg-white px-3 py-2 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#048FD4]"
+                required
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Nombre</label>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Nombre *</label>
               <input
-                name="nombre"
-                value={form.nombre}
+                name="nombre_curso"
+                value={form.nombre_curso}
                 onChange={onChange}
                 placeholder="Introducción a la Programación"
                 className="w-full border border-gray-200 bg-white px-3 py-2 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#048FD4]"
+                required
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Sección</label>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Sección *</label>
               <input
+                type="number"
+                min="1"
+                max="999"
                 name="seccion"
                 value={form.seccion}
                 onChange={onChange}
-                placeholder="001"
+                placeholder="1"
                 className="w-full border border-gray-200 bg-white px-3 py-2 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#048FD4]"
+                required
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Semestre (1..10)</label>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Semestre (1-10) *</label>
               <input
                 type="number"
                 min={1}
@@ -673,35 +812,38 @@ export default function AdminCursos() {
                 value={form.semestre}
                 onChange={onChange}
                 className="w-full border border-gray-200 bg-white px-3 py-2 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#048FD4]"
+                required
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Periodo</label>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Periodo *</label>
               <select
-                name="periodo_id"
-                value={form.periodo_id}
+                name="id_periodo"
+                value={form.id_periodo}
                 onChange={onChange}
                 className="w-full border border-gray-200 bg-white px-3 py-2 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#048FD4]"
+                required
               >
-                <option value="">Selecciona...</option>
+                <option value="">Selecciona un periodo</option>
                 {periodos.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.nombre}
+                  <option key={p.id_periodo} value={p.id_periodo}>
+                    {p.codigo} {p.activo ? "(Activo)" : ""}
                   </option>
                 ))}
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Profesor</label>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Profesor *</label>
               <select
-                name="profesor_id"
-                value={form.profesor_id}
+                name="id_usuario"
+                value={form.id_usuario}
                 onChange={onChange}
                 className="w-full border border-gray-200 bg-white px-3 py-2 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#048FD4]"
+                required
               >
-                <option value="">Selecciona...</option>
+                <option value="">Selecciona un profesor</option>
                 {profesores.map((p) => (
-                  <option key={p.id} value={p.id}>
+                  <option key={p.id_usuario} value={p.id_usuario}>
                     {p.nombre}
                   </option>
                 ))}
@@ -730,7 +872,7 @@ export default function AdminCursos() {
             </div>
 
             <div className="md:col-span-2 text-xs text-gray-500 pt-1">
-              * No se permite repetir <span className="font-semibold">Código + Sección</span> en el mismo <span className="font-semibold">Periodo</span>.
+              * Campos obligatorios. No se permite repetir <span className="font-semibold">Código + Sección</span> en el mismo <span className="font-semibold">Periodo</span>.
             </div>
           </form>
         </Modal>

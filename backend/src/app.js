@@ -89,7 +89,7 @@ app.use('/api/matriculas', matriculasRoutes);
 app.use('/funcionario', funcionarioRoutes);
 
 // Admin
-app.use('/admin', adminRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Reportes (SIN prefijo → /reportes/licencias/exceso)
 app.use(reportesRouter);
