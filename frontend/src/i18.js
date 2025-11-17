@@ -102,9 +102,6 @@ const resources = {
       },
 
       // 🧩 Navbar
-      nav: {
-        home: "Inicio",
-      },
       user: {
         label: "Usuario",
         defaultName: "Usuario",

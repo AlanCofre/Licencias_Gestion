@@ -102,8 +102,6 @@ app.use((req, res) => {
   res.status(404).json({ ok: false, mensaje: 'Ruta no encontrada' });
 });
 
-
-
 /* === Error handler global === */
 app.use((err, req, res, next) => {
   console.error('💥 Error no controlado:', err);

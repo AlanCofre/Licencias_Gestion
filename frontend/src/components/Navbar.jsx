@@ -58,6 +58,23 @@ export default function Navbar() {
   const isSecretary =
     role === "secretaria" || role === "secretary" || role === "funcionario";
 
+  // Determinar la ruta según el rol
+  const getHomeRoute = () => {
+    switch (role) {
+      case "secretaria":
+      case "secretary":
+      case "funcionario":
+        return "/secretaria";
+      case "profesor":
+        return "/profesor";
+      case "administrador":
+      case "administrator":
+        return "/admin";
+      default:
+        return "/alumno";
+    }
+  };
+
   // ==== AQUÍ ES LA CLAVE ====
   // orden de prioridad para el nombre
   const nameFromToken = tokenData?.nombre;
@@ -366,7 +383,7 @@ export default function Navbar() {
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-20">
           <div className="flex items-center">
-            <Link to="/" onClick={closeMenu} className="flex items-center p-1">
+            <Link to={getHomeRoute()} onClick={closeMenu} className="flex items-center p-1">
               <img src={logo} alt="MedManager" className="h-10 w-10 mr-3" />
               <span className="text-2xl font-bold tracking-wide font-display">
                 MedManager
@@ -376,14 +393,6 @@ export default function Navbar() {
 
           <nav className="hidden md:flex flex-1 justify-center">
             <ul className="flex gap-8 text-sm font-medium items-center">
-              <li>
-                <Link
-                  to={isSecretary ? "/secretaria" : "/alumno"}
-                  className="px-3 py-2 hover:bg-white/10 rounded transition-colors"
-                >
-                  {t("nav.home")}
-                </Link>
-              </li>
             </ul>
           </nav>
 
