@@ -48,25 +48,27 @@ async function cargarLicencia(req, res, next) {
 
 /* ===== Listados / creación ===== */
 router.get('/', validarJWT, listarLicencias);
+
+// Reemplazada: única ruta unificada para /en-revision (filtros, paginación y regularidad)
 router.get('/en-revision', validarJWT, async (req, res) => {
   try {
     const usuarioId = req.user?.id_usuario ?? req.id ?? null;
     const rol = (req.user?.rol ?? req.rol ?? '').toString().toLowerCase();
-    
+
     if (!usuarioId) {
       return res.status(401).json({ ok: false, error: 'No autenticado' });
     }
 
-    // Solo funcionarios pueden ver todas las licencias pendientes
+    // Solo ciertos roles pueden ver licencias en revisión
     if (!['funcionario', 'secretario', 'profesor'].includes(rol)) {
-      return res.status(403).json({ 
-        ok: false, 
-        error: 'No tiene permisos para ver licencias en revisión' 
+      return res.status(403).json({
+        ok: false,
+        error: 'No tiene permisos para ver licencias en revisión'
       });
     }
 
     const { nombre, folio, desde, hasta, page = 1, limit = 10 } = req.query;
-    
+
     const pageNum = Math.max(1, parseInt(page));
     const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
     const offset = (pageNum - 1) * limitNum;
@@ -74,25 +76,26 @@ router.get('/en-revision', validarJWT, async (req, res) => {
     let condiciones = [`l.estado = 'pendiente'`];
     let params = [];
 
-    if (nombre) { 
-      condiciones.push(`u.nombre LIKE ?`); 
-      params.push(`%${nombre}%`); 
+    if (nombre) {
+      condiciones.push(`u.nombre LIKE ?`);
+      params.push(`%${nombre}%`);
     }
-    if (folio) { 
-      condiciones.push(`l.folio LIKE ?`); 
-      params.push(`%${folio}%`); 
+    if (folio) {
+      condiciones.push(`l.folio LIKE ?`);
+      params.push(`%${folio}%`);
     }
-    if (desde) { 
-      condiciones.push(`l.fecha_emision >= ?`); 
-      params.push(desde); 
+    if (desde) {
+      condiciones.push(`l.fecha_emision >= ?`);
+      params.push(desde);
     }
-    if (hasta) { 
-      condiciones.push(`l.fecha_emision <= ?`); 
-      params.push(hasta); 
+    if (hasta) {
+      condiciones.push(`l.fecha_emision <= ?`);
+      params.push(hasta);
     }
 
     const where = condiciones.length ? `WHERE ${condiciones.join(' AND ')}` : '';
 
+    // Consulta principal con información de regularidad (total_licencias_activas)
     const [rows] = await db.execute(
       `SELECT 
         l.id_licencia,
@@ -104,7 +107,15 @@ router.get('/en-revision', validarJWT, async (req, res) => {
         l.motivo_rechazo,
         l.fecha_creacion,
         l.id_usuario,
-        u.nombre as estudiante_nombre
+        u.nombre as estudiante_nombre,
+        u.correo_usuario as estudiante_email,
+        (
+          SELECT COUNT(*) 
+          FROM licenciamedica lm2 
+          WHERE lm2.id_usuario = l.id_usuario 
+            AND lm2.estado = 'aceptado'
+            AND CURDATE() BETWEEN lm2.fecha_inicio AND lm2.fecha_fin
+        ) as total_licencias_activas
       FROM licenciamedica l
       JOIN usuario u ON l.id_usuario = u.id_usuario
       ${where}
@@ -112,6 +123,21 @@ router.get('/en-revision', validarJWT, async (req, res) => {
       LIMIT ? OFFSET ?`,
       [...params, limitNum, offset]
     );
+
+    // Enriquecer con categoría de regularidad
+    const licenciasEnriquecidas = rows.map(licencia => {
+      let categoria_regularidad = 'Alta regularidad';
+      if (licencia.total_licencias_activas >= 6) {
+        categoria_regularidad = 'Baja regularidad';
+      } else if (licencia.total_licencias_activas >= 3) {
+        categoria_regularidad = 'Media regularidad';
+      }
+
+      return {
+        ...licencia,
+        categoria_regularidad
+      };
+    });
 
     // Contar total
     const [countRows] = await db.execute(
@@ -126,7 +152,7 @@ router.get('/en-revision', validarJWT, async (req, res) => {
 
     return res.status(200).json({
       ok: true,
-      data: rows,
+      data: licenciasEnriquecidas,
       meta: {
         page: pageNum,
         limit: limitNum,
@@ -134,12 +160,11 @@ router.get('/en-revision', validarJWT, async (req, res) => {
         totalPages: Math.ceil(total / limitNum)
       }
     });
-
   } catch (error) {
     console.error('❌ Error en GET /en-revision:', error);
-    return res.status(500).json({ 
-      ok: false, 
-      error: 'Error interno al obtener licencias en revisión' 
+    return res.status(500).json({
+      ok: false,
+      error: 'Error interno al obtener licencias en revisión'
     });
   }
 });
@@ -556,129 +581,5 @@ router.get(
   tieneRol('profesor', 'administrador', 'funcionario'),
   getLicenciasEstudianteConRegularidad
 );
-
-// Ruta para obtener regularidad en el listado de licencias en revisión
-router.get('/en-revision', validarJWT, async (req, res) => {
-  try {
-    const usuarioId = req.user?.id_usuario ?? req.id ?? null;
-    const rol = (req.user?.rol ?? req.rol ?? '').toString().toLowerCase();
-    
-    if (!usuarioId) {
-      return res.status(401).json({ ok: false, error: 'No autenticado' });
-    }
-
-    // Solo funcionarios pueden ver todas las licencias pendientes
-    if (!['funcionario', 'secretario', 'profesor'].includes(rol)) {
-      return res.status(403).json({ 
-        ok: false, 
-        error: 'No tiene permisos para ver licencias en revisión' 
-      });
-    }
-
-    const { nombre, folio, desde, hasta, page = 1, limit = 10 } = req.query;
-    
-    const pageNum = Math.max(1, parseInt(page));
-    const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
-    const offset = (pageNum - 1) * limitNum;
-
-    let condiciones = [`l.estado = 'pendiente'`];
-    let params = [];
-
-    if (nombre) { 
-      condiciones.push(`u.nombre LIKE ?`); 
-      params.push(`%${nombre}%`); 
-    }
-    if (folio) { 
-      condiciones.push(`l.folio LIKE ?`); 
-      params.push(`%${folio}%`); 
-    }
-    if (desde) { 
-      condiciones.push(`l.fecha_emision >= ?`); 
-      params.push(desde); 
-    }
-    if (hasta) { 
-      condiciones.push(`l.fecha_emision <= ?`); 
-      params.push(hasta); 
-    }
-
-    const where = condiciones.length ? `WHERE ${condiciones.join(' AND ')}` : '';
-
-    // Consulta principal con información de regularidad
-    const [rows] = await db.execute(
-      `SELECT 
-        l.id_licencia,
-        l.folio,
-        l.fecha_emision,
-        l.fecha_inicio,
-        l.fecha_fin,
-        l.estado,
-        l.motivo_rechazo,
-        l.fecha_creacion,
-        l.id_usuario,
-        u.nombre as estudiante_nombre,
-        u.correo_usuario as estudiante_email,
-        (
-          SELECT COUNT(*) 
-          FROM licenciamedica lm2 
-          WHERE lm2.id_usuario = l.id_usuario 
-            AND lm2.estado = 'aceptado'
-            AND CURDATE() BETWEEN lm2.fecha_inicio AND lm2.fecha_fin
-        ) as total_licencias_activas
-      FROM licenciamedica l
-      JOIN usuario u ON l.id_usuario = u.id_usuario
-      ${where}
-      ORDER BY l.fecha_creacion DESC
-      LIMIT ? OFFSET ?`,
-      [...params, limitNum, offset]
-    );
-
-    // Enriquecer con categoría de regularidad
-    const licenciasEnriquecidas = rows.map(licencia => {
-      let categoria_regularidad = 'Alta regularidad';
-      if (licencia.total_licencias_activas >= 6) {
-        categoria_regularidad = 'Baja regularidad';
-      } else if (licencia.total_licencias_activas >= 3) {
-        categoria_regularidad = 'Media regularidad';
-      }
-      
-      return {
-        ...licencia,
-        categoria_regularidad
-      };
-    });
-
-    // Contar total
-    const [countRows] = await db.execute(
-      `SELECT COUNT(*) as total
-       FROM licenciamedica l
-       JOIN usuario u ON l.id_usuario = u.id_usuario
-       ${where}`,
-      params
-    );
-
-    const total = countRows[0]?.total || 0;
-
-    return res.status(200).json({
-      ok: true,
-      data: licenciasEnriquecidas,
-      meta: {
-        page: pageNum,
-        limit: limitNum,
-        total: parseInt(total),
-        totalPages: Math.ceil(total / limitNum)
-      }
-    });
-
-  } catch (error) {
-    console.error('❌ Error en GET /en-revision:', error);
-    return res.status(500).json({ 
-      ok: false, 
-      error: 'Error interno al obtener licencias en revisión' 
-    });
-  }
-});
-
-
-
 
 export default router;
