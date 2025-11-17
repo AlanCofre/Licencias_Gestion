@@ -4,15 +4,18 @@ import Footer from "../components/Footer";
 import BannerSection from "../components/BannerSection";
 import { Upload } from "lucide-react";
 import PreviewEnvio from "../components/PreviewEnvio";
-import Toast from "../components/toast"; // <-- import del Toast
+import Toast from "../components/toast";
+import { useTranslation } from "react-i18next";
 
 export default function GenerarRevision() {
+  const { t } = useTranslation();
+
   const initialForm = {
     folio: "",
     fechaEmision: "",
     fechaInicioReposo: "",
     fechaFinalReposo: "",
-    motivoMedico: "", // <-- NUEVO
+    motivoMedico: "",
   };
   const [formData, setFormData] = useState(initialForm);
   const [file, setFile] = useState(null);
@@ -54,10 +57,7 @@ export default function GenerarRevision() {
     if (name === "folio" && !/^\d*$/.test(value)) {
       return;
     }
-    // Para el motivo, solo filtramos hard-fails en tiempo real (opcional)
     if (name === "motivoMedico") {
-      // Permitimos escribir libremente pero guardamos tal cual;
-      // La validación final la hace isMotivoValid
       setFormData((prev) => ({ ...prev, [name]: value }));
       return;
     }
@@ -71,7 +71,10 @@ export default function GenerarRevision() {
     if (selectedFile && selectedFile.type === "application/pdf") {
       setFile(selectedFile);
     } else {
-      setToast({ message: "Por favor sube un archivo PDF válido.", type: "error" });
+      setToast({
+        message: t("studentGenerateRevision.errors.invalidPdf"),
+        type: "error",
+      });
     }
   };
 
@@ -81,7 +84,10 @@ export default function GenerarRevision() {
     if (droppedFile && droppedFile.type === "application/pdf") {
       setFile(droppedFile);
     } else {
-      setToast({ message: "Solo se permiten archivos PDF.", type: "error" });
+      setToast({
+        message: t("studentGenerateRevision.errors.onlyPdf"),
+        type: "error",
+      });
     }
   };
 
@@ -95,7 +101,7 @@ export default function GenerarRevision() {
     formData.fechaEmision.trim() !== "" &&
     formData.fechaInicioReposo.trim() !== "" &&
     formData.fechaFinalReposo.trim() !== "" &&
-    isMotivoValid(formData.motivoMedico) && // <-- incluir motivo
+    isMotivoValid(formData.motivoMedico) &&
     file !== null &&
     selectedCursos.length > 0;
 
@@ -115,9 +121,20 @@ export default function GenerarRevision() {
   };
 
   // Función que realiza el envío real (usada por PreviewEnvio)
-  const sendData = async ({ form = formData, cursos = selectedCursos, archivo = file } = {}) => {
+  const sendData = async ({
+    form = formData,
+    cursos = selectedCursos,
+    archivo = file,
+  } = {}) => {
     if (!form || !archivo || cursos.length === 0) {
-      throw new Error("Faltan datos obligatorios para el envío.");
+      throw new Error(
+        t("studentGenerateRevision.errors.sendMissingData")
+      );
+    }
+    if (!isMotivoValid(form.motivoMedico)) {
+      throw new Error(
+        t("studentGenerateRevision.errors.sendMotivoInvalid")
+      );
     }
     setErrorCursos(false);
 
@@ -130,7 +147,7 @@ export default function GenerarRevision() {
       fd.append("fecha_inicio", form.fechaInicioReposo);
       fd.append("fecha_fin", form.fechaFinalReposo);
       fd.append("cursos", JSON.stringify(cursos));
-      fd.append("motivo_medico", form.motivoMedico?.trim() || ""); // Make motivo optional
+      fd.append("motivo_medico", form.motivoMedico.trim());
 
       const token = localStorage.getItem("token") || "";
       const apiBase = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
@@ -171,23 +188,23 @@ export default function GenerarRevision() {
     }
   };
 
-  // Cuando el usuario hace "Siguiente / Confirmar" en el formulario: validar y pasar a preview
+  // Cuando el usuario hace "Siguiente / Confirmar" en el formulario
   const handleFormNext = (e) => {
     e.preventDefault();
     if (selectedCursos.length === 0) {
       setErrorCursos(true);
-      cursosSelectorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      cursosSelectorRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
       return;
     }
     if (!isFormValid) {
-      // Ayuda específica si el motivo no es válido
       if (!isMotivoValid(formData.motivoMedico)) {
-        alert(
-          "Motivo médico inválido. Debe tener al menos 3 caracteres y solo letras (incluye acentos), números, espacios, comas y guiones."
-        );
+        alert(t("studentGenerateRevision.alerts.motivoInvalid"));
         return;
       }
-      alert("Completa todos los campos obligatorios antes de continuar.");
+      alert(t("studentGenerateRevision.alerts.missingFields"));
       return;
     }
     setErrorCursos(false);
@@ -201,7 +218,10 @@ export default function GenerarRevision() {
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-blue-50 to-blue-100 dark:bg-app dark:bg-none">
       <Navbar />
 
-      <BannerSection title="Generar revisión de licencia" />
+      {/* Banner superior */}
+      <BannerSection
+        title={t("studentGenerateRevision.bannerTitle")}
+      />
 
       {/* Contenido */}
       <main className="container mx-auto px-6 py-12 flex-grow">
@@ -210,19 +230,25 @@ export default function GenerarRevision() {
             {/* Formulario */}
             <form className="flex flex-col gap-6" onSubmit={handleFormNext}>
               <div>
-                <label className="block text-gray-600 mb-1">Número de Folio</label>
+                <label className="block text-gray-600 mb-1">
+                  {t("studentGenerateRevision.folioLabel")}
+                </label>
                 <input
                   type="text"
                   name="folio"
                   value={formData.folio}
                   onChange={handleChange}
-                  placeholder="Escribe el número de folio en la parte superior de tu documento."
+                  placeholder={t(
+                    "studentGenerateRevision.folioPlaceholder"
+                  )}
                   className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
                 />
               </div>
 
               <div>
-                <label className="block text-gray-600 mb-1">Fecha de emisión</label>
+                <label className="block text-gray-600 mb-1">
+                  {t("studentGenerateRevision.fechaEmisionLabel")}
+                </label>
                 <input
                   type="date"
                   name="fechaEmision"
@@ -231,12 +257,14 @@ export default function GenerarRevision() {
                   className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
                 />
                 <small className="text-gray-500">
-                  Fecha de creación de la licencia en el centro de salud.
+                  {t("studentGenerateRevision.fechaEmisionHelp")}
                 </small>
               </div>
 
               <div>
-                <label className="block text-gray-600 mb-1">Fecha inicio reposo</label>
+                <label className="block text-gray-600 mb-1">
+                  {t("studentGenerateRevision.fechaInicioLabel")}
+                </label>
                 <input
                   type="date"
                   name="fechaInicioReposo"
@@ -247,7 +275,9 @@ export default function GenerarRevision() {
               </div>
 
               <div>
-                <label className="block text-gray-600 mb-1">Fecha final reposo</label>
+                <label className="block text-gray-600 mb-1">
+                  {t("studentGenerateRevision.fechaFinLabel")}
+                </label>
                 <input
                   type="date"
                   name="fechaFinalReposo"
@@ -257,11 +287,11 @@ export default function GenerarRevision() {
                   className="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
                 />
               </div>
-             
-              {/* NUEVO: Motivo médico */}
+
+              {/* Motivo médico */}
               <div>
                 <label className="block text-gray-600 mb-1">
-                  Motivo médico o patología (resumen)
+                  {t("studentGenerateRevision.motivoLabel")}
                 </label>
                 <input
                   type="text"
@@ -269,44 +299,81 @@ export default function GenerarRevision() {
                   value={formData.motivoMedico}
                   onChange={handleChange}
                   onBlur={() => setMotivoTouched(true)}
-                  placeholder="Ej: Bronquitis, COVID-19, Migraña"
-                  aria-invalid={motivoTouched && !isMotivoValid(formData.motivoMedico)}
+                  placeholder={t(
+                    "studentGenerateRevision.motivoPlaceholder"
+                  )}
+                  aria-invalid={
+                    motivoTouched &&
+                    !isMotivoValid(formData.motivoMedico)
+                  }
                   aria-describedby="motivoHelp motivoError"
                   className={`w-full p-3 border rounded focus:outline-none focus:ring-2 ${
-                    motivoTouched && !isMotivoValid(formData.motivoMedico)
+                    motivoTouched &&
+                    !isMotivoValid(formData.motivoMedico)
                       ? "border-red-500 focus:ring-red-400"
                       : "focus:ring-blue-400"
                   }`}
                 />
-                <div id="motivoHelp" className="text-xs text-gray-500 mt-1">
-                  Requerido. Mínimo 3 caracteres. Sólo letras (incluye acentos), números, espacios, comas y guiones.
+                <div
+                  id="motivoHelp"
+                  className="text-xs text-gray-500 mt-1"
+                >
+                  {t("studentGenerateRevision.motivoHelp")}
                 </div>
-                {motivoTouched && !isMotivoValid(formData.motivoMedico) && (
-                  <div id="motivoError" className="mt-1 text-red-600 text-sm" role="alert">
-                    El motivo no es válido. Revisa el formato.
-                  </div>
-                )}
+                {motivoTouched &&
+                  !isMotivoValid(formData.motivoMedico) && (
+                    <div
+                      id="motivoError"
+                      className="mt-1 text-red-600 text-sm"
+                      role="alert"
+                    >
+                      {t("studentGenerateRevision.motivoError")}
+                    </div>
+                  )}
               </div>
 
               {/* Selector de cursos */}
               <div
                 ref={cursosSelectorRef}
                 className={`mb-4 p-4 rounded border transition
-                  ${errorCursos ? "border-red-500 bg-red-50 dark:bg-red-900/20" : "border-gray-200 dark:border-app"}
+                  ${
+                    errorCursos
+                      ? "border-red-500 bg-red-50 dark:bg-red-900/20"
+                      : "border-gray-200 dark:border-app"
+                  }
                 `}
                 aria-live="polite"
               >
                 <label className="block font-medium mb-2">
-                  Cursos afectados por la licencia
+                  {t("studentGenerateRevision.cursosLabel")}
                   <span
                     className="ml-2 text-gray-400 cursor-pointer"
                     tabIndex={0}
-                    title="Solo verás cursos del periodo activo"
-                    aria-label="Ayuda: Solo verás cursos del periodo activo"
+                    title={t(
+                      "studentGenerateRevision.cursosHelpA11y"
+                    )}
+                    aria-label={t(
+                      "studentGenerateRevision.cursosHelpA11y"
+                    )}
                   >
-                    <svg className="inline w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <circle cx="12" cy="12" r="10" strokeWidth="2" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 16v-4m0-4h.01" />
+                    <svg
+                      className="inline w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        strokeWidth="2"
+                      />
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M12 16v-4m0-4h.01"
+                      />
                     </svg>
                   </span>
                 </label>
@@ -351,7 +418,6 @@ export default function GenerarRevision() {
                 <button
                   type="button"
                   onClick={() => {
-                    // opcional: limpiar
                     setFormData(initialForm);
                     setFile(null);
                     setSelectedCursos([]);
@@ -360,17 +426,19 @@ export default function GenerarRevision() {
                   }}
                   className="px-6 py-3 rounded border text-sm"
                 >
-                  Limpiar
+                  {t("studentGenerateRevision.actions.clear")}
                 </button>
 
                 <button
                   type="submit"
                   disabled={!isFormValid}
                   className={`px-6 py-3 rounded text-white transition ${
-                    isFormValid ? "bg-blue-500 hover:bg-blue-600 cursor-pointer" : "bg-gray-400 cursor-not-allowed"
+                    isFormValid
+                      ? "bg-blue-500 hover:bg-blue-600 cursor-pointer"
+                      : "bg-gray-400 cursor-not-allowed"
                   }`}
                 >
-                  Siguiente: Confirmar
+                  {t("studentGenerateRevision.actions.next")}
                 </button>
               </div>
             </form>
@@ -380,13 +448,22 @@ export default function GenerarRevision() {
               className="border-2 border-dashed border-blue-400 rounded-lg flex flex-col items-center justify-center p-6 text-blue-500 cursor-pointer hover:bg-blue-50 transition"
               onDrop={handleDrop}
               onDragOver={handleDragOver}
-              onClick={() => fileInputRef.current.click()}
+              onClick={() => fileInputRef.current?.click()}
             >
               <Upload size={48} />
-              <p className="mt-4 text-center">Arrastra un documento PDF o haz clic para seleccionarlo.</p>
+              <p className="mt-4 text-center">
+                {t(
+                  "studentGenerateRevision.upload.instructions"
+                )}
+              </p>
               {file && (
                 <p className="mt-2 text-sm text-gray-600">
-                  Archivo seleccionado: <span className="font-semibold">{file.name}</span>
+                  {t(
+                    "studentGenerateRevision.upload.selectedFile"
+                  )}{" "}
+                  <span className="font-semibold">
+                    {file.name}
+                  </span>
                 </p>
               )}
               <input
@@ -408,19 +485,53 @@ export default function GenerarRevision() {
               onEdit={(section) => {
                 setStep("form");
                 if (section === "cursos") {
-                  setTimeout(() => cursosSelectorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }), 100);
+                  setTimeout(
+                    () =>
+                      cursosSelectorRef.current?.scrollIntoView({
+                        behavior: "smooth",
+                        block: "center",
+                      }),
+                    100
+                  );
                 }
                 if (section === "file") {
-                  setTimeout(() => fileInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }), 100);
+                  setTimeout(
+                    () =>
+                      fileInputRef.current?.scrollIntoView({
+                        behavior: "smooth",
+                        block: "center",
+                      }),
+                    100
+                  );
                 }
               }}
-              onSubmit={async ({ formData: f, selectedCursos: sc, file: fl }) => {
+              onSubmit={async ({
+                formData: f,
+                selectedCursos: sc,
+                file: fl,
+              }) => {
                 try {
-                  await sendData({ form: f, cursos: sc, archivo: fl });
-                  // usar toast en vez de alert
-                  setToast({ message: "Licencia enviada correctamente.", type: "success" });
+                  await sendData({
+                    form: f,
+                    cursos: sc,
+                    archivo: fl,
+                  });
+                  setToast({
+                    message: t(
+                      "studentGenerateRevision.toast.success"
+                    ),
+                    type: "success",
+                  });
                 } catch (err) {
-                  setToast({ message: "Error al enviar: " + (err?.message || err), type: "error" });
+                  const msg =
+                    err?.message || String(err || "");
+                  setToast({
+                    message: t(
+                      "studentGenerateRevision.toast.errorPrefix",
+                      { message: msg }
+                    ),
+                    type: "error",
+                  });
                 }
               }}
               apiBase={(import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000").replace(/\/$/, "")}

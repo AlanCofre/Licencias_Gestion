@@ -4,6 +4,7 @@ import logo from "../assets/logo.svg"; // <-- tu logo
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useTranslation } from "react-i18next";
+import LoadingSpinner from "../components/LoadingSpinner";
 
 function AppLogin() {
   const { login } = useAuth();
@@ -73,6 +74,21 @@ function AppLogin() {
       setError(err.message || "No se pudo iniciar sesión");
     } finally {
       setLoading(false);
+
+      switch (roleSelect) {
+        case "secretaria":
+          navigate("/secretaria", { replace: true });
+          break;
+        case "profesor":
+          navigate("/profesor", { replace: true });
+          break;
+        case "admin":
+          navigate("/admin", { replace: true });
+          break;
+        default:
+          navigate("/alumno", { replace: true });
+      }
+    }, 700);
     }
   };
 
@@ -80,7 +96,7 @@ function AppLogin() {
     <div className="relative min-h-screen bg-white flex items-center justify-center py-12">
       <img
         src={bannerLogin}
-        alt="Fondo"
+        alt={t("login.bannerAlt")}
         className="fixed inset-0 w-full h-full object-cover z-0"
       />
 

@@ -3,6 +3,8 @@ import { Link } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import BannerSection from "../components/BannerSection";
+import LoadingSpinner from "../components/LoadingSpinner";
+import SkeletonLoader from "../components/SkeletonLoader";
 import { Eye, Clock, Calendar, Search } from "lucide-react";
 
 const LIST_ENDPOINT = "/api/licencias/mis-licencias";
@@ -11,6 +13,7 @@ export default function LicenciasEstudiante() {
   const [allLicencias, setAllLicencias] = useState([]);
   const [licencias, setLicencias] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // filtros & orden
   const [filterDate, setFilterDate] = useState("");
@@ -140,6 +143,19 @@ export default function LicenciasEstudiante() {
     cargarLicencias();
   }, []);
 
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      setAllLicencias(mockLicencias);
+      setLicencias(mockLicencias);
+    } catch (error) {
+      console.error("Error refrescando licencias:", error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   // opciones dinámicas de estados según lo que trae el BE (normalizado)
   const estadosUnicos = useMemo(() => {
     const s = new Set(allLicencias.map((x) => x.estadoNormalized).filter(Boolean));
@@ -191,10 +207,20 @@ export default function LicenciasEstudiante() {
     return (
       <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-50 to-indigo-100 dark:bg-app dark:bg-none">
         <Navbar />
-        <main className="flex-1 flex items-center justify-center">
-          <div className="text-center bg-white p-8 rounded-2xl shadow-lg">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4" />
-            <p className="text-lg text-gray-700">Cargando licencias...</p>
+        <main className="flex-1 w-full">
+          <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-10 max-w-5xl">
+            <div className="mb-8">
+              <div className="animate-pulse bg-white rounded-2xl shadow-lg p-8 border border-gray-100">
+                <div className="h-8 bg-gray-200 rounded w-64 mx-auto mb-4"></div>
+                <div className="h-4 bg-gray-200 rounded w-48 mx-auto mb-6"></div>
+                <div className="flex justify-center gap-4 flex-wrap">
+                  <div className="h-10 bg-gray-200 rounded w-32"></div>
+                  <div className="h-10 bg-gray-200 rounded w-32"></div>
+                  <div className="h-10 bg-gray-200 rounded w-32"></div>
+                </div>
+              </div>
+            </div>
+            <SkeletonLoader type="table" count={5} />
           </div>
         </main>
         <Footer />
@@ -255,14 +281,16 @@ export default function LicenciasEstudiante() {
                     type="date"
                     value={filterDate}
                     onChange={(e) => setFilterDate(e.target.value)}
-                    className="border border-gray-200 bg-white px-3 py-1 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#048FD4] dark:bg-transparent dark:border-app dark:text-text"
+                    disabled={isRefreshing}
+                    className="border border-gray-200 bg-white px-3 py-1 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#048FD4] dark:bg-transparent dark:border-app dark:text-text disabled:opacity-50"
                   />
                 </div>
 
                 {/* Orden asc/desc */}
                 <button
                   onClick={() => setSortAsc((prev) => !prev)}
-                  className="inline-flex items-center gap-2 px-3 py-2 bg-white/90 hover:bg-white rounded-md border border-gray-200 text-sm font-medium shadow-sm dark:bg-surface dark:border-app dark:text-text dark:hover:bg-surface/80"
+                  disabled={isRefreshing}
+                  className="inline-flex items-center gap-2 px-3 py-2 bg-white/90 hover:bg-white rounded-md border border-gray-200 text-sm font-medium shadow-sm dark:bg-surface dark:border-app dark:text-text dark:hover:bg-surface/80 disabled:opacity-50"
                 >
                   {sortAsc ? "Ascendente ▲" : "Descendente ▼"}
                 </button>
@@ -276,7 +304,8 @@ export default function LicenciasEstudiante() {
                     id="filterEstado"
                     value={filterEstado}
                     onChange={(e) => setFilterEstado(e.target.value)}
-                    className="border border-gray-200 bg-white px-3 py-1 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#048FD4] dark:bg-transparent dark:border-app dark:text-text"
+                    disabled={isRefreshing}
+                    className="border border-gray-200 bg-white px-3 py-1 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#048FD4] dark:bg-transparent dark:border-app dark:text-text disabled:opacity-50"
                   >
                     <option value="">Todos</option>
                     {estadosUnicos.map((s) => (
@@ -287,6 +316,22 @@ export default function LicenciasEstudiante() {
                   </select>
                 </div>
 
+                {/* Botón refresh */}
+                <button
+                  onClick={handleRefresh}
+                  disabled={isRefreshing}
+                  className="inline-flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
+                >
+                  {isRefreshing ? (
+                    <>
+                      <LoadingSpinner size="small" color="white" />
+                      Actualizando...
+                    </>
+                  ) : (
+                    "Actualizar"
+                  )}
+                </button>
+
                 {/* Botón limpiar */}
                 <button
                   onClick={() => {
@@ -295,7 +340,8 @@ export default function LicenciasEstudiante() {
                     setSortAsc(false);
                     setSearchTerm("");
                   }}
-                  className="inline-flex items-center gap-2 px-3 py-2 bg-white/90 hover:bg-white rounded-md border border-gray-200 text-sm dark:bg-surface dark:border-app dark:text-muted"
+                  disabled={isRefreshing}
+                  className="inline-flex items-center gap-2 px-3 py-2 bg-white/90 hover:bg-white rounded-md border border-gray-200 text-sm dark:bg-surface dark:border-app dark:text-muted disabled:opacity-50"
                 >
                   Limpiar filtros
                 </button>

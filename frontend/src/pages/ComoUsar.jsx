@@ -4,9 +4,12 @@ import Footer from "../components/Footer";
 import BannerSection from "../components/BannerSection";
 import signo from "../assets/SignoPregunta.png";
 import { useAuth } from "../context/AuthContext";
+import { useTranslation } from "react-i18next";
 
 export default function ComoUsar() {
   const { user } = useAuth();
+  const { t } = useTranslation();
+
   const role = String(user?.role || "").toLowerCase();
   const isSecretary = role === "secretaria" || role === "secretary";
   const isTeacher = role === "profesor" || role === "teacher";
@@ -27,154 +30,107 @@ export default function ComoUsar() {
               {isSecretary ? (
                 <>
                   <h1 className="text-3xl lg:text-4xl font-bold mb-6">
-                    Guía rápida — Secretaría
+                    {t("comoUsar.secretary.title")}
                   </h1>
 
-                  <h2 className="text-lg font-semibold mb-3">Objetivo</h2>
+                  <h2 className="text-lg font-semibold mb-3">
+                    {t("comoUsar.secretary.objectiveTitle")}
+                  </h2>
                   <p className="mb-4 text-gray-700">
-                    Gestionar eficientemente las licencias médicas recibidas:
-                    revisar, generar revisiones, validar o rechazar y mantener el
-                    historial actualizado.
+                    {t("comoUsar.secretary.objectiveText")}
                   </p>
 
-                  <h2 className="text-lg font-semibold mb-3">Pasos recomendados</h2>
+                  <h2 className="text-lg font-semibold mb-3">
+                    {t("comoUsar.secretary.stepsTitle")}
+                  </h2>
                   <ol className="list-decimal pl-6 space-y-3 text-gray-700 mb-6">
-                    <li>
-                      Inicia sesión con tu cuenta de secretaria. Verifica que el
-                      encabezado muestre "Sec. ...".
-                    </li>
-                    <li>
-                      Accede a "Pendientes" desde el menú para ver las licencias
-                      nuevas. Usa filtros (fecha, facultad) para filtrar resultados.
-                    </li>
-                    <li>
-                      Abre una licencia y utiliza "Generar Revisión" si falta
-                      documentación o deseas reasignarla.
-                    </li>
-                    <li>
-                      Marca la licencia como "Verificada" o "Rechazada" según
-                      corresponda y agrega observaciones.
-                    </li>
-                    <li>
-                      Consulta "Historial" para ver acciones pasadas y exportar
-                      comprobantes si es necesario.
-                    </li>
+                    <li>{t("comoUsar.secretary.step1")}</li>
+                    <li>{t("comoUsar.secretary.step2")}</li>
+                    <li>{t("comoUsar.secretary.step3")}</li>
+                    <li>{t("comoUsar.secretary.step4")}</li>
+                    <li>{t("comoUsar.secretary.step5")}</li>
                   </ol>
 
                   <p className="mt-6 text-sm text-gray-500">
-                    Si necesitas más ayuda, contacta al soporte desde el pie de
-                    página.
+                    {t("comoUsar.secretary.footerNote")}
                   </p>
                 </>
               ) : isTeacher ? (
                 <>
                   <h1 className="text-3xl lg:text-4xl font-bold mb-6">
-                    Guía rápida — Profesor
+                    {t("comoUsar.teacher.title")}
                   </h1>
 
-                  <h2 className="text-lg font-semibold mb-3">Objetivo</h2>
+                  <h2 className="text-lg font-semibold mb-3">
+                    {t("comoUsar.teacher.objectiveTitle")}
+                  </h2>
                   <p className="mb-4 text-gray-700">
-                    Aquí puedes revisar las licencias médicas presentadas por
-                    tus estudiantes, comprobar si fueron validadas o rechazadas,
-                    y ver cómo afectan la regularidad por curso-sección.
+                    {t("comoUsar.teacher.objectiveText")}
                   </p>
 
-                  <h2 className="text-lg font-semibold mb-3">Pasos útiles</h2>
+                  <h2 className="text-lg font-semibold mb-3">
+                    {t("comoUsar.teacher.stepsTitle")}
+                  </h2>
                   <ol className="list-decimal pl-6 space-y-3 text-gray-700 mb-6">
-                    <li>
-                      Entra a la vista del curso/sección desde el menú "Nombre
-                      Pendiente" para ver la lista de alumnos y su estado de
-                      regularidad.
-                    </li>
-                    <li>
-                      Usa los filtros por periodo y estado para localizar alumnos
-                      afectados por licencias validadas.
-                    </li>
-                    <li>
-                      Haz click en el badge de estado para ver la licencia
-                      asociada (folio, fechas y PDF). Funcion en progreso.
-                    </li>
-                    <li>
-                      Si necesitas información adicional, solicita a Secretaría
-                      que genere una revisión desde la bandeja de pendientes.
-                      Funcion en progreso.
-                    </li>
+                    <li>{t("comoUsar.teacher.step1")}</li>
+                    <li>{t("comoUsar.teacher.step2")}</li>
+                    <li>{t("comoUsar.teacher.step3")}</li>
+                    <li>{t("comoUsar.teacher.step4")}</li>
                   </ol>
 
                   <p className="mt-6 text-sm text-gray-500">
-                    Para más información, presiona "¿Cómo se usa?" en el
-                    anuncio o en el header (disponible para profesores).
+                    {t("comoUsar.teacher.footerNote")}
                   </p>
                 </>
               ) : isAdmin ? (
                 <>
                   <h1 className="text-3xl lg:text-4xl font-bold mb-6">
-                    Guía rápida — Administrador
+                    {t("comoUsar.admin.title")}
                   </h1>
 
-                  <h2 className="text-lg font-semibold mb-3">Objetivo</h2>
+                  <h2 className="text-lg font-semibold mb-3">
+                    {t("comoUsar.admin.objectiveTitle")}
+                  </h2>
                   <p className="mb-4 text-gray-700">
-                    Supervisar la operación completa del gestor: revisar
-                    licencias, validar políticas de regularidad, gestionar
-                    usuarios y exportar reportes por periodo, curso y sección.
-                    Se tiene control total sobre las funciones del sistema.
-                    Se recomienda cuidado al hacer cambios en la configuración.
+                    {t("comoUsar.admin.objectiveText")}
                   </p>
 
-                  <h2 className="text-lg font-semibold mb-3">Tareas recomendadas</h2>
+                  <h2 className="text-lg font-semibold mb-3">
+                    {t("comoUsar.admin.stepsTitle")}
+                  </h2>
                   <ul className="list-disc pl-6 space-y-2 text-gray-700 mb-6">
-                    <li>
-                      Revisa los reportes de regularidad por curso/periodo y
-                      ajusta políticas si es necesario.
-                    </li>
-                    <li>
-                      Accede a la bandeja de Secretaría para auditar decisiones y
-                      validar procesos.
-                    </li>
-                    <li>
-                      Configura periodos académicos y parámetros de expiración de
-                      licencias desde el panel de administración.
-                    </li>
-                    <li>
-                      Modifica el personal y permisos de ser necesario.
-                    </li>
+                    <li>{t("comoUsar.admin.step1")}</li>
+                    <li>{t("comoUsar.admin.step2")}</li>
+                    <li>{t("comoUsar.admin.step3")}</li>
+                    <li>{t("comoUsar.admin.step4")}</li>
                   </ul>
 
                   <p className="mt-6 text-sm text-gray-500">
-                    Contacta al soporte para cambios en la configuración del
-                    sistema.
+                    {t("comoUsar.admin.footerNote")}
                   </p>
                 </>
               ) : (
                 <>
                   <h1 className="text-3xl lg:text-4xl font-bold mb-6">
-                    ¿Cómo se usa?
+                    {t("comoUsar.default.title")}
                   </h1>
 
                   <p className="mb-4 text-gray-700">
-                    Esta sección explica los pasos básicos para usar el gestor de
-                    licencias desde una cuenta estándar. Inicia sesión, sube o
-                    selecciona tu licencia y utiliza "Verificar resultados" para
-                    conocer su estado.
+                    {t("comoUsar.default.intro")}
                   </p>
 
-                  <h2 className="text-lg font-semibold mb-3">Pasos</h2>
+                  <h2 className="text-lg font-semibold mb-3">
+                    {t("comoUsar.default.stepsTitle")}
+                  </h2>
                   <ul className="list-disc pl-6 space-y-2 text-gray-700">
-                    <li>Inicia sesión con tu cuenta.</li>
-                    <li>
-                      Ve a "Generar Revisión" para subir una nueva licencia o
-                      solicitar revisión.
-                    </li>
-                    <li>
-                      Usa "Verificar Resultados" para ver el estado actual de tus
-                      licencias.
-                    </li>
-                    <li>Consulta el historial para ver decisiones anteriores.</li>
+                    <li>{t("comoUsar.default.step1")}</li>
+                    <li>{t("comoUsar.default.step2")}</li>
+                    <li>{t("comoUsar.default.step3")}</li>
+                    <li>{t("comoUsar.default.step4")}</li>
                   </ul>
 
                   <p className="mt-6 text-sm text-gray-500">
-                    Si eres secretaria y necesitas la guía específica, inicia
-                    sesión con una cuenta de secretaria.
+                    {t("comoUsar.default.footerNote")}
                   </p>
                 </>
               )}
@@ -183,7 +139,7 @@ export default function ComoUsar() {
             <div className="lg:col-span-1 flex items-center justify-center p-8 lg:p-12 bg-[var(--blue-50)]">
               <img
                 src={signo}
-                alt="Ayuda"
+                alt={t("comoUsar.common.imgAlt")}
                 className="w-48 h-48 lg:w-56 lg:h-56 object-contain"
               />
             </div>

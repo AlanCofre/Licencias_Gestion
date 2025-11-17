@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import Toast from "../components/toast";
 import { useRequestReset } from "../hooks/usePasswordReset"; // Asegúrate de que la ruta sea correcta
+import LoadingSpinner from "../components/LoadingSpinner";
+import { useTranslation } from "react-i18next";
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState("");
@@ -11,6 +12,7 @@ export default function ForgotPassword() {
   const [toast, setToast] = useState(null);
   const navigate = useNavigate();
   const { requestReset, loading, error } = useRequestReset();
+  const { t } = useTranslation();
 
   // Mostrar errores del hook
   useEffect(() => {
@@ -32,7 +34,10 @@ export default function ForgotPassword() {
 
   const handleRequestCode = async () => {
     if (!isValidEmail(email)) {
-      setToast({ message: "Por favor ingresa un correo válido", type: "error" });
+      setToast({
+        message: t("forgotPassword.toastInvalidEmail"),
+        type: "error",
+      });
       return;
     }
 
@@ -40,9 +45,9 @@ export default function ForgotPassword() {
       const result = await requestReset(email);
       
       setTimer(60);
-      setToast({ 
-        message: result.message || "Se envió un código a tu correo.", 
-        type: "success" 
+      setToast({
+        message: t("forgotPassword.toastCodeSent"),
+        type: "success",
       });
 
       // Navega a ResetPassword pasando el email como estado
@@ -55,23 +60,30 @@ export default function ForgotPassword() {
     }
   };
 
+  const buttonLabel = loading
+    ? t("forgotPassword.buttonSending")
+    : timer > 0
+    ? t("forgotPassword.buttonResendIn", { seconds: timer })
+    : t("forgotPassword.buttonMain");
+
   return (
     <div className="min-h-screen flex flex-col">
-      <Navbar />
-
       <main className="flex-grow flex items-center justify-center px-4">
         <div className="bg-white shadow-lg rounded-xl p-8 w-full max-w-md">
-          <h2 className="text-2xl font-bold text-gray-800 mb-4">Recuperar contraseña</h2>
+          <h2 className="text-2xl font-bold text-gray-800 mb-4">
+            {t("forgotPassword.title")}
+          </h2>
           <p className="text-gray-600 mb-6">
-            Ingresa tu correo y te enviaremos un código de verificación para restablecer tu contraseña.
+            {t("forgotPassword.description")}
           </p>
 
           <input
             type="email"
-            placeholder="Correo electrónico"
+            placeholder={t("forgotPassword.emailPlaceholder")}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full px-4 py-2 border rounded-lg mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            disabled={loading || timer > 0}
+            className="w-full px-4 py-2 border rounded-lg mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
           />
 
           <button
@@ -83,11 +95,14 @@ export default function ForgotPassword() {
                 : "bg-blue-600 hover:bg-blue-700"
             }`}
           >
-            {loading
-              ? "Enviando..."
-              : timer > 0
-              ? `Reenviar en ${timer}s`
-              : "Recuperar contraseña"}
+            {loading ? (
+              <div className="flex items-center justify-center gap-2">
+                <LoadingSpinner size="small" color="white" />
+                {t("forgotPassword.buttonSending")}
+              </div>
+            ) : (
+              buttonLabel
+            )}
           </button>
         </div>
       </main>
