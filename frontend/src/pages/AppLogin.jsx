@@ -9,6 +9,7 @@ import LoadingSpinner from "../components/LoadingSpinner";
 function AppLogin() {
   const { login } = useAuth();
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   const [correo, setCorreo] = useState("");
   const [contrasena, setContrasena] = useState("");
@@ -17,25 +18,43 @@ function AppLogin() {
 
   const normalizeRole = (rawUser) => {
     let role = "";
-    if (rawUser?.id_rol) {
+    if (rawUser?.id_rol !== undefined && rawUser?.id_rol !== null) {
       if (typeof rawUser.id_rol === "object" && rawUser.id_rol.nombre) {
         role = String(rawUser.id_rol.nombre).toLowerCase();
       } else {
         const num = Number(rawUser.id_rol);
-        role =
-          num === 1 ? "profesor" :
-          num === 2 ? "estudiante" :
-          num === 3 ? "funcionario" : "";
-          num === 4 ? "admin" : "";
+        if (!isNaN(num)) {
+          switch (num) {
+            case 1:
+              role = "profesor";
+              break;
+            case 2:
+              role = "estudiante";
+              break;
+            case 3:
+              role = "funcionario";
+              break;
+            case 4:
+              role = "admin";
+              break;
+            default:
+              role = String(rawUser.id_rol).toLowerCase();
+          }
+        } else {
+          role = String(rawUser.id_rol).toLowerCase();
+        }
       }
-    } else if (typeof rawUser?.id_rol === "string") role = rawUser.id_rol.toLowerCase();
-    else if (typeof rawUser?.rol === "string") role = rawUser.rol.toLowerCase();
-    else if (typeof rawUser?.role === "string") role = rawUser.role.toLowerCase();
+    } else if (typeof rawUser?.id_rol === "string") {
+      role = rawUser.id_rol.toLowerCase();
+    } else if (typeof rawUser?.rol === "string") {
+      role = rawUser.rol.toLowerCase();
+    } else if (typeof rawUser?.role === "string") {
+      role = rawUser.role.toLowerCase();
+    }
 
     if (role === "secretaria" || role === "secretary") role = "funcionario";
     if (role === "alumno") role = "estudiante";
     if (role === "administrator" || role === "administrador") role = "admin";
-    if (role === "profesor") role = "profesor";
     return role;
   };
 
@@ -43,6 +62,7 @@ function AppLogin() {
     estudiante: "/alumno",
     profesor: "/profesor",
     funcionario: "/secretaria",
+    admin: "/admin",
   };
 
   const handleSubmit = async (e) => {
@@ -59,7 +79,8 @@ function AppLogin() {
       });
       const data = await res.json();
 
-      if (!res.ok || !data?.token || !data?.usuario) throw new Error(data?.error || "Credenciales inválidas");
+      if (!res.ok || !data?.token || !data?.usuario)
+        throw new Error(data?.error || "Credenciales inválidas");
 
       const rawUser = data.usuario || {};
       const role = normalizeRole(rawUser);
@@ -69,26 +90,11 @@ function AppLogin() {
       localStorage.setItem("user", JSON.stringify(normalizedUser));
 
       login(normalizedUser, data.token);
-      navigate(routeByRole[role] || "/", { replace: true });
+      navigate(routeByRole[role] || "/alumno", { replace: true });
     } catch (err) {
       setError(err.message || "No se pudo iniciar sesión");
     } finally {
       setLoading(false);
-
-      switch (roleSelect) {
-        case "secretaria":
-          navigate("/secretaria", { replace: true });
-          break;
-        case "profesor":
-          navigate("/profesor", { replace: true });
-          break;
-        case "admin":
-          navigate("/admin", { replace: true });
-          break;
-        default:
-          navigate("/alumno", { replace: true });
-      }
-    }, 700);
     }
   };
 

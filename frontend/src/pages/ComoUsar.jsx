@@ -11,7 +11,7 @@ export default function ComoUsar() {
   const { t } = useTranslation();
 
   const role = String(user?.role || "").toLowerCase();
-  const isSecretary = role === "secretaria" || role === "secretary";
+  const isSecretary = role === "secretaria" || role === "secretary" || role === "funcionario";
   const isTeacher = role === "profesor" || role === "teacher";
   const isAdmin =
     role === "admin" || role === "administrador" || role === "administrator";
