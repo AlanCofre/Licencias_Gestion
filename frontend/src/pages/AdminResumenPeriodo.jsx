@@ -3,6 +3,7 @@ import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import { BarChart3, Download, Filter } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import LoadingSpinner from "../components/LoadingSpinner";
 
 // MOCKS para frontend (puedes reemplazar por fetch real, ver comentarios abajo)
 const mockPeriodos = [
@@ -84,6 +85,14 @@ export default function AdminResumenPeriodo() {
     a.click();
     URL.revokeObjectURL(url);
   };
+
+    if (loading && periodos.length === 0) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-blue-50 to-blue-100 dark:bg-app dark:bg-none">
+        <LoadingSpinner size="large" text="Cargando resumen de períodos..." />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-50 to-indigo-100 dark:bg-app dark:bg-none">
