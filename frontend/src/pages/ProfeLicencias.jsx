@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
+import LoadingSpinner from "../components/LoadingSpinner";
 import { Eye, Clock, Search, Calendar, X } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
@@ -79,7 +80,7 @@ export default function ProfeLicencias() {
   const { user } = useAuth();
 
   /* estado de datos */
-  const [items, setItems] = useState([]); // licencias cargadas
+  const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -226,6 +227,14 @@ export default function ProfeLicencias() {
     setSearchTerm("");
     setPage(1);
     setSearchParams({});
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-blue-50 to-blue-100 dark:bg-app dark:bg-none">
+        <LoadingSpinner size="large" text="Cargando licencias..." />
+      </div>
+    );
   }
 
   return (
