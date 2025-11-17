@@ -6,6 +6,7 @@ import Footer from "../components/Footer";
 import ConfirmModal from "../components/ConfirmModal";
 import samplePDF from "../assets/sample.pdf";
 import Toast from "../components/toast"; // añadido
+import AlertaLicenciasAnual from "../components/AlertaLicenciasAnual";
 
 function formatFechaHora(fechaStr) {
   if (!fechaStr) return "";
@@ -28,7 +29,8 @@ function AttachmentView({ archivo, idLicencia }) {
     ? archivo.ruta_url
     : `${API}/api/licencias/${idLicencia}/archivo?token=${token}`;
 
-  const nombre = archivo.nombre_archivo || archivo.ruta_url.split("/").pop() || "licencia.pdf";
+  const nombre =
+    archivo.nombre_archivo || archivo.ruta_url.split("/").pop() || "licencia.pdf";
 
   return (
     <div className="space-y-3">
@@ -89,6 +91,12 @@ export default function EvaluarLicencia() {
   const [toast, setToast] = useState(null); // estado para Toast
   const [redireccionando, setRedireccionando] = useState(false);
 
+  // ALERTA ANUAL +5 LICENCIAS
+  const [alerta, setAlerta] = useState(null);
+  const [loadingAlerta, setLoadingAlerta] = useState(false);
+  const [errorAlerta, setErrorAlerta] = useState(null);
+
+  // Cargar detalle de licencia
   useEffect(() => {
     const cargar = async () => {
       try {
@@ -128,9 +136,48 @@ export default function EvaluarLicencia() {
     cargar();
   }, [id]);
 
+  // Cargar alerta anual para el estudiante (id_usuario)
+  useEffect(() => {
+    const fetchAlerta = async () => {
+      if (!licencia?.id_usuario) return;
+
+      try {
+        setLoadingAlerta(true);
+        setErrorAlerta(null);
+        setAlerta(null);
+
+        const API = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
+        const token = localStorage.getItem("token") || "";
+        const anio = new Date().getFullYear();
+
+        const url = `${API}/funcionario/estudiantes/${licencia.id_usuario}/alerta-licencias?anio=${anio}`;
+
+        const res = await fetch(url, {
+          headers: {
+            Accept: "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok)
+          throw new Error(json?.mensaje || json?.error || `Error ${res.status}`);
+
+        setAlerta(json?.data || null);
+      } catch (err) {
+        setErrorAlerta(err.message || "No se pudo cargar la alerta de licencias.");
+      } finally {
+        setLoadingAlerta(false);
+      }
+    };
+
+    fetchAlerta();
+  }, [licencia?.id_usuario]);
+
   const goBackToBandeja = () => navigate("/pendientes");
   const openModal = (type) => setModal({ open: true, type });
   const closeModal = () => setModal({ open: false, type: null });
+
   const handleConfirm = (data) => {
     if (modal.type === "reject") {
       const motivo = data?.note ?? "";
@@ -228,13 +275,14 @@ export default function EvaluarLicencia() {
       }
 
       // ✅ CORREO ENVIADO EXITOSAMENTE - REDIRIGIR DESPUÉS DE MOSTRAR TOAST
-      const mensajeExito = decision === "aceptado" 
-        ? "Licencia aceptada y notificada correctamente" 
-        : "Licencia rechazada y notificada correctamente";
-      
-      setToast({ 
-        message: mensajeExito, 
-        type: "success" 
+      const mensajeExito =
+        decision === "aceptado"
+          ? "Licencia aceptada y notificada correctamente"
+          : "Licencia rechazada y notificada correctamente";
+
+      setToast({
+        message: mensajeExito,
+        type: "success",
       });
 
       // Configurar redirección automática después de 2 segundos
@@ -242,7 +290,6 @@ export default function EvaluarLicencia() {
       setTimeout(() => {
         navigate("/licencias-por-revisar");
       }, 2000);
-
     } catch (e) {
       setMensaje(e.message);
       setToast({ message: e.message, type: "error" });
@@ -250,7 +297,6 @@ export default function EvaluarLicencia() {
       setLoadingAccion(false);
     }
   };
-
 
   if (loading) {
     return (
@@ -292,6 +338,31 @@ export default function EvaluarLicencia() {
               <div className="mb-4 text-center text-red-600">{mensaje}</div>
             )}
 
+            {/* ALERTA ANUAL (si excede) */}
+            {licencia?.id_usuario && (
+              <section className="mb-6">
+                {loadingAlerta && (
+                  <div className="p-3 text-sm text-gray-600 bg-gray-50 rounded border">
+                    Verificando regularidad anual del estudiante…
+                  </div>
+                )}
+
+                {!loadingAlerta && errorAlerta && (
+                  <div className="p-3 text-sm text-red-700 bg-red-50 rounded border border-red-300">
+                    No se pudo cargar la alerta de licencias.
+                  </div>
+                )}
+
+                {!loadingAlerta && alerta?.excede_limite && (
+                  <AlertaLicenciasAnual
+                    anio={alerta.anio}
+                    cantidad={alerta.cantidad}
+                    limite={alerta.limite}
+                  />
+                )}
+              </section>
+            )}
+
             {/* Datos del Estudiante */}
             <section className="mb-6">
               <h2 className="text-lg font-semibold mb-3 text-gray-800">
@@ -305,7 +376,9 @@ export default function EvaluarLicencia() {
                   </div>
                   <div className="flex flex-col">
                     <span className="font-medium text-gray-600">id_usuario:</span>
-                    <span className="text-gray-900">{lic.id_usuario ?? lic.usuario?.id_usuario ?? ""}</span>
+                    <span className="text-gray-900">
+                      {lic.id_usuario ?? lic.usuario?.id_usuario ?? ""}
+                    </span>
                   </div>
                   <div className="flex flex-col">
                     <span className="font-medium text-gray-600">Correo:</span>
@@ -331,16 +404,24 @@ export default function EvaluarLicencia() {
                     <span className="text-gray-900">{lic.folio || ""}</span>
                   </div>
                   <div className="flex flex-col">
-                    <span className="font-medium text-gray-600">Fecha de emisión:</span>
-                    <span className="text-gray-900">{formatFechaHora(lic.fecha_emision)}</span>
+                    <span className="font-medium text-gray-600">
+                      Fecha de emisión:
+                    </span>
+                    <span className="text-gray-900">
+                      {formatFechaHora(lic.fecha_emision)}
+                    </span>
                   </div>
                   <div className="flex flex-col">
                     <span className="font-medium text-gray-600">Fecha inicio:</span>
-                    <span className="text-gray-900">{formatFechaHora(lic.fecha_inicio)}</span>
+                    <span className="text-gray-900">
+                      {formatFechaHora(lic.fecha_inicio)}
+                    </span>
                   </div>
                   <div className="flex flex-col">
                     <span className="font-medium text-gray-600">Fecha fin:</span>
-                    <span className="text-gray-900">{formatFechaHora(lic.fecha_fin)}</span>
+                    <span className="text-gray-900">
+                      {formatFechaHora(lic.fecha_fin)}
+                    </span>
                   </div>
                   <div className="flex flex-col">
                     <span className="font-medium text-gray-600">Estado:</span>
@@ -348,7 +429,9 @@ export default function EvaluarLicencia() {
                   </div>
                   {lic.motivo_rechazo && (
                     <div className="flex flex-col">
-                      <span className="font-medium text-gray-600">Motivo de rechazo:</span>
+                      <span className="font-medium text-gray-600">
+                        Motivo de rechazo:
+                      </span>
                       <span className="text-gray-900">{lic.motivo_rechazo}</span>
                     </div>
                   )}
@@ -358,9 +441,14 @@ export default function EvaluarLicencia() {
 
             {/* Archivo adjunto */}
             <section className="mb-8">
-              <h2 className="text-lg font-semibold mb-3 text-gray-800">Archivo Adjunto</h2>
+              <h2 className="text-lg font-semibold mb-3 text-gray-800">
+                Archivo Adjunto
+              </h2>
               <div className="border rounded-lg p-4">
-                <AttachmentView archivo={lic.archivo} idLicencia={lic.id_licencia ?? id} />
+                <AttachmentView
+                  archivo={lic.archivo}
+                  idLicencia={lic.id_licencia ?? id}
+                />
               </div>
             </section>
 
@@ -394,7 +482,8 @@ export default function EvaluarLicencia() {
 
             <div className="mt-6 p-4 bg-blue-50 rounded-lg">
               <p className="text-sm text-blue-700">
-                <strong>Nota:</strong> Al aceptar o rechazar, podrás agregar comentarios que serán enviados al estudiante.
+                <strong>Nota:</strong> Al aceptar o rechazar, podrás agregar
+                comentarios que serán enviados al estudiante.
               </p>
             </div>
           </div>
@@ -404,8 +493,14 @@ export default function EvaluarLicencia() {
 
       <ConfirmModal
         open={modal.open}
-        title={modal.type === "accept" ? "Confirmar Aceptación" : "Confirmar Rechazo"}
-        confirmLabel={modal.type === "accept" ? "Aceptar Licencia" : "Rechazar Licencia"}
+        title={
+          modal.type === "accept"
+            ? "Confirmar Aceptación"
+            : "Confirmar Rechazo"
+        }
+        confirmLabel={
+          modal.type === "accept" ? "Aceptar Licencia" : "Rechazar Licencia"
+        }
         onClose={closeModal}
         onConfirm={handleConfirm}
       />

@@ -3,13 +3,21 @@ import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import Toast from "../components/toast";
+import { useRequestReset } from "../hooks/usePasswordReset"; // Asegúrate de que la ruta sea correcta
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState("");
   const [timer, setTimer] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [toast, setToast] = useState(null); // { message, type }
+  const [toast, setToast] = useState(null);
   const navigate = useNavigate();
+  const { requestReset, loading, error } = useRequestReset();
+
+  // Mostrar errores del hook
+  useEffect(() => {
+    if (error) {
+      setToast({ message: error, type: "error" });
+    }
+  }, [error]);
 
   // Temporizador para bloquear reenvío
   useEffect(() => {
@@ -20,26 +28,31 @@ export default function ForgotPassword() {
     return () => clearInterval(countdown);
   }, [timer]);
 
-  // Función para validar formato de correo
   const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
-  const handleRequestCode = () => {
+  const handleRequestCode = async () => {
     if (!isValidEmail(email)) {
       setToast({ message: "Por favor ingresa un correo válido", type: "error" });
       return;
     }
 
-    setLoading(true);
-
-    // Simula envío de código por email
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      const result = await requestReset(email);
+      
       setTimer(60);
-      setToast({ message: "Se envió un código a tu correo.", type: "success" });
+      setToast({ 
+        message: result.message || "Se envió un código a tu correo.", 
+        type: "success" 
+      });
 
-      // Navega a ResetPassword después de un breve delay para que se vea el toast
-      setTimeout(() => navigate("/reset-password"), 700);
-    }, 1500);
+      // Navega a ResetPassword pasando el email como estado
+      setTimeout(() => navigate("/reset-password", { 
+        state: { email } 
+      }), 1000);
+    } catch (err) {
+      // El error ya se maneja automáticamente en el hook y se muestra en el useEffect
+      console.error("Error al solicitar código:", err);
+    }
   };
 
   return (
@@ -81,7 +94,6 @@ export default function ForgotPassword() {
 
       <Footer />
 
-      {/* Toast global */}
       {toast && (
         <Toast
           message={toast.message}

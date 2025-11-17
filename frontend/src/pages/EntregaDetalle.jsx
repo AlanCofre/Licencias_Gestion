@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
-import { useAuth } from "../context/AuthContext"; 
+import { useAuth } from "../context/AuthContext";
 import {
   FileDown,
   CheckCircle2,
@@ -13,37 +13,42 @@ import {
   GraduationCap,
   Info,
   Eye,
-  RefreshCw
+  RefreshCw,
 } from "lucide-react";
 
-/* para ver el detalle, en la url debe ir el idEntrega, ejemplo:
-   /profesor/licencias/123
-*/
+/* ==========================
+ * Config
+ * ========================== */
 
-/* -------------------- MOCK / BE SIMULADO -------------------- */
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
+const USE_MOCK = false; // <- true si quieres probar sólo mock
 
-async function fetchEntregaDetalle(idEntrega) {
+/* ==========================
+ * MOCK / BE SIMULADO
+ * ========================== */
+
+async function fetchEntregaDetalleMock(idEntrega, currentProfId = "prof-abc") {
   await new Promise((r) => setTimeout(r, 700));
   const db = {
     "123": {
       id: "123",
       curso: "Algoritmos y Estructuras de Datos",
       periodo: "2025-2",
-      profesorOwnerId: "prof-abc", // debe calzar con el user.id del profe autenticado
+      profesorOwnerId: "prof-abc",
       estudiante: { nombre: "Rumencio González", email: "rgonzalez@alu.uct.cl" },
       fechas: {
         emision: "2025-09-27",
         envio: "2025-09-28",
         inicioReposo: "2025-10-01",
-        finReposo: "2025-10-07"
+        finReposo: "2025-10-07",
       },
       observacionesSecretaria: "Documentación legible. Falta firma en pág. 2, pero se acepta.",
       estado: "En revisión",
       file: {
-        url: "/api/files/licencia-123.pdf", // simulado
-        tipo: "signed", // "direct" abriría en pestaña nueva
-        filename: "licencia-123.pdf"
-      }
+        url: "/api/files/licencia-123.pdf",
+        tipo: "signed",
+        filename: "licencia-123.pdf",
+      },
     },
     "456": {
       id: "456",
@@ -55,26 +60,171 @@ async function fetchEntregaDetalle(idEntrega) {
         emision: "2025-09-13",
         envio: "2025-09-14",
         inicioReposo: "2025-09-15",
-        finReposo: "2025-09-20"
+        finReposo: "2025-09-20",
       },
       observacionesSecretaria: null,
       estado: "Aceptado",
       file: {
         url: "/api/files/licencia-456.pdf",
         tipo: "direct",
-        filename: "licencia-456.pdf"
-      }
-    }
+        filename: "licencia-456.pdf",
+      },
+    },
+    "789": {
+      id: "789",
+      curso: "Derecho Civil",
+      periodo: "2025-2",
+      profesorOwnerId: "prof-abc",
+      estudiante: { nombre: "Ana Martínez", email: "amartinez@alu.uct.cl" },
+      fechas: {
+        emision: "2025-10-01",
+        envio: "2025-10-02",
+        inicioReposo: "2025-10-03",
+        finReposo: "2025-10-05",
+      },
+      observacionesSecretaria: "Adjuntar receta original si aplica.",
+      estado: "Rechazado",
+      file: {
+        url: "/api/files/licencia-789.pdf",
+        tipo: "direct",
+        filename: "licencia-789.pdf",
+      },
+    },
   };
-  if (!db[idEntrega]) {
+
+  const row = db[idEntrega];
+  if (!row) {
     const err = new Error("Not found");
     err.status = 404;
     throw err;
   }
-  return db[idEntrega];
+
+  if (row.profesorOwnerId && row.profesorOwnerId !== String(currentProfId)) {
+    const err = new Error("Forbidden");
+    err.status = 403;
+    throw err;
+  }
+
+  return row;
 }
 
-/* -------------------- TOAST SIMPLE -------------------- */
+/* ==========================
+ * Normalizador BE real
+ * ========================== */
+
+function normalizeEntregaFromApi(payload) {
+  if (!payload || typeof payload !== "object") return null;
+
+  const estudiante = {
+    nombre:
+      payload.estudiante_nombre ||
+      payload.estudianteNombre ||
+      payload.alumno_nombre ||
+      payload.estudiante?.nombre ||
+      "Sin nombre",
+    email:
+      payload.estudiante_correo ||
+      payload.estudianteEmail ||
+      payload.alumno_correo ||
+      payload.estudiante?.email ||
+      null,
+  };
+
+  const fechas = {
+    emision:
+      payload.fecha_emision ||
+      payload.fecha_emision_licencia ||
+      payload.fechas?.emision ||
+      null,
+    envio:
+      payload.fecha_envio ||
+      payload.fecha_entrega ||
+      payload.fechas?.envio ||
+      null,
+    inicioReposo:
+      payload.fecha_inicio_reposo ||
+      payload.fecha_inicio ||
+      payload.fechas?.inicioReposo ||
+      null,
+    finReposo:
+      payload.fecha_fin_reposo ||
+      payload.fecha_fin ||
+      payload.fechas?.finReposo ||
+      null,
+  };
+
+  const fileInfo = payload.archivo || payload.file || payload.licenciaArchivo || null;
+
+  let file = null;
+  if (fileInfo) {
+    file = {
+      url: fileInfo.url || fileInfo.signedUrl || fileInfo.path || fileInfo.ruta || "",
+      tipo: fileInfo.tipo || fileInfo.kind || "direct",
+      filename: fileInfo.filename || fileInfo.nombre || "documento.pdf",
+    };
+  }
+
+  return {
+    id: payload.id,
+    curso: payload.curso,
+    periodo: payload.periodo,
+    estudiante: payload.estudiante,
+    fechas: payload.fechas,
+    observacionesSecretaria: payload.observacionesSecretaria,
+    estado: payload.estado,
+    file: payload.file
+  };
+}
+
+/* ==========================
+ * Request BE real
+ * ========================== */
+
+async function fetchEntregaDetalleApi(idEntrega, token) {
+  // IMPORTANTE: ruta real del backend
+  const url = `${API_BASE}/profesor/licencias/${idEntrega}`;
+
+  const res = await fetch(url, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    credentials: "include",
+  });
+
+  if (res.status === 404) {
+    const err = new Error("Not found");
+    err.status = 404;
+    throw err;
+  }
+
+  if (res.status === 403) {
+    const err = new Error("Forbidden");
+    err.status = 403;
+    throw err;
+  }
+
+  if (!res.ok) {
+    const err = new Error("request_failed");
+    err.status = res.status;
+    throw err;
+  }
+
+  const data = await res.json();
+  const normalized = normalizeEntregaFromApi(data?.data || data);
+  if (!normalized) {
+    const err = new Error("invalid_payload");
+    err.status = 500;
+    throw err;
+  }
+  return normalized;
+}
+
+/* ==========================
+ * TOAST SIMPLE
+ * ========================== */
+
 function Toast({ kind = "error", title, desc, onClose, actionLabel, onAction }) {
   const icon =
     kind === "success" ? (
@@ -121,12 +271,18 @@ function Toast({ kind = "error", title, desc, onClose, actionLabel, onAction }) 
   );
 }
 
-/* -------------------- COMPONENTE PRINCIPAL -------------------- */
+/* ==========================
+ * COMPONENTE PRINCIPAL
+ * ========================== */
+
 export default function ProfesorEntregaDetalle() {
   const { idEntrega } = useParams();
-  const { user } = (useAuth?.() ?? {}); 
+  const authCtx = useAuth?.();
+  const user = authCtx?.user || null;
+  const authToken = authCtx?.token || localStorage.getItem("token") || null;
+
   const [loading, setLoading] = useState(true);
-  const [status, setStatus] = useState(200); // 200 | 403 | 404
+  const [status, setStatus] = useState(200); // 200 | 403 | 404 | 500
   const [entrega, setEntrega] = useState(null);
 
   const [downloading, setDownloading] = useState(false);
@@ -138,54 +294,59 @@ export default function ProfesorEntregaDetalle() {
   // Cargar detalle
   useEffect(() => {
     let alive = true;
-    (async () => {
+
+    async function load() {
       setLoading(true);
       setStatus(200);
+      setEntrega(null);
+
       try {
-        const data = await fetchEntregaDetalle(idEntrega);
-        // regla de acceso: profesor dueño del curso
-        const currentProfId = String(user?.id || "prof-abc"); // <-- ajusta al id real
-        if (data.profesorOwnerId !== currentProfId) {
-          if (alive) {
-            setStatus(403);
-            setEntrega(null);
-          }
+        let data;
+        if (USE_MOCK) {
+          const currentProfId = user?.id || "prof-abc";
+          data = await fetchEntregaDetalleMock(idEntrega, currentProfId);
         } else {
-          if (alive) {
-            setEntrega(data);
-            setStatus(200);
-          }
+          data = await fetchEntregaDetalleApi(idEntrega, authToken);
         }
+
+        if (!alive) return;
+        setEntrega(data);
+        setStatus(200);
       } catch (e) {
+        if (!alive) return;
         const code = e?.status || 500;
-        if (alive) {
-          setStatus(code === 404 ? 404 : 500);
-          setEntrega(null);
+        if (code === 404 || code === 403 || code === 500) {
+          setStatus(code);
+        } else {
+          setStatus(500);
         }
+        setEntrega(null);
       } finally {
         if (alive) setLoading(false);
       }
-    })();
+    }
+
+    load();
     return () => {
       alive = false;
     };
-  }, [idEntrega, user]);
+  }, [idEntrega, authToken, user]);
 
   // Marcado "visto" local (solo UI)
-  useEffect(() => {
-    if (!loading && status === 200) {
-      try {
-        localStorage.setItem(vistoKey, "true");
-        setVisto(true);
-      } catch {}
-    }
-  }, [loading, status, vistoKey]);
-
   useEffect(() => {
     try {
       setVisto(localStorage.getItem(vistoKey) === "true");
     } catch {}
   }, [vistoKey]);
+
+  useEffect(() => {
+    if (!loading && status === 200 && entrega) {
+      try {
+        localStorage.setItem(vistoKey, "true");
+        setVisto(true);
+      } catch {}
+    }
+  }, [loading, status, entrega, vistoKey]);
 
   const closeToast = useCallback(() => setToast(null), []);
 
@@ -197,7 +358,6 @@ export default function ProfesorEntregaDetalle() {
       const { url, tipo, filename } = entrega.file;
 
       if (tipo === "direct") {
-        // URL directa: abre nueva pestaña (o fuerza descarga con anchor)
         const a = document.createElement("a");
         a.href = url;
         a.download = filename || "";
@@ -206,8 +366,13 @@ export default function ProfesorEntregaDetalle() {
         a.click();
         a.remove();
       } else {
-        // URL firmada o endpoint de descarga: baja con fetch -> blob
-        const res = await fetch(url, { method: "GET" });
+        const res = await fetch(url, {
+          method: "GET",
+          headers: {
+            ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+          },
+          credentials: "include",
+        });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const blob = await res.blob();
         const link = document.createElement("a");
@@ -223,7 +388,7 @@ export default function ProfesorEntregaDetalle() {
       setToast({
         kind: "success",
         title: "Descarga iniciada",
-        desc: "Si el navegador bloquea la descarga, permite ventanas emergentes."
+        desc: "Si el navegador bloquea la descarga, permite ventanas emergentes.",
       });
     } catch (e) {
       setToast({
@@ -231,14 +396,16 @@ export default function ProfesorEntregaDetalle() {
         title: "No se pudo descargar",
         desc: "Revisa tu conexión o vuelve a intentarlo.",
         actionLabel: "Reintentar",
-        onAction: handleDownload
+        onAction: handleDownload,
       });
     } finally {
       setDownloading(false);
     }
-  }, [entrega]);
+  }, [entrega, authToken]);
 
-  /* -------------------- RENDERS DE ESTADO -------------------- */
+  /* ==========================
+   * RENDERS DE ESTADO
+   * ========================== */
 
   if (loading) {
     return (
@@ -288,7 +455,8 @@ export default function ProfesorEntregaDetalle() {
             <XCircle className="h-10 w-10 text-red-600 mx-auto mb-3" />
             <h2 className="text-2xl font-bold text-gray-900">No tienes acceso</h2>
             <p className="text-gray-600 mt-2">
-              Esta entrega no pertenece a tus cursos. Si crees que es un error, contacta a Secretaría.
+              Esta entrega no pertenece a tus cursos. Si crees que es un error, contacta a
+              Secretaría.
             </p>
             <Link
               to="/profesor/licencias"
@@ -303,8 +471,37 @@ export default function ProfesorEntregaDetalle() {
     );
   }
 
-  /* -------------------- DETALLE -------------------- */
-  const { estudiante, curso, periodo, fechas, observacionesSecretaria, estado, id } = entrega || {};
+  if (status === 500 || !entrega) {
+    return (
+      <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-50 to-indigo-100 dark:bg-app">
+        <Navbar />
+        <main className="flex-1 flex items-center justify-center px-4">
+          <div className="max-w-lg w-full bg-white rounded-2xl shadow-lg border border-gray-100 p-8 text-center">
+            <XCircle className="h-10 w-10 text-red-600 mx-auto mb-3" />
+            <h2 className="text-2xl font-bold text-gray-900">Error al cargar</h2>
+            <p className="text-gray-600 mt-2">
+              Ocurrió un problema al obtener el detalle de la entrega. Intenta nuevamente más
+              tarde.
+            </p>
+            <Link
+              to="/profesor/licencias"
+              className="mt-6 inline-flex items-center px-4 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 shadow-sm"
+            >
+              Volver
+            </Link>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  /* ==========================
+   * DETALLE NORMAL
+   * ========================== */
+
+  const { estudiante, curso, periodo, fechas, observacionesSecretaria, estado, id } =
+    entrega || {};
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-50 to-indigo-100 w-full overflow-x-hidden dark:bg-app">
@@ -321,7 +518,9 @@ export default function ProfesorEntregaDetalle() {
                   </div>
                   <div>
                     <h1 className="text-3xl font-bold text-gray-900">Entrega #{id}</h1>
-                    <p className="text-gray-600 mt-1">{curso} · {periodo}</p>
+                    <p className="text-gray-600 mt-1">
+                      {curso} · {periodo}
+                    </p>
                   </div>
                 </div>
 
@@ -373,13 +572,13 @@ export default function ProfesorEntregaDetalle() {
                   </div>
                   <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-gray-800">
                     <dt className="font-medium text-blue-700">Emisión</dt>
-                    <dd>{fechas?.emision}</dd>
+                    <dd>{fechas?.emision || "-"}</dd>
                     <dt className="font-medium text-green-700">Inicio reposo</dt>
-                    <dd>{fechas?.inicioReposo}</dd>
+                    <dd>{fechas?.inicioReposo || "-"}</dd>
                     <dt className="font-medium text-red-700">Fin reposo</dt>
-                    <dd>{fechas?.finReposo}</dd>
+                    <dd>{fechas?.finReposo || "-"}</dd>
                     <dt className="font-medium text-gray-600">Enviado</dt>
-                    <dd>{fechas?.envio}</dd>
+                    <dd>{fechas?.envio || "-"}</dd>
                   </dl>
                 </div>
               </div>
@@ -403,7 +602,7 @@ export default function ProfesorEntregaDetalle() {
               <div className="mt-6 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                 <button
                   onClick={handleDownload}
-                  disabled={downloading}
+                  disabled={downloading || !entrega?.file?.url}
                   className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-md hover:shadow-lg disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   <FileDown className="h-4 w-4" />

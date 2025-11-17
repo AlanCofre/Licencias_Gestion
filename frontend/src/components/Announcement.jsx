@@ -8,7 +8,9 @@ const Announcement = () => {
   const { t } = useTranslation();
 
   const role = String(user?.role || "").toLowerCase();
-  const isSecretary = role === "secretaria" || role === "funcionario";
+  const isSecretary = role === "secretaria" || role === "secretary" || role === "funcionario";
+  const isTeacher = role === "profesor" || role === "teacher";
+  const isAdmin = role === "admin" || role === "administrator" || role === "administrador";
 
   // usar el nombre que venga del login; anteponer "Sec." si es secretaria
   const rawName = String(user?.name || "").trim();
@@ -24,7 +26,19 @@ const Announcement = () => {
       <div className="bg-white rounded-3xl shadow-2xl overflow-hidden max-w-7xl mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-3 items-stretch">
           <div className="lg:col-span-2 p-16 lg:p-20">
-            {isSecretary ? (
+            {isAdmin ? (
+              <>
+                <h2 className="text-4xl lg:text-5xl font-sans font-bold text-gray-800 mb-6 leading-tight">
+                  {t("announcement.adminTitle", { name: displayName })}
+                </h2>
+                <div className="space-y-6 text-gray-600 leading-relaxed text-xl lg:text-lg font-sans">
+                  <p>{t("announcement.adminParagraph1")}</p>
+                  <p className="text-base text-gray-500 max-w-xl">
+                    {t("announcement.adminParagraph2")}
+                  </p>
+                </div>
+              </>
+            ) : isSecretary ? (
               <>
                 <h2 className="text-4xl lg:text-5xl font-sans font-bold text-gray-800 mb-6 leading-tight">
                   {t("announcement.secretaryTitle", { name: displayName })}
@@ -36,7 +50,21 @@ const Announcement = () => {
                   </p>
                 </div>
               </>
+            ) : isTeacher ? (
+              // anuncio específico para profesor
+              <>
+                <h2 className="text-4xl lg:text-5xl font-sans font-bold text-gray-800 mb-6 leading-tight">
+                  {t("announcement.teachTitle", { name: displayName })}
+                </h2>
+                <div className="space-y-6 text-gray-600 leading-relaxed text-xl lg:text-lg font-sans">
+                  <p>{t("announcement.teachParagraph1")}</p>
+                  <p className="text-base text-gray-500 max-w-xl">
+                    {t("announcement.teachParagraph2")}
+                  </p>
+                </div>
+              </>
             ) : (
+              // anuncio para estudiante
               <>
                 <h2 className="text-4xl lg:text-5xl font-sans font-bold text-gray-800 mb-6 leading-tight">
                   {t("announcement.userTitleLine1")}

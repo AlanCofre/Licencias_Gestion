@@ -284,7 +284,6 @@
     renderPayload();
   };
 
-  // Función para cargar cursos disponibles
   async function cargarCursosDisponibles() {
     if (!JWT) return;
     
@@ -308,12 +307,16 @@
       
       let html = '';
       cursos.forEach(curso => {
+        // 👈 CORREGIDO: Usar 'periodo' en lugar de 'periodo_codigo' o similar
+        const periodo = curso.periodo || curso.periodo_codigo || 'N/A';
+        const profesorNombre = curso.profesor?.nombre || curso.profesor_nombre || 'No asignado';
+        
         html += `
           <div class="curso-item">
             <input type="checkbox" name="cursos" value="${curso.id_curso}" id="curso_${curso.id_curso}">
             <div class="curso-info">
               <div class="curso-codigo">${curso.codigo} - ${curso.nombre_curso}</div>
-              <div class="curso-detalle">Sección ${curso.seccion} | Periodo: ${curso.periodo} | Profesor: ${curso.profesor?.nombre || 'No asignado'}</div>
+              <div class="curso-detalle">Sección ${curso.seccion} | Periodo: ${periodo} | Profesor: ${profesorNombre}</div>
             </div>
           </div>
         `;
@@ -326,6 +329,7 @@
       $('cursosContainer').innerHTML = `<div class="err">Error cargando cursos: ${error.message}</div>`;
     }
   }
+
 
   // Enviamos Authorization y x-token (ambos)
   const authHeaders = () => (JWT ? { 'Authorization': 'Bearer ' + JWT, 'x-token': JWT } : {});
@@ -402,25 +406,31 @@
         <th>Código</th>
         <th>Nombre</th>
         <th>Sección</th>
+        <th>Semestre</th>
         <th>Periodo</th>
         <th>Profesor</th>
-        <th>Estado</th>
         <th>Fecha Matrícula</th>
       </tr>
     `;
 
-    const rows = matriculas.map(matricula => `
-      <tr>
-        <td>${matricula.id_curso || ''}</td>
-        <td><strong>${matricula.codigo || ''}</strong></td>
-        <td>${matricula.nombre_curso || ''}</td>
-        <td>${matricula.seccion || ''}</td>
-        <td>${matricula.periodo || ''}</td>
-        <td>${matricula.profesor?.nombre || 'No asignado'}</td>
-        <td>${matricula.activo ? '<span style="color:green">● Activo</span>' : '<span style="color:red">● Inactivo</span>'}</td>
-        <td>${matricula.fecha_matricula ? new Date(matricula.fecha_matricula).toLocaleDateString() : ''}</td>
-      </tr>
-    `).join('');
+    const rows = matriculas.map(matricula => {
+      // 👈 CORREGIDO: Manejo robusto de periodos
+      const periodo = matricula.periodo || matricula.periodo_codigo || 'N/A';
+      const profesorNombre = matricula.profesor?.nombre || matricula.profesor_nombre || 'No asignado';
+      
+      return `
+        <tr>
+          <td>${matricula.id_curso || ''}</td>
+          <td><strong>${matricula.codigo || ''}</strong></td>
+          <td>${matricula.nombre_curso || ''}</td>
+          <td>${matricula.seccion || ''}</td>
+          <td>${matricula.semestre || ''}</td>
+          <td>${periodo}</td>
+          <td>${profesorNombre}</td>
+          <td>${matricula.fecha_matricula ? new Date(matricula.fecha_matricula).toLocaleDateString() : ''}</td>
+        </tr>
+      `;
+    }).join('');
 
     return `
       <div style="overflow-x: auto;">
@@ -432,46 +442,60 @@
     `;
   }
 
-  // Función para renderizar en formato agrupado por periodo
+    // Función para renderizar en formato agrupado por periodo
   function renderMatriculasAgrupadas(periodos) {
     if (!periodos.length) {
       return '<div class="muted">No tienes cursos matriculados.</div>';
     }
 
-    return periodos.map(periodo => `
-      <div style="margin-bottom: 20px; padding: 12px; border: 2px solid ${periodo.es_periodo_actual ? '#4CAF50' : '#ccc'}; border-radius: 8px;">
-        <div style="display: flex; justify-content: between; align-items: center; margin-bottom: 12px;">
-          <h3 style="margin: 0; color: ${periodo.es_periodo_actual ? '#2E7D32' : '#666'};">
-            Periodo: ${periodo.periodo}
-            ${periodo.es_periodo_actual ? '<span style="background: #4CAF50; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px; margin-left: 8px;">ACTUAL</span>' : ''}
-          </h3>
-          <span style="color: #666; font-size: 14px;">${periodo.cursos.length} curso(s)</span>
-        </div>
-        
-        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px;">
-          ${periodo.cursos.map(curso => `
-            <div style="border: 1px solid #ddd; padding: 12px; border-radius: 6px; background: #f9f9f9;">
-              <div style="display: flex; justify-content: between; align-items: start; margin-bottom: 8px;">
-                <div>
-                  <strong style="color: #333;">${curso.codigo} - ${curso.nombre_curso}</strong>
-                  <div style="color: #666; font-size: 14px;">Sección ${curso.seccion}</div>
+    return periodos.map(periodo => {
+      // 👈 CORREGIDO: Usar periodo.periodo directamente
+      const periodoCodigo = periodo.periodo || periodo.periodo_codigo || 'N/A';
+      const esPeriodoActual = periodo.es_periodo_actual || periodo.periodo_activo || false;
+      
+      return `
+        <div style="margin-bottom: 20px; padding: 12px; border: 2px solid ${esPeriodoActual ? '#4CAF50' : '#ccc'}; border-radius: 8px;">
+          <div style="display: flex; justify-content: between; align-items: center; margin-bottom: 12px;">
+            <h3 style="margin: 0; color: ${esPeriodoActual ? '#2E7D32' : '#666'};">
+              Periodo: ${periodoCodigo}
+              ${esPeriodoActual ? '<span style="background: #4CAF50; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px; margin-left: 8px;">ACTUAL</span>' : ''}
+            </h3>
+            <span style="color: #666; font-size: 14px;">${periodo.cursos.length} curso(s)</span>
+          </div>
+          
+          <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px;">
+            ${periodo.cursos.map(curso => {
+              const profesorNombre = curso.profesor?.nombre || curso.profesor_nombre || 'No asignado';
+              
+              return `
+                <div style="border: 1px solid #ddd; padding: 12px; border-radius: 6px; background: #f9f9f9;">
+                  <div style="display: flex; justify-content: between; align-items: start; margin-bottom: 8px;">
+                    <div>
+                      <strong style="color: #333;">${curso.codigo} - ${curso.nombre_curso}</strong>
+                      <div style="color: #666; font-size: 14px;">Sección ${curso.seccion}</div>
+                    </div>
+                    <span style="background: #E8F5E8; color: #2E7D32; padding: 2px 6px; border-radius: 4px; font-size: 12px;">
+                      Activo
+                    </span>
+                  </div>
+                  <div style="color: #666; font-size: 14px;">
+                    <strong>Profesor:</strong> ${profesorNombre}
+                  </div>
+                  <div style="color: #666; font-size: 14px;">
+                    <strong>Semestre:</strong> ${curso.semestre || 'N/A'}
+                  </div>
+                  <div style="color: #666; font-size: 14px;">
+                    <strong>ID Curso:</strong> ${curso.id_curso}
+                  </div>
                 </div>
-                <span style="background: ${curso.activo ? '#E8F5E8' : '#FFEBEE'}; color: ${curso.activo ? '#2E7D32' : '#C62828'}; padding: 2px 6px; border-radius: 4px; font-size: 12px;">
-                  ${curso.activo ? 'Activo' : 'Inactivo'}
-                </span>
-              </div>
-              <div style="color: #666; font-size: 14px;">
-                <strong>Profesor:</strong> ${curso.profesor?.nombre || 'No asignado'}
-              </div>
-              <div style="color: #666; font-size: 14px;">
-                <strong>ID Curso:</strong> ${curso.id_curso}
-              </div>
-            </div>
-          `).join('')}
+              `;
+            }).join('')}
+          </div>
         </div>
-      </div>
-    `).join('');
+      `;
+    }).join('');
   }
+
   // ===== Registro =====
   $('btnRegister').onclick = async () => {
     const body = {
@@ -946,6 +970,9 @@
         return;
       }
 
+      // 👈 CORREGIDO: Debug para ver la estructura de los datos
+      console.log('Datos recibidos:', data);
+      
       if (flat) {
         // Formato plano
         contenedor.innerHTML = renderTablaMatriculasPlana(data.data || []);

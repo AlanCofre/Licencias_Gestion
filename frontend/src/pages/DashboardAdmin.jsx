@@ -4,9 +4,9 @@ import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import BannerSection from "../components/BannerSection";
 import Announcement from "../components/Announcement";
-import NotificacionesSecretaria from "../components/NotificacionesSecretaria";
+/* import NotificacionesSecretaria from "../components/NotificacionesSecretaria"; */
 
-export default function DashboardSecretary() {
+export default function DashboardAdmin() {
   // Simulando un estado de licencias, esto debería venir de tu estado global o contexto
 
   return (
@@ -20,12 +20,11 @@ export default function DashboardSecretary() {
         {/* Franja de botones / contenido y anuncio centrado como en la imagen */}
         <div className="container mx-auto px-8 py-8">
           <div className="max-w-6xl mx-auto">
-            {/* Mantengo el Announcement grande centrado */}
             <Announcement />
           </div>
         </div>
       </main>
-      <NotificacionesSecretaria />
+{/*       <NotificacionesAdmin /> */}
       <Footer />
     </div>
   );

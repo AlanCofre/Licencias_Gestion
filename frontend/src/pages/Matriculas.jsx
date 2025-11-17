@@ -16,60 +16,152 @@ import {
 } from "lucide-react";
 
 // false con backend
-const USE_MOCK = true;
+const USE_MOCK = false;
+
+// Base del backend (SIN /api al final)
+const API_BASE =
+  import.meta.env.VITE_API_BASE_URL?.replace(/\/+$/, "") ||
+  "http://localhost:3000";
 
 /** ========= API LAYER =========
- * Endpoints esperados (métodos y payloads):
- * GET    /admin/periodos                           -> [{id, nombre}]
- * GET    /admin/cursos?periodo_id=:id              -> [{id, codigo, nombre, cupos?}]
- * GET    /admin/matriculas?curso_id=:id            -> [{id, estudiante:{id, nombre, email}}]
- * GET    /admin/estudiantes/buscar?q=:query        -> [{id, nombre, email}]
- * POST   /admin/matriculas                         -> body: {estudiante_id, curso_id}
- * DELETE /admin/matriculas/:id
- *
- * Errores:
- * 409 Conflict  -> duplicado u otra colisión de unicidad
- * 422 Unprocessable Entity -> referencias inválidas (curso/estudiante inexistente)
+ * Endpoints backend reales:
+ * GET    /api/periodos
+ * GET    /api/cursos?periodo_id=:id
+ * GET    /api/matriculas?id_curso=:id
+ * GET    /api/estudiantes/buscar?q=:query
+ * POST   /api/matriculas                body: {id_usuario, id_curso}
+ * DELETE /api/matriculas/:id_matricula
  */
 
 async function apiRequest(path, opts = {}) {
   if (USE_MOCK) return mockApi(path, opts);
 
-  // Fallback fetch directo
-  const res = await fetch(`/api${path}`, {
+  const token = localStorage.getItem("token") || "";
+
+  const headers = {
+    "Content-Type": "application/json",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(opts.headers || {}),
+  };
+
+  const res = await fetch(`${API_BASE}/api${path}`, {
     credentials: "include",
-    headers: { "Content-Type": "application/json" },
     ...opts,
+    headers,
   });
+
+  const ct = res.headers.get("content-type") || "";
   if (!res.ok) {
-    const text = await res.text();
+    const text = await res.text().catch(() => "");
     const err = new Error(text || "request_failed");
     err.status = res.status;
     throw err;
   }
-  const ct = res.headers.get("content-type") || "";
-  if (ct.includes("application/json")) return res.json();
+
+  if (ct.includes("application/json")) {
+    return res.json();
+  }
   return res.blob();
 }
 
 const api = {
-  getPeriodos: () => apiRequest("/admin/periodos"),
-  getCursos: (periodoId) => apiRequest(`/admin/cursos?periodo_id=${encodeURIComponent(periodoId)}`),
-  getMatriculas: (cursoId) => apiRequest(`/admin/matriculas?curso_id=${encodeURIComponent(cursoId)}`),
-  searchEstudiantes: (q) => apiRequest(`/admin/estudiantes/buscar?q=${encodeURIComponent(q)}`),
-  crearMatricula: (estudiante_id, curso_id) =>
-    apiRequest(`/admin/matriculas`, {
-      method: "POST",
-      body: JSON.stringify({ estudiante_id, curso_id }),
+  // Periodos → [{id, nombre}]
+  getPeriodos: () =>
+    apiRequest("/periodos").then((r) => {
+      console.log("[Matriculas] /api/periodos respuesta cruda =", r);
+      const arr = Array.isArray(r?.data) ? r.data : [];
+      return arr.map((p) => ({
+        id: String(p.id_periodo),
+        nombre: p.codigo,
+        raw: p,
+      }));
     }),
+
+  // Cursos → [{id, codigo, nombre}]
+  getCursos: (periodoId) =>
+    apiRequest(`/cursos?periodo_id=${encodeURIComponent(periodoId)}`).then(
+      (r) => {
+        console.log("[Matriculas] /api/cursos respuesta cruda =", r);
+        const arr = Array.isArray(r?.data) ? r.data : [];
+        return arr.map((c) => ({
+          id: String(c.id_curso),
+          codigo: c.codigo,
+          nombre: c.nombre_curso,
+          raw: c,
+        }));
+      }
+    ),
+
+  // Matrículas de un curso → [{id, estudiante:{id,nombre,email}}]
+  getMatriculas: (cursoId) =>
+    apiRequest(
+      `/matriculas?id_curso=${encodeURIComponent(cursoId)}`
+    ).then((r) => {
+      console.log("[Matriculas] /api/matriculas respuesta cruda =", r);
+      const arr = Array.isArray(r?.data) ? r.data : [];
+      return arr.map((m) => ({
+        id: String(m.id_matricula),
+        estudiante: {
+          id: String(m.id_usuario),
+          nombre: m.nombre,
+          email: m.correo_usuario,
+        },
+        raw: m,
+      }));
+    }),
+
+  // Buscar estudiantes → [{id, nombre, email}]
+  searchEstudiantes: (q) =>
+    apiRequest(`/estudiantes/buscar?q=${encodeURIComponent(q)}`).then((r) => {
+      console.log("[Matriculas] /api/estudiantes/buscar respuesta cruda =", r);
+      const arr = Array.isArray(r?.data) ? r.data : [];
+      return arr.map((e) => ({
+        id: String(e.id_usuario),
+        nombre: e.nombre,
+        email: e.correo_usuario,
+        raw: e,
+      }));
+    }),
+
+  // Crear matrícula → objeto igual que getMatriculas()
+  crearMatricula: (estudiante_id, curso_id) =>
+    apiRequest(`/matriculas`, {
+      method: "POST",
+      body: JSON.stringify({
+        id_usuario: estudiante_id,
+        id_curso: curso_id,
+      }),
+    }).then((r) => {
+      console.log("[Matriculas] POST /api/matriculas respuesta cruda =", r);
+      const m = r?.data;
+      if (!m) return null;
+      return {
+        id: String(m.id_matricula),
+        estudiante: {
+          id: String(m.id_usuario),
+          nombre: m.nombre,
+          email: m.correo_usuario,
+        },
+        raw: m,
+      };
+    }),
+
   eliminarMatricula: (matricula_id) =>
-    apiRequest(`/admin/matriculas/${matricula_id}`, { method: "DELETE" }),
+    apiRequest(`/matriculas/${matricula_id}`, { method: "DELETE" }).then(
+      (r) => {
+        console.log(
+          "[Matriculas] DELETE /api/matriculas/:id respuesta cruda =",
+          r
+        );
+        return r;
+      }
+    ),
 };
 
 // ======= MOCKS =======
 async function mockApi(path, opts = {}) {
   await new Promise((r) => setTimeout(r, 350));
-  const url = new URL("http://x" + path); 
+  const url = new URL("http://x" + path);
 
   if (!window.__MOCK__) {
     const periodos = [
@@ -95,35 +187,39 @@ async function mockApi(path, opts = {}) {
         { id: "INF-300", codigo: "INF-300", nombre: "Diseño de Software" },
         { id: "INF-310", codigo: "INF-310", nombre: "Programación III" },
         { id: "MAT-310", codigo: "MAT-310", nombre: "Introducción al Cálculo" },
-        { id: "INF-200", codigo: "INF-200", nombre: "Interconexión de Redes" },       // vacío para probar empty state
+        {
+          id: "INF-200",
+          codigo: "INF-200",
+          nombre: "Interconexión de Redes",
+        }, // vacío para probar empty state
       ],
     };
 
     const estudiantes = [
-      { id: "e1",  nombre: "Rumencio González",   email: "rumencio@alu.uct.cl" },
-      { id: "e2",  nombre: "Ana Martínez",         email: "ana@alu.uct.cl" },
-      { id: "e3",  nombre: "Carlos Rodríguez",     email: "carlos@alu.uct.cl" },
-      { id: "e4",  nombre: "Bárbara Núñez",        email: "barbara@alu.uct.cl" },
-      { id: "e5",  nombre: "Sofía Pérez",          email: "sofia@alu.uct.cl" },
-      { id: "e6",  nombre: "Tomás Riquelme",       email: "tomas@alu.uct.cl" },
-      { id: "e7",  nombre: "Matías Herrera",       email: "matias@alu.uct.cl" },
-      { id: "e8",  nombre: "Valentina Muñoz",      email: "valentina@alu.uct.cl" },
-      { id: "e9",  nombre: "Javiera Araya",        email: "javiera@alu.uct.cl" },
-      { id: "e10", nombre: "Ignacio Torres",       email: "ignacio@alu.uct.cl" },
-      { id: "e11", nombre: "Camila Morales",       email: "camila@alu.uct.cl" },
-      { id: "e12", nombre: "Diego Fuentes",        email: "diego@alu.uct.cl" },
-      { id: "e13", nombre: "Francisca Reyes",      email: "francisca@alu.uct.cl" },
-      { id: "e14", nombre: "Joaquín Vega",         email: "joaquin@alu.uct.cl" },
-      { id: "e15", nombre: "Fernanda Castillo",    email: "fernanda@alu.uct.cl" },
-      { id: "e16", nombre: "Pablo Silva",          email: "pablo@alu.uct.cl" },
-      { id: "e17", nombre: "Martina Contreras",    email: "martina@alu.uct.cl" },
-      { id: "e18", nombre: "José Ramírez",         email: "jose@alu.uct.cl" },
-      { id: "e19", nombre: "Paula Figueroa",       email: "paula@alu.uct.cl" },
-      { id: "e20", nombre: "Ricardo Jiménez",      email: "ricardo@alu.uct.cl" },
-      { id: "e21", nombre: "Isidora Campos",       email: "isidora@alu.uct.cl" },
-      { id: "e22", nombre: "Sebastián Paredes",    email: "sebastian@alu.uct.cl" },
-      { id: "e23", nombre: "Antonia León",         email: "antonia@alu.uct.cl" },
-      { id: "e24", nombre: "Vicente Navarro",      email: "vicente@alu.uct.cl" },
+      { id: "e1", nombre: "Rumencio González", email: "rumencio@alu.uct.cl" },
+      { id: "e2", nombre: "Ana Martínez", email: "ana@alu.uct.cl" },
+      { id: "e3", nombre: "Carlos Rodríguez", email: "carlos@alu.uct.cl" },
+      { id: "e4", nombre: "Bárbara Núñez", email: "barbara@alu.uct.cl" },
+      { id: "e5", nombre: "Sofía Pérez", email: "sofia@alu.uct.cl" },
+      { id: "e6", nombre: "Tomás Riquelme", email: "tomas@alu.uct.cl" },
+      { id: "e7", nombre: "Matías Herrera", email: "matias@alu.uct.cl" },
+      { id: "e8", nombre: "Valentina Muñoz", email: "valentina@alu.uct.cl" },
+      { id: "e9", nombre: "Javiera Araya", email: "javiera@alu.uct.cl" },
+      { id: "e10", nombre: "Ignacio Torres", email: "ignacio@alu.uct.cl" },
+      { id: "e11", nombre: "Camila Morales", email: "camila@alu.uct.cl" },
+      { id: "e12", nombre: "Diego Fuentes", email: "diego@alu.uct.cl" },
+      { id: "e13", nombre: "Francisca Reyes", email: "francisca@alu.uct.cl" },
+      { id: "e14", nombre: "Joaquín Vega", email: "joaquin@alu.uct.cl" },
+      { id: "e15", nombre: "Fernanda Castillo", email: "fernanda@alu.uct.cl" },
+      { id: "e16", nombre: "Pablo Silva", email: "pablo@alu.uct.cl" },
+      { id: "e17", nombre: "Martina Contreras", email: "martina@alu.uct.cl" },
+      { id: "e18", nombre: "José Ramírez", email: "jose@alu.uct.cl" },
+      { id: "e19", nombre: "Paula Figueroa", email: "paula@alu.uct.cl" },
+      { id: "e20", nombre: "Ricardo Jiménez", email: "ricardo@alu.uct.cl" },
+      { id: "e21", nombre: "Isidora Campos", email: "isidora@alu.uct.cl" },
+      { id: "e22", nombre: "Sebastián Paredes", email: "sebastian@alu.uct.cl" },
+      { id: "e23", nombre: "Antonia León", email: "antonia@alu.uct.cl" },
+      { id: "e24", nombre: "Vicente Navarro", email: "vicente@alu.uct.cl" },
     ];
 
     const pick = (ids) =>
@@ -134,19 +230,19 @@ async function mockApi(path, opts = {}) {
 
     const matriculas = {
       // 2025-1
-      "INF-101": pick(["e1","e2","e3","e5","e8","e12"]),
-      "INF-150": pick(["e4","e6","e7","e9"]),
+      "INF-101": pick(["e1", "e2", "e3", "e5", "e8", "e12"]),
+      "INF-150": pick(["e4", "e6", "e7", "e9"]),
       "MAT-201": [], // vacío a propósito
-      "FIS-110": pick(["e16","e17","e18"]),
+      "FIS-110": pick(["e16", "e17", "e18"]),
       // 2025-2
-      "INF-220": pick(["e2","e3","e4","e19","e20"]),
-      "INF-240": pick(["e1","e9","e11","e22","e24"]),
-      "MAT-250": pick(["e5","e6","e7","e8","e10"]),
-      "DER-101": pick(["e12","e13","e14","e21"]),
+      "INF-220": pick(["e2", "e3", "e4", "e19", "e20"]),
+      "INF-240": pick(["e1", "e9", "e11", "e22", "e24"]),
+      "MAT-250": pick(["e5", "e6", "e7", "e8", "e10"]),
+      "DER-101": pick(["e12", "e13", "e14", "e21"]),
       // 2026-1
-      "INF-300": pick(["e3","e4","e5","e6"]),
-      "INF-310": pick(["e1","e2","e7","e8","e9"]),
-      "MAT-310": pick(["e10","e11","e15","e16","e17"]),
+      "INF-300": pick(["e3", "e4", "e5", "e6"]),
+      "INF-310": pick(["e1", "e2", "e7", "e8", "e9"]),
+      "MAT-310": pick(["e10", "e11", "e15", "e16", "e17"]),
       "INF-200": [], // vacío a propósito
     };
 
@@ -259,12 +355,15 @@ export default function AdminMatriculas() {
         // autoselect primero
         if (data?.length && !periodoId) setPeriodoId(data[0].id);
       } catch (e) {
+        console.error(e);
         setAlert({ type: "error", msg: "No se pudieron cargar los periodos." });
       } finally {
         if (alive) setLoadingPeriodos(false);
       }
     })();
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -283,12 +382,18 @@ export default function AdminMatriculas() {
         // reset curso cuando cambia el periodo
         setCursoId(data?.[0]?.id || "");
       } catch (e) {
-        setAlert({ type: "error", msg: "No se pudieron cargar los cursos del periodo." });
+        console.error(e);
+        setAlert({
+          type: "error",
+          msg: "No se pudieron cargar los cursos del periodo.",
+        });
       } finally {
         if (alive) setLoadingCursos(false);
       }
     })();
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+    };
   }, [periodoId]);
 
   useEffect(() => {
@@ -304,12 +409,18 @@ export default function AdminMatriculas() {
         if (!alive) return;
         setMatriculas(data);
       } catch (e) {
-        setAlert({ type: "error", msg: "No se pudieron cargar las matrículas del curso." });
+        console.error(e);
+        setAlert({
+          type: "error",
+          msg: "No se pudieron cargar las matrículas del curso.",
+        });
       } finally {
         if (alive) setLoadingMatriculas(false);
       }
     })();
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+    };
   }, [cursoId]);
 
   const handleSearch = async (ev) => {
@@ -322,7 +433,8 @@ export default function AdminMatriculas() {
     try {
       const data = await api.searchEstudiantes(q.trim());
       setResults(data);
-    } catch {
+    } catch (e) {
+      console.error(e);
       setAlert({ type: "error", msg: "No se pudo buscar estudiantes." });
     } finally {
       setSearching(false);
@@ -338,7 +450,10 @@ export default function AdminMatriculas() {
     if (!cursoId) return;
     // Unicidad en UI
     if (matriculadosIds.has(estudiante.id)) {
-      setAlert({ type: "info", msg: "El estudiante ya está inscrito en este curso." });
+      setAlert({
+        type: "info",
+        msg: "El estudiante ya está inscrito en este curso.",
+      });
       return;
     }
     const tempId = "tmp-" + estudiante.id;
@@ -352,14 +467,24 @@ export default function AdminMatriculas() {
       );
       setAlert({ type: "success", msg: "Estudiante inscrito correctamente." });
     } catch (e) {
+      console.error(e);
       // revertir
       setMatriculas(snapshot);
       if (e.status === 409) {
-        setAlert({ type: "error", msg: "Duplicado: ya existe la matrícula (409)." });
+        setAlert({
+          type: "error",
+          msg: "Duplicado: ya existe la matrícula (409).",
+        });
       } else if (e.status === 422) {
-        setAlert({ type: "error", msg: "Datos inválidos: verifique referencias (422)." });
+        setAlert({
+          type: "error",
+          msg: "Datos inválidos: verifique referencias (422).",
+        });
       } else {
-        setAlert({ type: "error", msg: "No se pudo inscribir al estudiante." });
+        setAlert({
+          type: "error",
+          msg: "No se pudo inscribir al estudiante.",
+        });
       }
     }
   };
@@ -380,11 +505,18 @@ export default function AdminMatriculas() {
       await api.eliminarMatricula(m.id);
       setAlert({ type: "success", msg: "Matrícula eliminada." });
     } catch (e) {
+      console.error(e);
       setMatriculas(snapshot);
       if (e.status === 422) {
-        setAlert({ type: "error", msg: "No se pudo eliminar: referencia inválida (422)." });
+        setAlert({
+          type: "error",
+          msg: "No se pudo eliminar: referencia inválida (422).",
+        });
       } else {
-        setAlert({ type: "error", msg: "Error al eliminar la matrícula." });
+        setAlert({
+          type: "error",
+          msg: "Error al eliminar la matrícula.",
+        });
       }
     }
   };
@@ -403,8 +535,13 @@ export default function AdminMatriculas() {
                   <Users className="h-7 w-7 text-blue-600" />
                 </div>
                 <div>
-                  <h1 className="text-3xl md:text-4xl font-bold text-gray-900">Matrículas</h1>
-                  <p className="text-gray-600 mt-1">Aquí puedes inscribir o dar de baja estudiantes por periodo y curso.</p>
+                  <h1 className="text-3xl md:text-4xl font-bold text-gray-900">
+                    Matrículas
+                  </h1>
+                  <p className="text-gray-600 mt-1">
+                    Aquí puedes inscribir o dar de baja estudiantes por periodo
+                    y curso.
+                  </p>
                 </div>
               </div>
 
@@ -412,7 +549,12 @@ export default function AdminMatriculas() {
               <div className="mt-4 flex flex-col md:flex-row items-stretch md:items-center gap-3">
                 <div className="flex items-center gap-2">
                   <CalendarIcon className="h-5 w-5 text-gray-500" />
-                  <label htmlFor="periodo" className="text-sm text-gray-600">Periodo</label>
+                  <label
+                    htmlFor="periodo"
+                    className="text-sm text-gray-600"
+                  >
+                    Periodo
+                  </label>
                 </div>
                 <select
                   id="periodo"
@@ -421,14 +563,20 @@ export default function AdminMatriculas() {
                   className="border border-gray-200 bg-white px-3 py-2 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#048FD4]"
                 >
                   {loadingPeriodos && <option>Cargando...</option>}
-                  {!loadingPeriodos && periodos.length === 0 && <option>No hay periodos</option>}
+                  {!loadingPeriodos && periodos.length === 0 && (
+                    <option>No hay periodos</option>
+                  )}
                   {!loadingPeriodos &&
                     periodos.map((p) => (
-                      <option key={p.id} value={p.id}>{p.nombre}</option>
+                      <option key={p.id} value={p.id}>
+                        {p.nombre}
+                      </option>
                     ))}
                 </select>
 
-                <div className="hidden md:block text-gray-400"><ChevronRight size={18} /></div>
+                <div className="hidden md:block text-gray-400">
+                  <ChevronRight size={18} />
+                </div>
 
                 <div className="flex items-center gap-2">
                   <BookOpen className="h-5 w-5 text-gray-500" />
@@ -489,7 +637,9 @@ export default function AdminMatriculas() {
                 </div>
                 <div className="p-4 max-h-[480px] overflow-y-auto">
                   {loadingCursos ? (
-                    <div className="text-gray-500 text-sm">Cargando cursos...</div>
+                    <div className="text-gray-500 text-sm">
+                      Cargando cursos...
+                    </div>
                   ) : cursos.length === 0 ? (
                     <div className="text-center text-gray-500 text-sm py-8">
                       No hay cursos para el periodo seleccionado.
@@ -508,8 +658,14 @@ export default function AdminMatriculas() {
                                   : "bg-white text-gray-800 border-gray-200 hover:bg-blue-50"
                               }`}
                             >
-                              <div className="text-sm font-semibold">{c.nombre}</div>
-                              <div className={`text-xs ${active ? "text-blue-100" : "text-gray-500"}`}>
+                              <div className="text-sm font-semibold">
+                                {c.nombre}
+                              </div>
+                              <div
+                                className={`text-xs ${
+                                  active ? "text-blue-100" : "text-gray-500"
+                                }`}
+                              >
                                 {c.codigo || c.id}
                               </div>
                             </button>
@@ -550,7 +706,9 @@ export default function AdminMatriculas() {
                       Selecciona un curso para ver sus inscritos.
                     </div>
                   ) : loadingMatriculas ? (
-                    <div className="text-gray-500 text-sm">Cargando estudiantes...</div>
+                    <div className="text-gray-500 text-sm">
+                      Cargando estudiantes...
+                    </div>
                   ) : matriculas.length === 0 ? (
                     <div className="text-center text-gray-500 text-sm py-16">
                       Aún no hay estudiantes inscritos en este curso.
@@ -573,12 +731,17 @@ export default function AdminMatriculas() {
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-100">
                           {matriculas.map((m) => (
-                            <tr key={m.id} className="hover:bg-blue-50 transition-colors">
+                            <tr
+                              key={m.id}
+                              className="hover:bg-blue-50 transition-colors"
+                            >
                               <td className="px-6 py-4">
                                 <div className="text-sm font-semibold text-gray-900">
                                   {m.estudiante?.nombre}
                                 </div>
-                                <div className="text-xs text-gray-500">ID: {m.estudiante?.id}</div>
+                                <div className="text-xs text-gray-500">
+                                  ID: {m.estudiante?.id}
+                                </div>
                               </td>
                               <td className="px-6 py-4 text-sm text-gray-700">
                                 {m.estudiante?.email}
@@ -616,7 +779,11 @@ export default function AdminMatriculas() {
                   </h3>
                 </div>
                 <button
-                  onClick={() => { setAddOpen(false); setResults([]); setQ(""); }}
+                  onClick={() => {
+                    setAddOpen(false);
+                    setResults([]);
+                    setQ("");
+                  }}
                   className="text-gray-600 hover:text-gray-900 text-sm"
                 >
                   Cerrar
@@ -645,14 +812,21 @@ export default function AdminMatriculas() {
               <div className="px-4 pb-5 max-h-[360px] overflow-y-auto">
                 {results.length === 0 ? (
                   <div className="text-center text-gray-500 text-sm py-10">
-                    {q.trim() ? "Sin resultados." : "Ingresa un término para buscar estudiantes."}
+                    {q.trim()
+                      ? "Sin resultados."
+                      : "Ingresa un término para buscar estudiantes."}
                   </div>
                 ) : (
                   <ul className="divide-y divide-gray-100">
                     {results.map((e) => (
-                      <li key={e.id} className="py-3 flex items-center justify-between">
+                      <li
+                        key={e.id}
+                        className="py-3 flex items-center justify-between"
+                      >
                         <div>
-                          <div className="text-sm font-semibold text-gray-900">{e.nombre}</div>
+                          <div className="text-sm font-semibold text-gray-900">
+                            {e.nombre}
+                          </div>
                           <div className="text-xs text-gray-500">{e.email}</div>
                         </div>
                         <button
@@ -676,7 +850,10 @@ export default function AdminMatriculas() {
           open={confirmOpen}
           title="Quitar matrícula"
           confirmLabel="Quitar"
-          onClose={() => { setConfirmOpen(false); setToRemove(null); }}
+          onClose={() => {
+            setConfirmOpen(false);
+            setToRemove(null);
+          }}
           onConfirm={doRemove}
           loading={false}
         />
