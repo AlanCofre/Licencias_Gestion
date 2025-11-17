@@ -1,70 +1,83 @@
-import crypto from "crypto";
-import { Op, QueryTypes } from "sequelize";
+// backend/services/servicio_Licencias.js
+import crypto from 'crypto';
+import { Op, QueryTypes } from 'sequelize';
 
-import LicenciaMedica from "../src/models/modelo_LicenciaMedica.js";
-import HistorialLicencias from "../src/models/modelo_HistorialLicencias.js";
-import ArchivoLicencia from "../src/models/modelo_ArchivoLicencia.js";
-import { Matricula, LicenciasEntregas } from "../src/models/index.js";
+// 👇 Imports según tu estructura (services/ ↔ src/models/)
+import LicenciaMedica from '../src/models/modelo_LicenciaMedica.js';
+import HistorialLicencias from '../src/models/modelo_HistorialLicencias.js';
+import ArchivoLicencia from '../src/models/modelo_ArchivoLicencia.js';
+import { Matricula, LicenciasEntregas } from '../src/models/index.js';
 
-import {
+// 🔔 NUEVO IMPORT para correos
+import { 
   notificarEstadoLicenciaEstudiante,
   notificarLicenciaCreadaEstudiante,
-  notificarLicenciaAceptadaProfesor,
-} from "./servicio_Correo.js";
+  notificarLicenciaAceptadaProfesor 
+} from './servicio_Correo.js';
 
 /* =======================================================
- * Utilidades básicas
+ * Utilidades
  * ======================================================= */
-export function sha256FromBuffer(buf) {
-  const h = crypto.createHash("sha256");
-  h.update(buf);
-  return h.digest("hex");
+export function sha256FromBuffer(bufOrStr) {
+  const h = crypto.createHash('sha256');
+  h.update(bufOrStr);
+  return h.digest('hex');
 }
 
 /* =======================================================
- * Validación de fechas y duplicados (sin logs)
+ * Validaciones: fechas superpuestas + hash duplicado
  * ======================================================= */
 export async function validarNuevaLicencia({
   idUsuario,
   fechaInicio,
   fechaFin,
-  hashArchivoSha256,
+  hashArchivoSha256, // opcional
 }) {
+  // A) Fechas superpuestas (rango inclusivo)
   const licSolapada = await LicenciaMedica.findOne({
     where: {
       id_usuario: idUsuario,
-      estado: { [Op.in]: ["pendiente", "aceptado"] },
+      estado: { [Op.in]: ['pendiente', 'aceptado'] },
       [Op.and]: [
         { fecha_inicio: { [Op.lte]: fechaFin } },
         { fecha_fin: { [Op.gte]: fechaInicio } },
       ],
     },
-    attributes: ["id_licencia", "fecha_inicio", "fecha_fin", "estado"],
+    attributes: ['id_licencia', 'fecha_inicio', 'fecha_fin', 'estado'],
   });
 
   if (licSolapada) {
-    const e = new Error("LICENCIA_FECHAS_SUPERPUESTAS");
+    const e = new Error(
+      `Fechas superpuestas con una licencia existente. ` +
+        `Se superpone con licencia #${licSolapada.id_licencia} ` +
+        `(${licSolapada.fecha_inicio} a ${licSolapada.fecha_fin}, estado: ${licSolapada.estado}).`
+    );
+    e.code = 'LICENCIA_FECHAS_SUPERPUESTAS';
     e.http = 409;
     throw e;
   }
 
+  // B) Hash duplicado (si viene)
   if (hashArchivoSha256) {
     const archivoPrevio = await ArchivoLicencia.findOne({
       where: { hash: hashArchivoSha256 },
       include: [
         {
           model: LicenciaMedica,
-          as: "licencia",
+          as: 'licencia', // ⚠️ Debe existir esta asociación en el modelo
           required: true,
           where: { id_usuario: idUsuario },
-          attributes: ["id_licencia"],
+          attributes: ['id_licencia'],
         },
       ],
-      attributes: ["id_archivo", "hash"],
+      attributes: ['id_archivo', 'hash'],
     });
 
     if (archivoPrevio) {
-      const e = new Error("ARCHIVO_HASH_DUPLICADO");
+      const e = new Error(
+        `Este archivo ya fue usado en la licencia #${archivoPrevio.licencia.id_licencia}.`
+      );
+      e.code = 'ARCHIVO_HASH_DUPLICADO';
       e.http = 409;
       throw e;
     }
@@ -72,22 +85,22 @@ export async function validarNuevaLicencia({
 }
 
 /* =======================================================
- * Crear licencia con archivo (sin logs internos)
+ * Crear licencia + (opcional) archivo — con transacción
  * ======================================================= */
 export async function crearLicenciaConArchivo({
   idUsuario,
   fechaInicio,
   fechaFin,
   motivo,
-  archivoBuffer,
-  archivoHashHex,
-  archivoUrl,
+  // archivo:
+  archivoBuffer, // si llega por multipart (req.file.buffer)
+  archivoHashHex, // si FE ya lo calculó
+  archivoUrl, // ⚠️ requerido por tu modelo si insertas archivo (ruta_url NOT NULL)
   archivoMime,
   archivoBytes,
 }) {
   const hash =
-    archivoHashHex ??
-    (archivoBuffer ? sha256FromBuffer(archivoBuffer) : null);
+    archivoHashHex ?? (archivoBuffer ? sha256FromBuffer(archivoBuffer) : null);
 
   await validarNuevaLicencia({
     idUsuario,
@@ -104,22 +117,24 @@ export async function crearLicenciaConArchivo({
         fecha_inicio: fechaInicio,
         fecha_fin: fechaFin,
         motivo,
-        estado: "pendiente",
+        estado: 'pendiente',
       },
       { transaction: tx }
     );
 
-    if (hash || archivoUrl || archivoMime || typeof archivoBytes === "number") {
+    // Insertar registro de archivo solo si hay datos del archivo
+    if (hash || archivoUrl || archivoMime || typeof archivoBytes === 'number') {
       await ArchivoLicencia.create(
         {
-          id_licencia: lic.id_licencia,
+          id_licencia: lic.id_licencia, // ⚠️ tu modelo debe tener este campo
           hash: hash ?? null,
-          ruta_url: archivoUrl ?? "local://sin-url",
-          tipo_mime: archivoMime ?? "application/octet-stream",
+          ruta_url: archivoUrl ?? 'local://sin-url', // evita violar allowNull:false durante pruebas
+          tipo_mime: archivoMime ?? 'application/octet-stream',
           tamano:
-            typeof archivoBytes === "number"
+            typeof archivoBytes === 'number'
               ? archivoBytes
               : archivoBuffer?.length ?? 0,
+          // fecha_subida usa default NOW del modelo
         },
         { transaction: tx }
       );
@@ -134,62 +149,135 @@ export async function crearLicenciaConArchivo({
 }
 
 /* =======================================================
- * AUXILIAR: envío de correo (silencioso)
+ * Función auxiliar: enviar notificación por correo
  * ======================================================= */
 async function enviarNotificacionCorreo({
   licencia,
   estado,
   motivo_rechazo,
   observacion,
+  actorId
 }) {
   try {
-    const [estRow] = await LicenciaMedica.sequelize.query(
-      `SELECT correo_usuario, nombre
-       FROM usuario WHERE id_usuario = ?
+    console.log(`📧 Preparando notificación por correo para licencia ${licencia.id_licencia}`);
+    
+    // Obtener información del estudiante
+    const [estudianteRows] = await LicenciaMedica.sequelize.query(
+      `SELECT u.correo_usuario, u.nombre 
+       FROM usuario u 
+       WHERE u.id_usuario = ? 
        LIMIT 1`,
       {
         replacements: [licencia.id_usuario],
-        type: QueryTypes.SELECT,
+        type: QueryTypes.SELECT
       }
     );
 
-    if (!estRow?.correo_usuario) return;
+    if (!estudianteRows || !estudianteRows.correo_usuario) {
+      console.warn('⚠️ No se pudo obtener el correo del estudiante para notificación');
+      return { ok: false, error: 'Correo del estudiante no encontrado' };
+    }
 
-    await notificarEstadoLicenciaEstudiante({
-      to: estRow.correo_usuario,
+    const resultado = await notificarEstadoLicenciaEstudiante({
+      to: estudianteRows.correo_usuario,
       folio: licencia.folio,
-      estudianteNombre: estRow.nombre,
-      estado,
-      motivo_rechazo,
+      estudianteNombre: estudianteRows.nombre,
+      estado: estado,
+      motivo_rechazo: motivo_rechazo,
       fechaInicio: licencia.fecha_inicio,
       fechaFin: licencia.fecha_fin,
-      observacion,
-      enlaceDetalle: `${process.env.APP_URL}/mis-licencias/${licencia.id_licencia}`,
+      observacion: observacion,
+      enlaceDetalle: `${process.env.APP_URL || 'http://localhost:3000'}/mis-licencias/${licencia.id_licencia}`
     });
-  } catch (_) {}
+
+    if (resultado.ok) {
+      console.log(`✅ Correo enviado exitosamente a: ${estudianteRows.correo_usuario}`);
+    } else {
+      console.error(`❌ Error enviando correo a ${estudianteRows.correo_usuario}:`, resultado.error);
+    }
+
+    return resultado;
+  } catch (error) {
+    console.error('❌ Error inesperado en enviarNotificacionCorreo:', error);
+    return { ok: false, error: error.message };
+  }
 }
 
 /* =======================================================
- * AUXILIAR: notificar profesores aceptación
+ * Función auxiliar: notificar creación de licencia
  * ======================================================= */
-async function enviarNotificacionProfesores({ licencia }) {
+async function enviarNotificacionLicenciaCreada({
+  usuarioId,
+  folio,
+  fechaInicio,
+  fechaFin
+}) {
   try {
-    const [estRow] = await LicenciaMedica.sequelize.query(
-      `SELECT nombre FROM usuario WHERE id_usuario = ? LIMIT 1`,
+    console.log(`📧 Preparando notificación de creación para usuario ${usuarioId}`);
+    
+    // Obtener información del estudiante
+    const [estudianteRows] = await LicenciaMedica.sequelize.query(
+      `SELECT u.correo_usuario, u.nombre 
+       FROM usuario u 
+       WHERE u.id_usuario = ? 
+       LIMIT 1`,
       {
-        replacements: [licencia.id_usuario],
-        type: QueryTypes.SELECT,
+        replacements: [usuarioId],
+        type: QueryTypes.SELECT
       }
     );
 
-    if (!estRow) return;
+    if (!estudianteRows || !estudianteRows.correo_usuario) {
+      console.warn('⚠️ No se pudo obtener el correo del estudiante para notificación de creación');
+      return { ok: false, error: 'Correo del estudiante no encontrado' };
+    }
 
+    const resultado = await notificarLicenciaCreadaEstudiante({
+      to: estudianteRows.correo_usuario,
+      folio: folio,
+      estudianteNombre: estudianteRows.nombre,
+      fechaInicio: fechaInicio,
+      fechaFin: fechaFin
+    });
+
+    if (resultado.ok) {
+      console.log(`✅ Correo de creación enviado a: ${estudianteRows.correo_usuario}`);
+    } else {
+      console.error(`❌ Error enviando correo de creación:`, resultado.error);
+    }
+
+    return resultado;
+  } catch (error) {
+    console.error('❌ Error inesperado en enviarNotificacionLicenciaCreada:', error);
+    return { ok: false, error: error.message };
+  }
+}
+
+// Agregar esta función en servicio_Licencias.js después de las otras funciones auxiliares
+
+/* =======================================================
+ * Función auxiliar: crear notificaciones para profesores
+ * cuando se genera una entrega de licencia
+ * ======================================================= */
+/* =======================================================
+ * Función auxiliar: crear notificaciones para profesores
+ * cuando se genera una entrega de licencia
+ * ======================================================= */
+async function crearNotificacionesProfesores({
+  licencia,
+  actorId,
+  conn // Sequelize transaction
+}) {
+  try {
+    console.log(`📢 Creando notificaciones para profesores - Licencia ${licencia.id_licencia}`);
+    
+    // Obtener cursos y profesores asociados a esta licencia
     const cursosProfesores = await LicenciaMedica.sequelize.query(
       `SELECT 
         le.id_curso,
         c.nombre_curso,
-        u.correo_usuario,
-        u.nombre AS nombre_profesor
+        c.id_usuario as id_profesor,
+        u.nombre as nombre_profesor
        FROM licencias_entregas le
        JOIN curso c ON le.id_curso = c.id_curso
        JOIN usuario u ON c.id_usuario = u.id_usuario
@@ -197,77 +285,149 @@ async function enviarNotificacionProfesores({ licencia }) {
       {
         replacements: [licencia.id_licencia],
         type: QueryTypes.SELECT,
+        transaction: conn
       }
     );
 
-    if (!Array.isArray(cursosProfesores) || cursosProfesores.length === 0)
-      return;
+    // Obtener información del estudiante
+    const [estudianteRows] = await LicenciaMedica.sequelize.query(
+      `SELECT u.nombre 
+       FROM usuario u 
+       WHERE u.id_usuario = ? 
+       LIMIT 1`,
+      {
+        replacements: [licencia.id_usuario],
+        type: QueryTypes.SELECT,
+        transaction: conn
+      }
+    );
 
-    for (const curso of cursosProfesores) {
-      if (!curso.correo_usuario) continue;
+    const estudianteNombre = estudianteRows?.nombre || 'Estudiante';
 
-      await notificarLicenciaAceptadaProfesor({
-        to: curso.correo_usuario,
-        folio: licencia.folio,
-        estudianteNombre: estRow.nombre,
-        nombreCurso: curso.nombre_curso,
-        fechaInicio: licencia.fecha_inicio,
-        fechaFin: licencia.fecha_fin,
-        enlaceDetalle: `${process.env.APP_URL}/mis-cursos`,
-      });
+    if (!cursosProfesores || cursosProfesores.length === 0) {
+      console.warn(`⚠️ No se encontraron cursos/profesores asociados a la licencia ${licencia.id_licencia}`);
+      return { notificacionesCreadas: 0 };
     }
-  } catch (_) {}
+
+    console.log(`📚 Encontrados ${cursosProfesores.length} cursos para notificar`);
+
+    let notificacionesCreadas = 0;
+
+    // Crear notificación para cada profesor
+    for (const curso of cursosProfesores) {
+      if (curso.id_profesor) {
+        try {
+          const asunto = 'Nueva entrega de licencia médica';
+          const contenido = `El estudiante ${estudianteNombre} ha generado una entrega de licencia médica para el curso "${curso.nombre_curso}". Folio: ${licencia.folio}. Período: ${licencia.fecha_inicio} al ${licencia.fecha_fin}.`;
+          
+          await LicenciaMedica.sequelize.query(
+            `INSERT INTO notificacion (asunto, contenido, leido, fecha_envio, id_usuario)
+             VALUES (?, ?, 0, NOW(), ?)`,
+            {
+              replacements: [asunto, contenido, curso.id_profesor],
+              transaction: conn
+            }
+          );
+          
+          console.log(`✅ Notificación creada para profesor: ${curso.nombre_profesor} - Curso: ${curso.nombre_curso}`);
+          notificacionesCreadas++;
+        } catch (error) {
+          console.error(`❌ Error creando notificación para profesor ${curso.nombre_profesor}:`, error);
+        }
+      }
+    }
+
+    console.log(`📢 Total notificaciones creadas para profesores: ${notificacionesCreadas}`);
+    return { notificacionesCreadas };
+  } catch (error) {
+    console.error('❌ Error inesperado en crearNotificacionesProfesores:', error);
+    return { notificacionesCreadas: 0, error: error.message };
+  }
 }
 
 /* =======================================================
- * Auditoría + notificaciones internas
+ * Registrar notificaciones y auditoría
  * ======================================================= */
 async function registrarNotificacionesYAuditoria({
   licencia,
   estado,
   motivo_rechazo,
   actorId,
-  ip = "0.0.0.0",
-  conn,
+  ip = '0.0.0.0',
+  conn // Sequelize transaction
 }) {
+  // Auditoría
   await conn.sequelize.query(
     `INSERT INTO logauditoria (accion, recurso, payload, ip, fecha, id_usuario)
      VALUES (?, ?, ?, ?, NOW(), ?)`,
     {
       replacements: [
-        "cambiar estado",
-        "licenciamedica",
+        'cambiar estado',
+        'licenciamedica',
         JSON.stringify({
           id_licencia: licencia.id_licencia,
           estado_anterior: licencia.estado,
-          estado_nuevo: estado,
+          estado_nuevo: estado
         }),
         ip,
-        actorId,
+        actorId
       ],
-      transaction: conn,
+      transaction: conn
     }
   );
 
-  // Notificación interna al estudiante
-  await conn.sequelize.query(
-    `INSERT INTO notificacion (asunto, contenido, leido, fecha_envio, id_usuario)
-     VALUES (?, ?, 0, NOW(), ?)`,
-    {
-      replacements: [
-        `Licencia ${estado}`,
-        estado === "rechazado"
-          ? "Tu licencia ha sido rechazada"
-          : "Tu licencia ha sido aprobada",
-        licencia.id_usuario,
-      ],
-      transaction: conn,
-    }
-  );
+  // Notificación al estudiante
+  if (licencia.id_usuario) {
+    const mensajeEstudiante = estado === 'rechazado'
+      ? 'Tu licencia ha sido rechazada. Revisa el motivo en el sistema.'
+      : 'Tu licencia ha sido aprobada. Ya no necesitas justificar asistencia.';
+
+    await conn.sequelize.query(
+      `INSERT INTO notificacion (asunto, contenido, leido, fecha_envio, id_usuario)
+       VALUES (?, ?, 0, NOW(), ?)`,
+      {
+        replacements: [`Licencia ${estado}`, mensajeEstudiante, licencia.id_usuario],
+        transaction: conn
+      }
+    );
+  }
+  // Notificación al profesor 
+  if (estado === 'aceptado' && licencia.id_profesor) {
+    await conn.sequelize.query(
+      `INSERT INTO notificacion (asunto, contenido, leido, fecha_envio, id_usuario)
+      VALUES (?, ?, 0, NOW(), ?)`,
+      {
+        replacements: [
+          'Licencia aprobada del estudiante',
+          `La licencia del estudiante ${licencia.id_usuario} ha sido aprobada.`,
+          licencia.id_profesor
+        ],
+        transaction: conn
+      }
+    );
+  }
+
+  // Notificación al profesor (solo si fue aceptada)
+  if (estado === 'aceptado' && licencia.id_profesor) {
+    await conn.sequelize.query(
+      `INSERT INTO notificacion (asunto, contenido, leido, fecha_envio, id_usuario)
+       VALUES (?, ?, 0, NOW(), ?)`,
+      {
+        replacements: [
+          'Licencia aprobada del estudiante',
+          `La licencia del estudiante ${licencia.id_usuario} ha sido aprobada.`,
+          licencia.id_profesor
+        ],
+        transaction: conn
+      }
+    );
+  }
+
+  console.log(`📜 Auditoría y notificaciones registradas para licencia ${licencia.id_licencia}`);
 }
 
 /* =======================================================
- * DECIDIR LICENCIA — SOLO 1 LOG FINAL POR PROCESO
+ * Decidir licencia (aceptar/rechazar) — ROBUSTO
  * ======================================================= */
 export async function decidirLicenciaSvc({
   idLicencia,
@@ -280,18 +440,18 @@ export async function decidirLicenciaSvc({
   idFuncionario,
   idfuncionario,
   id_usuario,
-  ip = "0.0.0.0",
+  ip = '0.0.0.0' // ✅ IP recibida desde el controlador
 }) {
-  const DEC = (decision ?? estado ?? "").toLowerCase().trim();
-  if (!["aceptado", "rechazado"].includes(DEC)) {
-    const e = new Error("DECISION_INVALIDA");
+  const DEC = (decision ?? estado ?? '').toLowerCase().trim();
+  if (!['aceptado', 'rechazado'].includes(DEC)) {
+    const e = new Error('DECISION_INVALIDA');
     e.http = 400;
     throw e;
   }
 
-  const actorId = idFuncionario ?? idfuncionario ?? id_usuario;
+  const actorId = idFuncionario ?? idfuncionario ?? id_usuario ?? null;
   if (!actorId) {
-    const e = new Error("REVISOR_REQUERIDO");
+    const e = new Error('REVISOR_REQUERIDO');
     e.http = 401;
     throw e;
   }
@@ -304,35 +464,35 @@ export async function decidirLicenciaSvc({
     });
 
     if (!lic) {
-      const e = new Error("LICENCIA_NO_ENCONTRADA");
+      const e = new Error('LICENCIA_NO_ENCONTRADA');
       e.http = 404;
       throw e;
     }
 
-    const estadoActual = String(lic.estado).toLowerCase();
-    if (["aceptado", "rechazado"].includes(estadoActual)) {
-      const e = new Error(`La licencia ya fue ${estadoActual}`);
+    const actual = String(lic.estado || '').toLowerCase().trim();
+    if (['aceptado', 'rechazado'].includes(actual)) {
+      const e = new Error(`La licencia ya fue ${actual}`);
       e.http = 409;
       throw e;
     }
-    if (estadoActual !== "pendiente") {
-      const e = new Error("ESTADO_NO_PERMITE_DECIDIR");
+    if (actual !== 'pendiente') {
+      const e = new Error('ESTADO_NO_PERMITE_DECIDIR');
       e.http = 409;
       throw e;
     }
 
-    // ================================
-    //   PROCESO: ACEPTADO
-    // ================================
-    if (DEC === "aceptado") {
-      const archivo = await ArchivoLicencia.findOne({
-        where: { id_licencia: lic.id_licencia, hash: { [Op.ne]: null } },
-        transaction: tx,
-      });
+    if (DEC === 'aceptado') {
+      let archivo = null;
+      try {
+        archivo = await ArchivoLicencia.findOne({
+          where: { id_licencia: lic.id_licencia, hash: { [Op.ne]: null } },
+          transaction: tx,
+        });
+      } catch (_) {}
 
       if (!archivo) {
         const rows = await LicenciaMedica.sequelize.query(
-          "SELECT 1 FROM archivolicencia WHERE id_licencia = ? AND hash IS NOT NULL LIMIT 1",
+          'SELECT 1 AS ok FROM archivolicencia WHERE id_licencia = ? AND hash IS NOT NULL LIMIT 1',
           {
             replacements: [lic.id_licencia],
             type: QueryTypes.SELECT,
@@ -340,7 +500,7 @@ export async function decidirLicenciaSvc({
           }
         );
         if (!rows.length) {
-          const e = new Error("LICENCIA_SIN_HASH");
+          const e = new Error('No se puede aceptar sin archivo válido (hash)');
           e.http = 422;
           throw e;
         }
@@ -350,7 +510,7 @@ export async function decidirLicenciaSvc({
       const fechaFin = _ff ?? lic.fecha_fin;
 
       if (!fechaInicio || !fechaFin || new Date(fechaInicio) > new Date(fechaFin)) {
-        const e = new Error("RANGO_FECHAS_INVALIDO");
+        const e = new Error('RANGO_FECHAS_INVALIDO');
         e.http = 422;
         throw e;
       }
@@ -358,7 +518,7 @@ export async function decidirLicenciaSvc({
       const solape = await LicenciaMedica.findOne({
         where: {
           id_usuario: lic.id_usuario,
-          estado: "aceptado",
+          estado: 'aceptado',
           id_licencia: { [Op.ne]: lic.id_licencia },
           [Op.or]: [
             { fecha_inicio: { [Op.between]: [fechaInicio, fechaFin] } },
@@ -373,145 +533,254 @@ export async function decidirLicenciaSvc({
         },
         transaction: tx,
       });
-
       if (solape) {
-        const e = new Error("SOLAPAMIENTO_CON_OTRA_ACEPTADA");
+        const e = new Error('SOLAPAMIENTO_CON_OTRA_ACEPTADA');
         e.http = 422;
         throw e;
       }
 
-      // Actualizar licencia
-      lic.estado = "aceptado";
+      lic.estado = 'aceptado';
       lic.fecha_inicio = fechaInicio;
       lic.fecha_fin = fechaFin;
       lic.motivo_rechazo = null;
       await lic.save({ transaction: tx });
 
-      // Registrar entregas
       const cursos = await Matricula.findAll({
         where: { id_usuario: lic.id_usuario },
-        attributes: ["id_curso"],
-        transaction: tx,
+        attributes: ['id_curso'],
+        transaction: tx
       });
 
-      for (const { id_curso } of cursos) {
-        await LicenciasEntregas.findOrCreate({
-          where: { id_licencia: lic.id_licencia, id_curso },
-          transaction: tx,
-        });
+      if (!cursos.length) {
+        console.warn(`⚠️ Estudiante ${lic.id_usuario} no tiene cursos asociados.`);
       }
 
-      // Auditoría + notificaciones internas
+      for (const { id_curso } of cursos) {
+        try {
+          await LicenciasEntregas.findOrCreate({
+            where: { id_licencia: lic.id_licencia, id_curso },
+            transaction: tx
+          });
+          console.log(`✅ Entrega registrada: licencia ${lic.id_licencia}, curso ${id_curso}`);
+        } catch (error) {
+          console.error(`❌ Error al insertar entrega: ${error.message}`);
+        }
+      }
+
+      // 🔔 NUEVO: CREAR NOTIFICACIONES PARA PROFESORES
+      await crearNotificacionesProfesores({
+        licencia: lic,
+        actorId: actorId,
+        conn: tx
+      });
+      await HistorialLicencias.create({
+        id_licencia: lic.id_licencia,
+        id_usuario: actorId,
+        estado: 'aceptado',
+        observacion: observacion ?? null,
+        fecha_actualizacion: new Date(),
+      }, { transaction: tx });
+
+      console.log(`🔔 Ejecutando notificaciones para licencia ${lic.id_licencia}`);
       await registrarNotificacionesYAuditoria({
         licencia: lic,
-        estado: "aceptado",
+        estado: DEC,
         motivo_rechazo,
         actorId,
         ip,
-        conn: tx,
+        conn: tx
       });
-
-      await HistorialLicencias.create(
-        {
-          id_licencia: lic.id_licencia,
-          id_usuario: actorId,
-          estado: "aceptado",
-          observacion,
-          fecha_actualizacion: new Date(),
-        },
-        { transaction: tx }
-      );
 
       await tx.commit();
 
-      // Envíos fuera de transacción (silenciosos)
+      // 🔔 ENVÍO DE CORREO FUERA DE LA TRANSACCIÓN (no bloqueante)
       enviarNotificacionCorreo({
         licencia: lic,
-        estado: "aceptado",
+        estado: 'aceptado',
         motivo_rechazo: null,
-        observacion,
+        observacion: observacion,
+        actorId: actorId
+      }).catch(emailError => {
+        console.error('❌ Error no crítico enviando correo (aceptado):', emailError);
       });
-      enviarNotificacionProfesores({ licencia: lic });
 
-      // 🔥 LOG FINAL — ÚNICO
-      console.log(`[Licencias] Licencia ${lic.id_licencia} aceptada correctamente.`);
+      // 🔔 ENVÍO DE CORREO A PROFESORES FUERA DE LA TRANSACCIÓN (no bloqueante)
+      enviarNotificacionProfesores({
+        licencia: lic,
+        actorId: actorId
+      }).catch(profesorEmailError => {
+        console.error('❌ Error no crítico enviando correo a profesores:', profesorEmailError);
+      });
 
-      return { ok: true, estado: "aceptado" };
+      return { ok: true, estado: 'aceptado' };
     }
 
-    // ================================
-    //   PROCESO: RECHAZADO
-    // ================================
-    if (DEC === "rechazado") {
+    if (DEC === 'rechazado') {
       if (!motivo_rechazo || !String(motivo_rechazo).trim()) {
-        const e = new Error("MOTIVO_RECHAZO_REQUERIDO");
+        const e = new Error('Debe incluir motivo_rechazo al rechazar');
         e.http = 400;
         throw e;
       }
 
-      // Actualizar licencia
-      lic.estado = "rechazado";
+      lic.estado = 'rechazado';
       lic.motivo_rechazo = String(motivo_rechazo).trim();
       await lic.save({ transaction: tx });
 
-      // Auditoría + notificaciones internas
+      await HistorialLicencias.create({
+        id_licencia: lic.id_licencia,
+        id_usuario: actorId,
+        estado: 'rechazado',
+        observacion: lic.motivo_rechazo,
+        fecha_actualizacion: new Date(),
+      }, { transaction: tx });
+
       await registrarNotificacionesYAuditoria({
         licencia: lic,
-        estado: "rechazado",
+        estado: DEC,
         motivo_rechazo,
         actorId,
         ip,
-        conn: tx,
+        conn: tx
       });
-
-      await HistorialLicencias.create(
-        {
-          id_licencia: lic.id_licencia,
-          id_usuario: actorId,
-          estado: "rechazado",
-          observacion: lic.motivo_rechazo,
-          fecha_actualizacion: new Date(),
-        },
-        { transaction: tx }
-      );
 
       await tx.commit();
 
-      // Correo externo (silencioso)
+      // 🔔 ENVÍO DE CORREO FUERA DE LA TRANSACCIÓN (no bloqueante)
       enviarNotificacionCorreo({
         licencia: lic,
-        estado: "rechazado",
+        estado: 'rechazado',
         motivo_rechazo: lic.motivo_rechazo,
-        observacion,
+        observacion: observacion,
+        actorId: actorId
+      }).catch(emailError => {
+        console.error('❌ Error no crítico enviando correo (rechazado):', emailError);
       });
 
-      // 🔥 LOG FINAL — ÚNICO
-      console.log(`[Licencias] Licencia ${lic.id_licencia} rechazada correctamente.`);
-
-      return { ok: true, estado: "rechazado" };
+      return { ok: true, estado: 'rechazado' };
     }
 
-    // Fallback (no debería ocurrir)
-    const e = new Error("DECISION_DESCONOCIDA");
+    const e = new Error('DECISION_DESCONOCIDA');
     e.http = 400;
     throw e;
   } catch (err) {
     await tx.rollback();
-
-    // 🔥 LOG DE ERROR — ÚNICO
-    console.error(
-      `[Licencias] Error procesando licencia ${idLicencia}: ${err.message}`
-    );
-
     throw err;
   }
 }
 
 /* =======================================================
- * Exportación final
+ * Insertar entregas si aceptado (función auxiliar)
  * ======================================================= */
-export default {
-  validarNuevaLicencia,
-  crearLicenciaConArchivo,
-  decidirLicenciaSvc,
-};
+async function insertarEntregasSiAceptado(idLicencia, idUsuario) {
+  const cursos = await Matricula.findAll({
+    where: { id_usuario: idUsuario },
+    attributes: ['id_curso']
+  });
+
+  if (!cursos.length) {
+    console.warn(`⚠️ Estudiante ${idUsuario} no tiene cursos asociados.`);
+    return;
+  }
+
+  for (const { id_curso } of cursos) {
+    try {
+      await LicenciasEntregas.findOrCreate({
+        where: { id_licencia: idLicencia, id_curso }
+      });
+      console.log(`✅ Entrega registrada: licencia ${idLicencia}, curso ${id_curso}`);
+    } catch (error) {
+      console.error(`❌ Error al insertar entrega: ${error.message}`);
+    }
+  }
+}
+
+/* =======================================================
+ * Función auxiliar: enviar notificación a profesores
+ * ======================================================= */
+async function enviarNotificacionProfesores({
+  licencia,
+  actorId
+}) {
+  try {
+    console.log(`📧 Preparando notificación a profesores para licencia ${licencia.id_licencia}`);
+    
+    // Obtener información del estudiante
+    const [estudianteRows] = await LicenciaMedica.sequelize.query(
+      `SELECT u.nombre 
+       FROM usuario u 
+       WHERE u.id_usuario = ? 
+       LIMIT 1`,
+      {
+        replacements: [licencia.id_usuario],
+        type: QueryTypes.SELECT
+      }
+    );
+
+    if (!estudianteRows) {
+      console.warn('⚠️ No se pudo obtener información del estudiante para notificación a profesores');
+      return { ok: false, error: 'Información del estudiante no encontrada' };
+    }
+
+    // Obtener cursos y profesores asociados a esta licencia - CORREGIDO
+    const cursosProfesores = await LicenciaMedica.sequelize.query(
+      `SELECT 
+        le.id_curso,
+        c.nombre_curso,
+        c.id_usuario as id_profesor,
+        u.correo_usuario,
+        u.nombre as nombre_profesor
+       FROM licencias_entregas le
+       JOIN curso c ON le.id_curso = c.id_curso
+       JOIN usuario u ON c.id_usuario = u.id_usuario
+       WHERE le.id_licencia = ?`,
+      {
+        replacements: [licencia.id_licencia],
+        type: QueryTypes.SELECT
+      }
+    );
+
+    // CORRECCIÓN: Verificar si hay resultados de manera segura
+    if (!cursosProfesores || !Array.isArray(cursosProfesores) || cursosProfesores.length === 0) {
+      console.warn(`⚠️ No se encontraron cursos/profesores asociados a la licencia ${licencia.id_licencia}`);
+      return { ok: true, resultados: [], mensaje: 'No hay cursos asociados a esta licencia' };
+    }
+
+    console.log(`📚 Encontrados ${cursosProfesores.length} cursos para notificar`);
+
+    // Enviar correo a cada profesor
+    const resultados = [];
+    for (const curso of cursosProfesores) {
+      if (curso.correo_usuario) {
+        try {
+          const resultado = await notificarLicenciaAceptadaProfesor({
+            to: curso.correo_usuario,
+            folio: licencia.folio,
+            estudianteNombre: estudianteRows.nombre,
+            nombreCurso: curso.nombre_curso,
+            fechaInicio: licencia.fecha_inicio,
+            fechaFin: licencia.fecha_fin,
+            enlaceDetalle: `${process.env.APP_URL || 'http://localhost:3000'}/mis-cursos`
+          });
+
+          if (resultado.ok) {
+            console.log(`✅ Correo enviado al profesor: ${curso.nombre_profesor} (${curso.correo_usuario}) - Curso: ${curso.nombre_curso}`);
+          } else {
+            console.error(`❌ Error enviando correo a ${curso.correo_usuario}:`, resultado.error);
+          }
+          resultados.push(resultado);
+        } catch (error) {
+          console.error(`❌ Error procesando correo para profesor ${curso.nombre_profesor}:`, error);
+          resultados.push({ ok: false, error: error.message });
+        }
+      } else {
+        console.warn(`⚠️ Profesor ${curso.nombre_profesor} no tiene correo configurado`);
+        resultados.push({ ok: false, error: 'Correo no configurado' });
+      }
+    }
+
+    return { ok: true, resultados };
+  } catch (error) {
+    console.error('❌ Error inesperado en enviarNotificacionProfesores:', error);
+    return { ok: false, error: error.message };
+  }
+}

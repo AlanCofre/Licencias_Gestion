@@ -92,7 +92,7 @@ export default function LicenciasPorRevisar() {
       setError("");
       try {
         const token = localStorage.getItem("token");
-        const url = `${API_BASE}/api/licencias/en-revision?limit=1000`;
+        const url = `${API_BASE}/api/4licencias/en-revision?limit=1000`;
         const res = await fetch(url, {
           headers: {
             "Authorization": `Bearer ${token}`,
