@@ -5,51 +5,6 @@ import SkeletonList from "../components/SkeletonList";
 
 const toast = { error: (msg) => alert(msg) };
 
-// Simulación de llamada a API (reemplaza por fetch real en producción)
-async function getMatriculas() {
-  // Simula delay
-  await new Promise((r) => setTimeout(r, 700));
-  // Simula error 409 (sin periodo activo)
-  // throw { status: 409 };
-  // Simula error 5xx
-  // throw { status: 500 };
-  // Simula datos reales
-  return [
-    {
-      periodo: "2025-1",
-      nombre: "2025 - Semestre 1",
-      activo: true,
-      cursos: [
-        {
-          codigo: "INF-101",
-          nombre: "Programación I",
-          seccion: "A",
-          profesor: "Rumencio González",
-        },
-        {
-          codigo: "MAT-201",
-          nombre: "Tópicos de Matemáticas",
-          seccion: "B",
-          profesor: "Ana Martínez",
-        },
-      ],
-    },
-    {
-      periodo: "2024-2",
-      nombre: "2024 - Semestre 2",
-      activo: false,
-      cursos: [
-        {
-          codigo: "INF-150",
-          nombre: "Bases de Datos",
-          seccion: "A",
-          profesor: "Carlos Rodríguez",
-        },
-      ],
-    },
-  ];
-}
-
 export default function MisMatriculas() {
   const [matriculas, setMatriculas] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -64,19 +19,66 @@ export default function MisMatriculas() {
     setLoading(true);
     setError409(false);
     try {
-      // Aquí deberías llamar a tu API real:
-      // const data = await fetch("/api/estudiantes/matriculas").then(r => r.json());
-      const data = await getMatriculas();
-      // Ordenar periodos descendente
-      data.sort((a, b) => b.periodo.localeCompare(a.periodo));
-      // Ordenar cursos por nombre y sección
-      data.forEach((p) =>
-        p.cursos.sort((a, b) =>
-          a.nombre.localeCompare(b.nombre) || a.seccion.localeCompare(b.seccion)
-        )
-      );
-      setMatriculas(data);
+      const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+      const token = localStorage.getItem('token');
+      
+      let url = `${API_BASE}/api/matriculas/mis-matriculas`;
+      if (historicos) {
+        url += '?historicos=true';
+      }
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        if (response.status === 409) {
+          setError409(true);
+          return;
+        }
+        throw new Error(`Error ${response.status} al cargar matrículas`);
+      }
+
+      const result = await response.json();
+
+      if (result.ok && result.data) {
+        console.log('📦 Datos recibidos del backend:', result.data);
+        
+        // Transformar datos del backend al formato esperado
+        const datosTransformados = result.data.map(periodo => ({
+          periodo: periodo.periodo,
+          nombre: periodo.periodo, // o puedes formatearlo: `Periodo ${periodo.periodo}`
+          activo: periodo.es_periodo_actual,
+          cursos: periodo.cursos.map(curso => ({
+            codigo: curso.codigo,
+            nombre: curso.nombre_curso,
+            seccion: curso.seccion,
+            profesor: curso.profesor?.nombre || "Por asignar",
+            activo: periodo.es_periodo_actual // Los cursos heredan el estado del periodo
+          }))
+        }));
+
+        // Ordenar periodos descendente
+        const dataOrdenada = datosTransformados.sort((a, b) => b.periodo.localeCompare(a.periodo));
+        
+        // Ordenar cursos por nombre dentro de cada periodo
+        dataOrdenada.forEach((periodo) => {
+          if (periodo.cursos && periodo.cursos.length > 0) {
+            periodo.cursos.sort((a, b) => a.nombre.localeCompare(b.nombre));
+          }
+        });
+        
+        setMatriculas(dataOrdenada);
+      } else {
+        setMatriculas([]);
+      }
     } catch (err) {
+      console.error('Error cargando matrículas:', err);
       if (err.status === 409) {
         setError409(true);
       } else {
@@ -114,18 +116,24 @@ export default function MisMatriculas() {
             </p>
           </div>
         ) : (
-          <div className="space-y-8">
+          <div className="space-y-6">
             {matriculas.map((periodo) => (
               <section
                 key={periodo.periodo}
-                className="bg-white dark:bg-surface rounded-lg border dark:border-app overflow-hidden"
+                className="bg-white dark:bg-surface rounded-lg border dark:border-app overflow-hidden shadow-sm"
               >
-                <div className="px-6 py-4 border-b dark:border-app flex justify-between items-center">
-                  <h2 className="text-lg font-semibold">
-                    Periodo {periodo.nombre}
-                  </h2>
+                {/* Header del periodo */}
+                <div className="px-6 py-4 border-b dark:border-app flex justify-between items-center bg-gray-50 dark:bg-gray-800/50">
+                  <div>
+                    <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                      Periodo {periodo.periodo}
+                    </h2>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                      {periodo.nombre}
+                    </p>
+                  </div>
                   <span
-                    className={`px-2 py-1 text-sm rounded ${
+                    className={`px-3 py-1 text-sm font-medium rounded-full ${
                       periodo.activo
                         ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
                         : "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400"
@@ -134,26 +142,48 @@ export default function MisMatriculas() {
                     {periodo.activo ? "Activo" : "Cerrado"}
                   </span>
                 </div>
+
+                {/* Lista de cursos */}
                 <div className="divide-y dark:divide-app">
                   {periodo.cursos.length === 0 ? (
-                    <div className="p-6 text-center text-gray-500 dark:text-muted">
-                      No tienes cursos inscritos en este periodo.
+                    <div className="p-8 text-center text-gray-500 dark:text-muted">
+                      <div className="text-lg mb-2">📚</div>
+                      <p>No tienes cursos inscritos en este periodo.</p>
                     </div>
                   ) : (
-                    periodo.cursos.map((curso) => (
+                    periodo.cursos.map((curso, index) => (
                       <div
-                        key={`${curso.codigo}-${curso.seccion}`}
-                        className="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between"
+                        key={`${curso.codigo}-${curso.seccion}-${index}`}
+                        className="p-6 hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors"
                       >
-                        <div>
-                          <h3 className="font-medium">{curso.nombre}</h3>
-                          <p className="text-sm text-gray-600 dark:text-muted">
-                            Código: {curso.codigo} • Sección: {curso.seccion}
-                          </p>
+                        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                          <div className="flex-1">
+                            <div className="flex items-start gap-3">
+                              <div className="flex-1">
+                                <h3 className="font-semibold text-gray-900 dark:text-white text-lg mb-1">
+                                  {curso.nombre}
+                                </h3>
+                                <div className="flex flex-wrap gap-4 text-sm text-gray-600 dark:text-gray-400">
+                                  <span>Código: {curso.codigo}</span>
+                                  <span>Sección: {curso.seccion}</span>
+                                  <span>Prof. {curso.profesor}</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center gap-3">
+                            <span
+                              className={`px-3 py-1 text-sm font-medium rounded-full ${
+                                curso.activo
+                                  ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400"
+                                  : "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400"
+                              }`}
+                            >
+                              {curso.activo ? "En curso" : "Completado"}
+                            </span>
+                          </div>
                         </div>
-                        <p className="text-sm text-gray-600 dark:text-muted mt-2 sm:mt-0">
-                          Prof. {curso.profesor}
-                        </p>
                       </div>
                     ))
                   )}

@@ -1,73 +1,99 @@
 import React, { useEffect, useState } from "react";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
-
-// MOCKS para frontend (puedes reemplazar por fetch real, ver comentarios abajo)
-const mockPeriodos = [
-  { id: "2025-2", nombre: "2025 - Semestre 2", activo: true },
-  { id: "2025-1", nombre: "2025 - Semestre 1", activo: false },
-];
-
-const mockCursos = {
-  "2025-2": [
-    {
-      codigo: "INF-101",
-      nombre: "Programación I",
-      profesor: "Rumencio González",
-      matriculados: [
-        { nombre: "Ana Martínez" },
-        { nombre: "Carlos Rodríguez" },
-      ],
-    },
-    {
-      codigo: "MAT-201",
-      nombre: "Matemáticas II",
-      profesor: "Ana Martínez",
-      matriculados: [{ nombre: "Pedro Pérez" }],
-    },
-  ],
-  "2025-1": [
-    {
-      codigo: "INF-101",
-      nombre: "Programación I",
-      profesor: "Rumencio González",
-      matriculados: [{ nombre: "Ana Martínez" }],
-    },
-  ],
-};
+import axios from "axios";
 
 export default function AdminResumenPeriodo() {
   const [periodos, setPeriodos] = useState([]);
   const [periodoSel, setPeriodoSel] = useState("");
-  const [cursos, setCursos] = useState([]);
+  const [cursosRaw, setCursosRaw] = useState([]);   // datos crudos desde BE
+  const [cursos, setCursos] = useState([]);         // datos que se muestran en tabla
   const [loading, setLoading] = useState(true);
-  const [expanded, setExpanded] = useState({});
   const [error, setError] = useState(null);
+  const [expanded, setExpanded] = useState({});
 
-  // Carga periodos al inicio (mock)
+  // 1) Cargar TODOS los cursos+matrículas una sola vez
   useEffect(() => {
-    setLoading(true);
-    setError(null);
-    setTimeout(() => {
-      setPeriodos(mockPeriodos);
-      const activo = mockPeriodos.find((p) => p.activo) || mockPeriodos[0];
-      setPeriodoSel(activo?.id || "");
-      setLoading(false);
-    }, 500);
+    const fetchCursos = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const token = localStorage.getItem("token");
+
+        const res = await axios.get("http://localhost:3000/admin/cursos-matriculas", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!res.data?.ok) {
+          throw new Error(res.data?.error || "Respuesta inválida del servidor");
+        }
+
+        const lista = res.data.data || [];
+
+        // === Crear mapa de periodos únicos ===
+        const mapa = new Map();
+        for (const c of lista) {
+          if (!c.periodo) continue;
+          const code = c.periodo.codigo;
+          if (!mapa.has(code)) {
+            mapa.set(code, {
+              id: code,
+              nombre: code,
+              activo: !!c.periodo.activo,
+            });
+          }
+        }
+
+        const periodosArr = Array.from(mapa.values()).sort((a, b) =>
+          b.id.localeCompare(a.id)
+        );
+
+        setPeriodos(periodosArr);
+
+        const activo = periodosArr.find((p) => p.activo) || periodosArr[0];
+        setPeriodoSel(activo?.id || "");
+
+        setCursosRaw(lista);
+      } catch (err) {
+        console.error("[AdminResumenPeriodo] error cargando cursos:", err);
+        setError(err.message || "Error al cargar cursos y matrículas");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCursos();
   }, []);
 
-  // Carga cursos al cambiar periodo (mock)
+  // 2) Al cambiar periodo seleccionado, recalcular cursos que se muestran
   useEffect(() => {
-    if (!periodoSel) return;
-    setLoading(true);
-    setError(null);
-    setTimeout(() => {
-      setCursos(mockCursos[periodoSel] || []);
-      setLoading(false);
-    }, 400);
-  }, [periodoSel]);
+    if (!periodoSel) {
+      setCursos([]);
+      return;
+    }
 
-  // Exportar CSV (client-side)
+    const filtrados = cursosRaw.filter(
+      (c) => c.periodo && c.periodo.codigo === periodoSel
+    );
+
+    const adaptados = filtrados.map((c) => ({
+      id_curso: c.id_curso,
+      codigo: c.codigo,                         // del JSON real
+      nombre: c.nombre_curso,
+      profesor: c.profesor?.nombre || "Sin profesor asignado",
+      matriculados: (c.matriculados || []).map((m) => ({
+        nombre: m.nombre || m.correo || "Estudiante sin nombre",
+      })),
+    }));
+
+    setCursos(adaptados);
+    setExpanded({});
+  }, [periodoSel, cursosRaw]);
+
+  // 3) Exportar CSV
   const exportarCSV = () => {
     let csv = "Código,Nombre,Profesor,Matriculados\n";
     cursos.forEach((c) => {
@@ -77,7 +103,7 @@ export default function AdminResumenPeriodo() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `resumen_cursos_${periodoSel}.csv`;
+    a.download = `resumen_cursos_${periodoSel || "sin_periodo"}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -103,6 +129,8 @@ export default function AdminResumenPeriodo() {
             </svg>
             Resumen de Cursos y Matrículas por Periodo
           </h1>
+
+          {/* Filtros */}
           <div className="mb-6 flex flex-col sm:flex-row sm:items-center gap-3 bg-white dark:bg-surface rounded-lg shadow p-4">
             <label className="font-medium text-blue-900 dark:text-blue-200">
               Periodo:
@@ -119,12 +147,13 @@ export default function AdminResumenPeriodo() {
                 </option>
               ))}
             </select>
-            {/* Badge fuera del select */}
+
             {periodos.find((p) => p.id === periodoSel && p.activo) && (
               <span className="inline-block bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300 rounded-full px-3 py-1 text-xs font-semibold">
                 Activo
               </span>
             )}
+
             <button
               onClick={exportarCSV}
               className="ml-auto px-4 py-2 bg-blue-600 text-white rounded shadow hover:bg-blue-700 transition"
@@ -134,6 +163,7 @@ export default function AdminResumenPeriodo() {
             </button>
           </div>
 
+          {/* Mensajes de error / carga / vacío / tabla */}
           {error && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-800 text-center mb-4 shadow">
               {error}
@@ -142,7 +172,7 @@ export default function AdminResumenPeriodo() {
 
           {loading ? (
             <div className="bg-white dark:bg-surface rounded-lg p-8 text-center text-gray-500 animate-pulse shadow">
-              Cargando cursos...
+              Cargando datos...
             </div>
           ) : cursos.length === 0 ? (
             <div className="bg-white dark:bg-surface rounded-lg p-8 text-center text-gray-500 shadow">
@@ -170,7 +200,9 @@ export default function AdminResumenPeriodo() {
                 </thead>
                 <tbody>
                   {cursos.map((curso, idx) => (
-                    <React.Fragment key={curso.codigo}>
+                    <React.Fragment
+                      key={`${curso.id_curso}-${curso.codigo}-${idx}`}
+                    >
                       <tr className="border-b dark:border-app hover:bg-blue-50/60 dark:hover:bg-app/20 transition">
                         <td className="py-2 px-4 font-mono">{curso.codigo}</td>
                         <td className="py-2 px-4">{curso.nombre}</td>
@@ -196,12 +228,21 @@ export default function AdminResumenPeriodo() {
                       </tr>
                       {expanded[idx] && (
                         <tr>
-                          <td colSpan={5} className="bg-blue-50 dark:bg-app/40 px-6 py-3">
-                            <ul className="list-disc ml-6 text-blue-900 dark:text-blue-100">
-                              {curso.matriculados.map((est, i) => (
-                                <li key={i}>{est.nombre}</li>
-                              ))}
-                            </ul>
+                          <td
+                            colSpan={5}
+                            className="bg-blue-50 dark:bg-app/40 px-6 py-3"
+                          >
+                            {curso.matriculados.length === 0 ? (
+                              <div className="text-sm text-gray-600 dark:text-gray-300">
+                                Sin matrículas en este curso.
+                              </div>
+                            ) : (
+                              <ul className="list-disc ml-6 text-blue-900 dark:text-blue-100">
+                                {curso.matriculados.map((est, i) => (
+                                  <li key={i}>{est.nombre}</li>
+                                ))}
+                              </ul>
+                            )}
                           </td>
                         </tr>
                       )}

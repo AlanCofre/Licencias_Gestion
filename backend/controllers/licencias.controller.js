@@ -75,7 +75,7 @@ export async function listarMisLicencias(req, res) {
     const [rows] = await db.execute(
       `
       SELECT
-        id_licencia AS id_licencia,
+        id_licencia,
         folio,
         DATE_FORMAT(fecha_emision, '%Y-%m-%d') AS fecha_emision,
         DATE_FORMAT(fecha_inicio,  '%Y-%m-%d') AS fecha_inicio,
@@ -316,7 +316,7 @@ export const crearLicencia = async (req, res) => {
     const sha = crypto.createHash('sha256').update(archivo.buffer).digest('hex');
     const [dup] = await db.execute(
       `SELECT al.id_archivo, lm.id_licencia
-         FROM ArchivoLicencia al
+         FROM archivolicencia al
          JOIN licenciamedica lm ON lm.id_licencia = al.id_licencia
         WHERE lm.id_usuario = ? AND al.hash = ? LIMIT 1`,
       [usuarioId, sha]
@@ -423,7 +423,7 @@ export const crearLicencia = async (req, res) => {
 
     // 3) Guardar metadatos del archivo (NUNCA undefined → usa nulls y números)
     await db.execute(
-      `INSERT INTO ArchivoLicencia (ruta_url, tipo_mime, hash, tamano, fecha_subida, id_licencia)
+      `INSERT INTO archivolicencia (ruta_url, tipo_mime, hash, tamano, fecha_subida, id_licencia)
        VALUES (?, ?, ?, ?, NOW(), ?)`,
       [
         meta.ruta_url ?? null,
@@ -829,7 +829,7 @@ export async function decidirLicencia(req, res) {
     }
     if (decisionRaw === 'aceptado') {
       const [archivos] = await db.execute(
-        `SELECT hash FROM ArchivoLicencia WHERE id_licencia = ? LIMIT 1`,
+        `SELECT hash FROM archivolicencia WHERE id_licencia = ? LIMIT 1`,
         [idLicencia]
       );
       if (!archivos.length || !archivos[0].hash) {
@@ -1047,7 +1047,7 @@ export const getLicenciasEstudianteConRegularidad = async (req, res) => {
       }
     }
 
-    // Obtener licencias del estudiante
+    // Obtener licencias del estudiante (CORREGIDO según esquema)
     const [licencias] = await db.execute(`
       SELECT 
         lm.id_licencia,
@@ -1057,19 +1057,19 @@ export const getLicenciasEstudianteConRegularidad = async (req, res) => {
         lm.fecha_fin,
         lm.estado,
         lm.motivo_rechazo,
+        lm.motivo_medico, -- 👈 NUEVO CAMPO SEGÚN ESQUEMA
         c.nombre_curso,
-        c.codigo,
-        c.periodo
+        p.codigo as periodo_codigo
       FROM licenciamedica lm
       LEFT JOIN licencias_entregas le ON lm.id_licencia = le.id_licencia
       LEFT JOIN curso c ON le.id_curso = c.id_curso
+      LEFT JOIN periodos_academicos p ON c.id_periodo = p.id_periodo
       WHERE lm.id_usuario = ?
-        AND (? IS NULL OR c.periodo = ?)
         AND (? IS NULL OR le.id_curso = ?)
       ORDER BY lm.fecha_creacion DESC
-    `, [idEstudiante, periodo, periodo, id_curso, id_curso]);
+    `, [idEstudiante, id_curso, id_curso]);
 
-    // Calcular regularidad
+    // Calcular regularidad (debes implementar esta función según tu lógica)
     const regularidad = await calcularRegularidadEstudiante(
       parseInt(idEstudiante), 
       periodo, 

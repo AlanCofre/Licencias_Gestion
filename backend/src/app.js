@@ -1,5 +1,5 @@
 // backend/src/app.js
-import '../config/env.js';                  // Carga variables .env (tu wrapper)
+import '../config/env.js';               
 import express from 'express';
 import cors from 'cors';
 
@@ -20,7 +20,11 @@ import regularidadRoutes from './routes/regularidad.routes.js';
 import { attachAudit } from '../middlewares/audit.middleware.js';
 import db from '../config/db.js';
 import estudianteRoutes from './routes/estudiante.routes.js';
-
+import funcionarioRoutes from './routes/funcionario.routes.js';
+import periodoRoutes from './routes/periodo.route.js';
+import entregasRoutes from './routes/entregas.routes.js';
+import profesorRoutes from './routes/profesor.routes.js';
+import movilRouter from "./movil/movil.routes.js";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -63,29 +67,25 @@ if (process.env.NODE_ENV !== 'production') {
 
 /* === Rutas === */
 app.use(healthRouter);
-
-// Archivos
+app.use('/api/periodos', periodoRoutes);
 app.use('/api/archivos', archivoRoutes);
-
-// Licencias (prefijo fijo)
 app.use('/api/licencias', licenciasRouter);
-
-// Regularidad - CORREGIDO: agregado aquí
 app.use('/api/regularidad', regularidadRoutes);
 app.use('/api/estudiantes', estudianteRoutes);
-// Rutas legacy / auxiliares
 app.use('/licencias', detailsRouter);
 app.use('/archivos', insertRouter);
-
-// Notificaciones y usuarios / perfil
+app.use('/api/entregas', entregasRoutes);
 app.use('/api/notificaciones', notificacionesRouter);
 app.use('/usuarios', usuarioRoutes);
 app.use('/api', perfilRouter);
-app.use('/cursos', cursoRoutes);
-app.use('/matriculas', matriculasRoutes);
+app.use('/api/cursos', cursoRoutes);
+app.use('/api/matriculas', matriculasRoutes);
+app.use('/funcionario', funcionarioRoutes);
+app.use('/api/admin', adminRoutes);
+app.use("/api/movil", movilRouter);
 
-// Admin
-app.use('/admin', adminRoutes);
+// Profesor
+app.use('/profesor', profesorRoutes);
 
 // Reportes (SIN prefijo → /reportes/licencias/exceso)
 app.use(reportesRouter);

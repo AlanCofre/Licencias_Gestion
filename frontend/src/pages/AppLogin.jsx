@@ -25,6 +25,7 @@ function AppLogin() {
           num === 1 ? "profesor" :
           num === 2 ? "estudiante" :
           num === 3 ? "funcionario" : "";
+          num === 4 ? "admin" : "";
       }
     } else if (typeof rawUser?.id_rol === "string") role = rawUser.id_rol.toLowerCase();
     else if (typeof rawUser?.rol === "string") role = rawUser.rol.toLowerCase();
@@ -32,6 +33,8 @@ function AppLogin() {
 
     if (role === "secretaria" || role === "secretary") role = "funcionario";
     if (role === "alumno") role = "estudiante";
+    if (role === "administrator" || role === "administrador") role = "admin";
+    if (role === "profesor") role = "profesor";
     return role;
   };
 

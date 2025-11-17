@@ -5,7 +5,7 @@ import Footer from "../components/Footer";
 import BannerSection from "../components/BannerSection";
 import { Eye, Clock, Calendar, Search } from "lucide-react";
 
-const LIST_ENDPOINT = "/api/licencias/mis-licencias"; // ← ajusta si tu BE usa otra ruta
+const LIST_ENDPOINT = "/api/licencias/mis-licencias";
 
 export default function LicenciasEstudiante() {
   const [allLicencias, setAllLicencias] = useState([]);
@@ -20,19 +20,17 @@ export default function LicenciasEstudiante() {
 
   // helper: normalizar objeto de licencia y formatear fechas
   const normalizeLicencia = (l) => {
-    const id = l.id_licencia ?? l.id ?? l.ID ?? "";
-    const folio = l.folio ?? l.FOLIO ?? "";
+    const id = l.id_licencia ?? l.id ?? "";
+    const folio = l.folio ?? "";
 
-    // posibles nombres que vienen desde el BE
-    const fechaCreacionRaw = l.fecha_creacion ?? l.created_at ?? l.createdAt ?? "";
-    const fechaInicioRaw   = l.fecha_inicio ?? l.inicio_reposo ?? "";
-    const fechaFinRaw      = l.fecha_fin ?? l.fin_reposo ?? "";
-    const estadoRaw        = l.estado ?? l.status ?? "";
-
-    const pad = (n) => String(n).padStart(2, "0");
+    // Fechas desde el BE - según tu estructura de base de datos
+    const fechaCreacionRaw = l.fecha_creacion ?? "";
+    const fechaInicioRaw = l.fecha_inicio ?? "";
+    const fechaFinRaw = l.fecha_fin ?? "";
+    const estadoRaw = l.estado ?? "";
 
     const fmtDate = (d) => {
-      if (!d && d !== 0) return "";
+      if (!d) return "";
       const dt = new Date(d);
       if (isNaN(dt)) {
         const s = String(d);
@@ -43,9 +41,10 @@ export default function LicenciasEstudiante() {
 
     // formato con hora local "YYYY-MM-DD HH:MM"
     const fmtDateTime = (d) => {
-      if (!d && d !== 0) return "";
+      if (!d) return "";
       const dt = new Date(d);
       if (isNaN(dt)) return String(d);
+      const pad = (n) => String(n).padStart(2, "0");
       return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())} ${pad(
         dt.getHours()
       )}:${pad(dt.getMinutes())}`;
@@ -60,11 +59,9 @@ export default function LicenciasEstudiante() {
 
     const cleanKey = String(estadoRaw || "")
       .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/[\s_\-\.]/g, "");
+      .trim();
 
-    const estadoNormalized = STATE_MAP[cleanKey] ?? (estadoRaw ? String(estadoRaw) : "");
+    const estadoNormalized = STATE_MAP[cleanKey] ?? (estadoRaw ? String(estadoRaw) : "Sin estado");
 
     return {
       id: String(id),
@@ -76,6 +73,7 @@ export default function LicenciasEstudiante() {
       fechaInicioReposo: fmtDate(fechaInicioRaw),
       fechaFinReposo: fmtDate(fechaFinRaw),
       estadoNormalized,
+      estado: estadoRaw, // mantener el estado original para los contadores
       _raw: l,
     };
   };
@@ -86,23 +84,49 @@ export default function LicenciasEstudiante() {
       try {
         const API = import.meta.env.VITE_API_BASE_URL;
         const token = localStorage.getItem("token");
+        
+        if (!token) {
+          console.error("❌ No hay token de autenticación");
+          setAllLicencias([]);
+          setLicencias([]);
+          return;
+        }
+
+        console.log("🔍 Cargando licencias desde:", `${API}${LIST_ENDPOINT}`);
+        
         const res = await fetch(`${API}${LIST_ENDPOINT}`, {
           headers: {
-            Accept: "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
           },
         });
-        const json = await res.json().catch(() => ({}));
 
-        const arr = Array.isArray(json?.data)
-          ? json.data
-          : Array.isArray(json?.licencias)
-          ? json.licencias
-          : Array.isArray(json)
-          ? json
-          : [];
+        console.log("📡 Response status:", res.status);
 
+        if (!res.ok) {
+          throw new Error(`Error ${res.status}: ${res.statusText}`);
+        }
+
+        const json = await res.json();
+        console.log("📦 Datos recibidos:", json);
+
+        // Verificar diferentes estructuras de respuesta
+        let arr = [];
+        if (Array.isArray(json?.data)) {
+          arr = json.data;
+        } else if (Array.isArray(json?.licencias)) {
+          arr = json.licencias;
+        } else if (Array.isArray(json)) {
+          arr = json;
+        } else {
+          console.warn("⚠️ Estructura de respuesta inesperada:", json);
+        }
+
+        console.log("🔄 Licencias crudas:", arr);
         const normalized = arr.map(normalizeLicencia);
+        console.log("✅ Licencias normalizadas:", normalized);
+        
         setAllLicencias(normalized);
         setLicencias(normalized);
       } catch (e) {
@@ -122,13 +146,19 @@ export default function LicenciasEstudiante() {
     return Array.from(s).sort();
   }, [allLicencias]);
 
+  // Cálculo de contadores - CORREGIDO
+  const total = licencias.length;
+  const pendientes = licencias.filter((l) => l.estado === "pendiente").length;
+  const aceptadas = licencias.filter((l) => l.estado === "aceptado").length;
+  const rechazadas = licencias.filter((l) => l.estado === "rechazado").length;
+
   useEffect(() => {
     let resultado = [...allLicencias];
 
     // Filtrar por estado (usar estado normalizado)
     if (filterEstado) {
       resultado = resultado.filter((l) =>
-        (l.estadoNormalized || "").toLowerCase().includes(String(filterEstado).toLowerCase())
+        l.estadoNormalized.toLowerCase().includes(filterEstado.toLowerCase())
       );
     }
 
@@ -141,7 +171,9 @@ export default function LicenciasEstudiante() {
     if (searchTerm) {
       const term = searchTerm.toLowerCase().trim();
       resultado = resultado.filter(
-        (l) => (l.id || "").toLowerCase().includes(term) || (l.folio || "").toLowerCase().includes(term)
+        (l) => 
+          l.id.toLowerCase().includes(term) || 
+          (l.folio && l.folio.toLowerCase().includes(term))
       );
     }
 
@@ -154,16 +186,6 @@ export default function LicenciasEstudiante() {
 
     setLicencias(resultado);
   }, [allLicencias, filterDate, filterEstado, sortAsc, searchTerm]);
-
-  // Supón que tienes un array de licencias visible llamado "licenciasFiltradas"
-  // Cada licencia tiene un campo "estado": "nueva", "vista", "aceptada", "rechazada", etc.
-
-  // Cálculo local de contadores (ajusta los nombres de estado según tu backend)
-  const total = licencias.length;
-  const nuevas = licencias.filter((l) => l.estado === "nueva").length;
-  const vistas = licencias.filter((l) => l.estado === "vista").length;
-
-  // Puedes agregar más estados si tu backend los entrega
 
   if (loading) {
     return (
@@ -184,7 +206,7 @@ export default function LicenciasEstudiante() {
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-50 to-indigo-100 w-full overflow-x-hidden dark:bg-app dark:bg-none">
       <Navbar />
       <main className="flex-1 w-full">
-      <BannerSection />
+        <BannerSection />
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-10 max-w-5xl">
           {/* Header */}
           <div className="mb-8 text-center">
@@ -218,17 +240,14 @@ export default function LicenciasEstudiante() {
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       placeholder="Ej: 12 o FOL-2025-0012"
-                      className="outline-none text-sm"
+                      className="outline-none text-sm w-32"
                     />
                   </div>
                 </div>
 
                 {/* Filtro por fecha */}
                 <div className="flex items-center gap-2">
-                  <label
-                    htmlFor="filterDate"
-                    className="text-sm text-gray-600"
-                  >
+                  <label htmlFor="filterDate" className="text-sm text-gray-600">
                     Fecha (Emisión)
                   </label>
                   <input
@@ -250,10 +269,7 @@ export default function LicenciasEstudiante() {
 
                 {/* Filtro por estado */}
                 <div className="flex items-center gap-2">
-                  <label
-                    htmlFor="filterEstado"
-                    className="text-sm text-gray-600"
-                  >
+                  <label htmlFor="filterEstado" className="text-sm text-gray-600">
                     Estado
                   </label>
                   <select
@@ -287,23 +303,29 @@ export default function LicenciasEstudiante() {
             </div>
           </div>
 
-          {/* Badges/Contadores arriba de la bandeja */}
-          <div className="flex gap-4 mb-4">
-            <span className="inline-flex items-center px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-semibold">
-              Nuevas&nbsp;
-              <span className="bg-blue-600 text-white rounded-full px-2 py-0.5 ml-1 text-xs">
-                {nuevas}
-              </span>
-            </span>
-            <span className="inline-flex items-center px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-sm font-semibold">
-              Vistas&nbsp;
-              <span className="bg-gray-700 text-white rounded-full px-2 py-0.5 ml-1 text-xs">
-                {vistas}
+          {/* Badges/Contadores */}
+          <div className="flex gap-4 mb-6 justify-center">
+            <span className="inline-flex items-center px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-sm font-semibold">
+              Pendientes
+              <span className="bg-yellow-600 text-white rounded-full px-2 py-0.5 ml-1 text-xs">
+                {pendientes}
               </span>
             </span>
             <span className="inline-flex items-center px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-semibold">
-              Totales&nbsp;
+              Aceptadas
               <span className="bg-green-600 text-white rounded-full px-2 py-0.5 ml-1 text-xs">
+                {aceptadas}
+              </span>
+            </span>
+            <span className="inline-flex items-center px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm font-semibold">
+              Rechazadas
+              <span className="bg-red-600 text-white rounded-full px-2 py-0.5 ml-1 text-xs">
+                {rechazadas}
+              </span>
+            </span>
+            <span className="inline-flex items-center px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-semibold">
+              Totales
+              <span className="bg-blue-600 text-white rounded-full px-2 py-0.5 ml-1 text-xs">
                 {total}
               </span>
             </span>
@@ -315,8 +337,14 @@ export default function LicenciasEstudiante() {
               <div className="bg-gray-100 rounded-full w-24 h-24 flex items-center justify-center mx-auto mb-6">
                 <Clock className="h-12 w-12 text-gray-400" />
               </div>
-              <h2 className="text-2xl font-bold text-gray-700 mb-3">No hay licencias registradas</h2>
-              <p className="text-gray-500 text-lg">No se encontraron resultados según tus filtros o búsqueda.</p>
+              <h2 className="text-2xl font-bold text-gray-700 mb-3">
+                {allLicencias.length === 0 ? "No hay licencias registradas" : "No hay resultados"}
+              </h2>
+              <p className="text-gray-500 text-lg">
+                {allLicencias.length === 0 
+                  ? "Aún no has solicitado ninguna licencia médica." 
+                  : "No se encontraron resultados según tus filtros o búsqueda."}
+              </p>
             </div>
           ) : (
             <div className="bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-100">
@@ -356,16 +384,16 @@ export default function LicenciasEstudiante() {
                               <span className="font-medium text-blue-600">
                                 Emisión:
                               </span>
-                              <span className="ml-2">{licencia.fechaEmision}</span>
+                              <span className="ml-2">{licencia.fecha_creacion || "-"}</span>
                             </div>
                             <div className="flex items-center text-gray-900">
                               <span className="font-medium text-green-600">
                                 Inicio:
                               </span>
-                              <span className="ml-2">{licencia.fechaInicioReposo}</span>
+                              <span className="ml-2">{licencia.fechaInicioReposo || "-"}</span>
                             </div>
                             <div className="flex items-center text-gray-900">
-                              <span className="font-medium text-red-600">Fin reposo:</span>
+                              <span className="font-medium text-red-600">Fin:</span>
                               <span className="ml-2">{licencia.fechaFinReposo || "-"}</span>
                             </div>
                           </div>
@@ -374,14 +402,14 @@ export default function LicenciasEstudiante() {
                         <td className="px-6 py-5 whitespace-nowrap">
                           <span
                             className={`px-3 py-2 inline-flex text-sm leading-5 font-semibold rounded-full border ${
-                              (licencia.estadoNormalized || "").toLowerCase().includes("acept")
+                              licencia.estado === "aceptado"
                                 ? "bg-green-100 text-green-800 border-green-200"
-                                : (licencia.estadoNormalized || "").toLowerCase().includes("rechaz")
+                                : licencia.estado === "rechazado"
                                 ? "bg-red-100 text-red-800 border-red-200"
                                 : "bg-yellow-100 text-yellow-800 border-yellow-200"
                             }`}
                           >
-                            {licencia.estadoNormalized || "Sin estado"}
+                            {licencia.estadoNormalized}
                           </span>
                         </td>
 

@@ -110,12 +110,15 @@ export default function AccessibilityWidget() {
             color: "white",
             borderRadius: "50%",
             border: "none",
+            outline: "none",
             cursor: "pointer",
             boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             transition: "all 0.2s ease",
+            WebkitTapHighlightColor: "transparent",
+            userSelect: "none",
           }}
           onMouseOver={(e) => {
             e.target.style.backgroundColor = "#1d4ed8";
@@ -125,10 +128,18 @@ export default function AccessibilityWidget() {
             e.target.style.backgroundColor = "#2563eb";
             e.target.style.transform = "scale(1)";
           }}
+          onFocus={(e) => {
+            e.target.style.outline = "none";
+            e.target.style.border = "none";
+            e.target.style.boxShadow = "0 4px 12px rgba(0,0,0,0.15), 0 0 0 3px rgba(37, 99, 235, 0.3)";
+          }}
+          onBlur={(e) => {
+            e.target.style.boxShadow = "0 4px 12px rgba(0,0,0,0.15)";
+          }}
           title={t("acces.openMenu")}
           aria-label={t("acces.openMenu")}
         >
-          <UserIcon style={{ width: "24px", height: "24px" }} />
+          <UserIcon style={{ width: "24px", height: "24px", pointerEvents: "none" }} />
         </button>
 
         {/* Panel */}
@@ -172,7 +183,7 @@ export default function AccessibilityWidget() {
                 }}
               >
                 <UserIcon
-                  style={{ width: "18px", height: "18px", color: "#2563eb" }}
+                  style={{ width: "18px", height: "18px", color: "#2563eb", pointerEvents: "none" }}
                 />
                 {t("acces.title")}
               </h3>
@@ -186,9 +197,16 @@ export default function AccessibilityWidget() {
                     borderRadius: 8,
                     border: "1px solid #d1d5db",
                     backgroundColor: "white",
+                    color: "#1f2937",
                     cursor: "pointer",
                     fontSize: 13,
                     fontWeight: "500",
+                  }}
+                  onMouseOver={(e) => {
+                    e.target.style.backgroundColor = "#f3f4f6";
+                  }}
+                  onMouseOut={(e) => {
+                    e.target.style.backgroundColor = "white";
                   }}
                 >
                   {lang === "es" ? "ES" : "EN"}
@@ -215,7 +233,7 @@ export default function AccessibilityWidget() {
                   aria-label={t("acces.closeMenu")}
                 >
                   <XMarkIcon
-                    style={{ width: "18px", height: "18px", color: "#6b7280" }}
+                    style={{ width: "18px", height: "18px", color: "#6b7280", pointerEvents: "none" }}
                   />
                 </button>
               </div>
@@ -369,7 +387,7 @@ export default function AccessibilityWidget() {
                   }}
                 >
                   <CursorArrowRaysIcon
-                    style={{ width: "16px", height: "16px", color: "#374151" }}
+                    style={{ width: "16px", height: "16px", color: "#374151", pointerEvents: "none" }}
                   />
                   {t("acces.largeCursor")}
                 </h4>
@@ -429,11 +447,11 @@ export default function AccessibilityWidget() {
                 >
                   {darkMode ? (
                     <SunIcon
-                      style={{ width: "16px", height: "16px", color: "#374151" }}
+                      style={{ width: "16px", height: "16px", color: "#374151", pointerEvents: "none" }}
                     />
                   ) : (
                     <MoonIcon
-                      style={{ width: "16px", height: "16px", color: "#374151" }}
+                      style={{ width: "16px", height: "16px", color: "#374151", pointerEvents: "none" }}
                     />
                   )}
                   {t("acces.darkMode")}
