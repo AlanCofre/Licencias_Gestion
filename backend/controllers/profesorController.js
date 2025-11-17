@@ -66,7 +66,7 @@ export async function listarLicenciasProfesor(req, res) {
       JOIN usuario u              ON u.id_usuario   = l.id_usuario
       JOIN matriculas m           ON m.id_usuario   = l.id_usuario
       JOIN curso c                ON c.id_curso     = m.id_curso
-      JOIN periodos_academicos p  ON p.id_periodo   = m.id_periodo
+      JOIN periodos_academicos p  ON p.id_periodo   = c.id_periodo
       WHERE c.id_usuario = ?
         AND p.codigo    = ?
       GROUP BY l.id_licencia
@@ -140,7 +140,7 @@ export async function obtenerEntregaProfesorPorId(req, res) {
       JOIN usuario u              ON u.id_usuario   = l.id_usuario
       JOIN matriculas m           ON m.id_usuario   = l.id_usuario
       JOIN curso c                ON c.id_curso     = m.id_curso
-      JOIN periodos_academicos p  ON p.id_periodo   = m.id_periodo
+      JOIN periodos_academicos p  ON p.id_periodo   = c.id_periodo
       WHERE l.id_licencia = ?
         AND c.id_usuario  = ?   -- seguridad: sólo cursos de este profe
       LIMIT 1
