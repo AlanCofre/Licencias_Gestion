@@ -4,6 +4,7 @@ import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import BannerSection from "../components/BannerSection";
 import { Eye, Clock, Calendar, Search } from "lucide-react";
+import { licenciasRealService } from "../services/licenciasRealService";
 
 const LIST_ENDPOINT = "/api/licencias/mis-licencias";
 
@@ -82,55 +83,21 @@ export default function LicenciasEstudiante() {
     const cargarLicencias = async () => {
       setLoading(true);
       try {
-        const API = import.meta.env.VITE_API_BASE_URL;
-        const token = localStorage.getItem("token");
+        console.log("🔍 Cargando licencias del estudiante...");
         
-        if (!token) {
-          console.error("❌ No hay token de autenticación");
-          setAllLicencias([]);
-          setLicencias([]);
-          return;
-        }
-
-        console.log("🔍 Cargando licencias desde:", `${API}${LIST_ENDPOINT}`);
+        const response = await licenciasRealService.getMisLicencias();
         
-        const res = await fetch(`${API}${LIST_ENDPOINT}`, {
-          headers: {
-            "Accept": "application/json",
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}`
-          },
-        });
-
-        console.log("📡 Response status:", res.status);
-
-        if (!res.ok) {
-          throw new Error(`Error ${res.status}: ${res.statusText}`);
-        }
-
-        const json = await res.json();
-        console.log("📦 Datos recibidos:", json);
-
-        // Verificar diferentes estructuras de respuesta
-        let arr = [];
-        if (Array.isArray(json?.data)) {
-          arr = json.data;
-        } else if (Array.isArray(json?.licencias)) {
-          arr = json.licencias;
-        } else if (Array.isArray(json)) {
-          arr = json;
-        } else {
-          console.warn("⚠️ Estructura de respuesta inesperada:", json);
-        }
-
-        console.log("🔄 Licencias crudas:", arr);
-        const normalized = arr.map(normalizeLicencia);
-        console.log("✅ Licencias normalizadas:", normalized);
+        // Tu backend devuelve: { ok: true, data: [...], pagination: {...} }
+        const licenciasData = response.data || [];
+        
+        console.log("✅ Licencias cargadas:", licenciasData);
+        
+        const normalized = licenciasData.map(normalizeLicencia);
         
         setAllLicencias(normalized);
         setLicencias(normalized);
       } catch (e) {
-        console.error("❌ cargarLicencias error:", e);
+        console.error("❌ Error cargando licencias:", e);
         setAllLicencias([]);
         setLicencias([]);
       } finally {
