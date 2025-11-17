@@ -2,9 +2,12 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
+import LoadingSpinner from "../components/LoadingSpinner";
+import SkeletonLoader from "../components/SkeletonLoader";
 
 function EditarPerfil() {
   const navigate = useNavigate();
+  const [isLoading, setIsLoading] = useState(true);
   const [cargando, setCargando] = useState(false);
   const [fotoPerfil, setFotoPerfil] = useState(null);
   const [preview, setPreview] = useState(null);
@@ -29,18 +32,31 @@ function EditarPerfil() {
 
   // Cargar datos iniciales simulados
   useEffect(() => {
-    const usuario = {
-      nombre: "Juliana",
-      apellido: "Pérez",
-      rut: "12.345.678-9",
-      correoInstitucional: "juliana.perez@universidad.cl",
-      correoAlternativo: "",
-      telefono: "+56 9 1234 5678",
-      direccion: "",
-      departamento: "Gestión Académica",
-      cargo: "Coordinadora de Licencias",
+    const loadUserData = async () => {
+      setIsLoading(true);
+      try {
+        // Simular carga de datos del usuario
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        const usuario = {
+          nombre: "Juliana",
+          apellido: "Pérez",
+          rut: "12.345.678-9",
+          correoInstitucional: "juliana.perez@universidad.cl",
+          correoAlternativo: "",
+          telefono: "+56 9 1234 5678",
+          direccion: "",
+          departamento: "Gestión Académica",
+          cargo: "Coordinadora de Licencias",
+        };
+        setDatos((prev) => ({ ...prev, ...usuario }));
+      } catch (error) {
+        console.error("Error loading user data:", error);
+      } finally {
+        setIsLoading(false);
+      }
     };
-    setDatos((prev) => ({ ...prev, ...usuario }));
+
+    loadUserData();
   }, []);
 
   // Manejo de inputs
@@ -97,7 +113,7 @@ function EditarPerfil() {
     setMensajeExito("");
 
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      await new Promise((resolve) => setTimeout(resolve, 1500));
       setMensajeExito("Perfil actualizado correctamente");
 
       setDatos((prev) => ({
@@ -118,11 +134,18 @@ function EditarPerfil() {
     navigate(-1);
   };
 
-  return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-b from-blue-50 to-blue-100 dark:bg-app dark:bg-none">
-      <Navbar />
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-blue-50 to-blue-100 dark:bg-app dark:bg-none">
+        <LoadingSpinner size="large" text="Cargando perfil..." />
+      </div>
+    );
+  }
 
-      <main id="contenido-principal" className="flex-1 container mx-auto px-4 py-8">
+  return (
+    <div className="min-h-screen flex flex-col bg-gray-100">
+      <Navbar />
+      <main className="flex-1 container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
           {/* Volver y título */}
           <div className="mb-6">
@@ -322,9 +345,18 @@ function EditarPerfil() {
               <button
                 type="submit"
                 disabled={cargando}
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center"
+                className={`w-full bg-blue-600 text-white py-2 px-4 rounded-md font-medium transition ${
+                  cargando ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-700'
+                }`}
               >
-                {cargando ? "Guardando..." : "Guardar cambios"}
+                {cargando ? (
+                  <div className="flex items-center justify-center gap-2">
+                    <LoadingSpinner size="small" color="white" />
+                    Guardando...
+                  </div>
+                ) : (
+                  "Guardar cambios"
+                )}
               </button>
             </div>
           </form>

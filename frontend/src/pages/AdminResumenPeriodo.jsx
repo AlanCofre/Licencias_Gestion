@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
+import LoadingSpinner from "../components/LoadingSpinner";
 
 // MOCKS para frontend (puedes reemplazar por fetch real, ver comentarios abajo)
 const mockPeriodos = [
@@ -81,6 +82,14 @@ export default function AdminResumenPeriodo() {
     a.click();
     URL.revokeObjectURL(url);
   };
+
+  if (loading && periodos.length === 0) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-blue-50 to-blue-100 dark:bg-app dark:bg-none">
+        <LoadingSpinner size="large" text="Cargando resumen de períodos..." />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-blue-100 to-blue-300 dark:bg-app dark:bg-none">

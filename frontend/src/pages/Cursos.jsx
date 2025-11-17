@@ -15,6 +15,8 @@ import {
   Trash2,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import LoadingSpinner from "../components/LoadingSpinner";
+import SkeletonLoader from "../components/SkeletonLoader";
 
 // ⛳ Cambia a false cuando conectes tu backend
 const USE_MOCK = true;
@@ -469,6 +471,14 @@ export default function AdminCursos() {
   };
 
   const filteredCount = cursos.length;
+
+  if (loadingList) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-blue-50 to-blue-100 dark:bg-app dark:bg-none">
+        <LoadingSpinner size="large" text="Cargando cursos..." />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-50 to-indigo-100 dark:bg-app dark:bg-none">

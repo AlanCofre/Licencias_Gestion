@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
+import LoadingSpinner from "../components/LoadingSpinner";
 import { Eye, Clock, Calendar, User, GraduationCap, Search } from "lucide-react";
 
 const mockLicenciasRevision = [
@@ -106,15 +107,8 @@ export default function LicenciasPorRevisar() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-50 to-indigo-100 w-full overflow-x-hidden dark:bg-app dark:bg-none">
-        <Navbar />
-        <main className="flex-1 flex items-center justify-center">
-          <div className="text-center bg-white p-8 rounded-2xl shadow-lg">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p className="text-lg text-gray-700">Cargando licencias...</p>
-          </div>
-        </main>
-        <Footer />
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-blue-50 to-blue-100 dark:bg-app dark:bg-none">
+        <LoadingSpinner size="large" text="Cargando licencias por revisar..." />
       </div>
     );
   }

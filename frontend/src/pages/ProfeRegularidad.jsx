@@ -1,8 +1,9 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import AlertaLicenciasAnual from "../components/AlertaLicenciasAnual";
+import LoadingSpinner from "../components/LoadingSpinner";
 import { useAuth } from "../context/AuthContext";
 import { useLicenciasporAño } from "../hooks/useLicenciasporAño";
 import { Clock, Search, Eye } from "lucide-react";
@@ -67,6 +68,7 @@ function daysBetween(a, b) {
 export default function ProfesorRegularidad() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
   const role = String(user?.role || "").toLowerCase();
   const isTeacher = role === "profesor" || role === "teacher";
   const isAdmin = role === "admin" || role === "administrador" || role === "administrator";
@@ -114,6 +116,26 @@ export default function ProfesorRegularidad() {
       return true;
     });
   }, [enriched, filterCourse, search]);
+
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-blue-50 to-blue-100 dark:bg-app dark:bg-none">
+        <LoadingSpinner size="large" text="Cargando regularidad de estudiantes..." />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-blue-50 dark:bg-app dark:bg-none">

@@ -9,9 +9,23 @@ export default function ForgotPassword() {
   const [email, setEmail] = useState("");
   const [timer, setTimer] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [toast, setToast] = useState(null); // { message, type }
   const navigate = useNavigate();
   const { t } = useTranslation();
+
+  // Carga inicial
+  useEffect(() => {
+    const loadInitialData = async () => {
+      try {
+        await new Promise((resolve) => setTimeout(resolve, 600));
+      } finally {
+        setIsInitialLoading(false);
+      }
+    };
+
+    loadInitialData();
+  }, []);
 
   // Temporizador para bloquear reenvío
   useEffect(() => {
@@ -21,6 +35,15 @@ export default function ForgotPassword() {
     }
     return () => clearInterval(countdown);
   }, [timer]);
+
+  // ✅ Loading pantalla completa
+  if (isInitialLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-blue-50 to-blue-100 dark:bg-app dark:bg-none">
+        <LoadingSpinner size="large" text="Cargando formulario..." />
+      </div>
+    );
+  }
 
   // Función para validar formato de correo
   const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);

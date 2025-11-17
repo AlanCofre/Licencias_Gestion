@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
+import LoadingSpinner from "../components/LoadingSpinner";
+import SkeletonLoader from "../components/SkeletonLoader";
 // Si ya tienes AuthContext como en tu Navbar, úsalo. Si no, simula user admin:
 import { useAuth } from "../context/AuthContext"; // ajusta si tu hook vive en otra ruta
 import { Calendar, CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
@@ -180,15 +182,8 @@ export default function AdminPeriodos() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex flex-col bg-gradient-to-b from-blue-100 to-blue-300 dark:bg-app dark:bg-none">
-        <Navbar />
-        <main className="flex-1 flex items-center justify-center">
-          <div className="text-center bg-white dark:bg-surface p-8 rounded-2xl shadow-lg border border-gray-100 dark:border-app">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p className="text-lg text-gray-700 dark:text-white">Cargando periodos...</p>
-          </div>
-        </main>
-        <Footer />
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-blue-50 to-blue-100 dark:bg-app dark:bg-none">
+        <LoadingSpinner size="large" text="Cargando períodos..." />
       </div>
     );
   }
