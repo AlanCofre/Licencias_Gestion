@@ -1,7 +1,6 @@
 import crypto from 'crypto';
 import LicenciaMedica from '../src/models/modelo_LicenciaMedica.js';
 import db from '../config/db.js';
-import { decidirLicenciaSvc } from '../services/servicio_Licencias.js';
 import fs from 'fs';
 import path from 'path';
 import { subirPDFLicencia } from '../services/supabase/storage.service.js';
@@ -595,8 +594,6 @@ import {
   crearLicenciaConArchivo,
   decidirLicenciaSvc
 } from '../services/servicio_Licencias.js';
-
-import db from '../config/db.js';
 
 // ───────────────────────────────────────────────
 // PUT /api/licencias/:id/decidir

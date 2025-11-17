@@ -14,7 +14,7 @@ import {
 } from '../../controllers/licencias.controller.js';
 
 import { validarJWT, esEstudiante, tieneRol } from '../../middlewares/auth.js';
-import { cambiarEstado } from '../../controllers/licencias.controller.js';
+// import { cambiarEstado } from '../../controllers/licencias.controller.js';
 import { authRequired } from '../../middlewares/requireAuth.js';
 import { requireRole } from '../../middlewares/requireRole.js';
 import { validateDecision } from '../../middlewares/validateDecision.js';
@@ -408,7 +408,7 @@ router.put(
   '/:id/estado',
   validarJWT,
   tieneRol(['funcionario']),
-  cambiarEstado
+  // cambiarEstado
 );
 
 router.post(
