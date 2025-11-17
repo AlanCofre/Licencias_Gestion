@@ -803,6 +803,7 @@ export default function AdminCursos() {
       </main>
 
       <Toast toast={toast} onClose={() => setToast(null)} />
+        
       <Footer />
     </div>
   );

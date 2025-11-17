@@ -170,18 +170,31 @@ export default function ProfesorRegularidad() {
 
         <div className="bg-white dark:bg-surface rounded-2xl shadow overflow-hidden">
           <table className="w-full">
-            <thead className="bg-gray-50 dark:bg-app/40">
+            <thead className="bg-gradient-to-r from-blue-50 to-indigo-50">
               <tr>
-                <th className="text-left px-6 py-3 dark:text-blue-200">Estudiante</th>
-                <th className="text-left px-6 py-3 dark:text-blue-200">Ramo</th>
-                <th className="text-left px-6 py-3 dark:text-blue-200">Última subida</th>
-                <th className="text-left px-6 py-3 dark:text-blue-200">Licencias (30d)</th>
-                <th className="text-left px-6 py-3 dark:text-blue-200">Faltas estimadas</th>
-                <th className="text-left px-6 py-3 w-32 dark:text-blue-200">Estado</th>
-                <th className="px-6 py-3 text-center dark:text-blue-200">Acción</th>
+                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700 dark:text-blue-200 uppercase tracking-wider">
+                  Estudiante
+                </th>
+                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700 dark:text-blue-200 uppercase tracking-wider">
+                  Ramo
+                </th>
+                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700 dark:text-blue-200 uppercase tracking-wider">
+                  Última subida
+                </th>
+                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700 dark:text-blue-200 uppercase tracking-wider">
+                  Licencias (30d)
+                </th>
+                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700 dark:text-blue-200 uppercase tracking-wider">
+                  Faltas estimadas
+                </th>
+                <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700 dark:text-blue-200 uppercase tracking-wider w-32">
+                  Estado
+                </th>
+                <th className="px-6 py-3 text-center text-sm font-semibold text-gray-700 dark:text-blue-200 uppercase tracking-wider">
+                  Acción
+                </th>
               </tr>
             </thead>
-
             <tbody>
               {filtered.map((s) => (
                 <React.Fragment key={s.id}>

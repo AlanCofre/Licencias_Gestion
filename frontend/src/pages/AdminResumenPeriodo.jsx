@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
-import LoadingSpinner from "../components/LoadingSpinner";
+import { BarChart3, Download, Filter } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 // MOCKS para frontend (puedes reemplazar por fetch real, ver comentarios abajo)
 const mockPeriodos = [
@@ -38,6 +39,7 @@ const mockCursos = {
 };
 
 export default function AdminResumenPeriodo() {
+  const { t } = useTranslation();
   const [periodos, setPeriodos] = useState([]);
   const [periodoSel, setPeriodoSel] = useState("");
   const [cursos, setCursos] = useState([]);
@@ -83,141 +85,176 @@ export default function AdminResumenPeriodo() {
     URL.revokeObjectURL(url);
   };
 
-  if (loading && periodos.length === 0) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-blue-50 to-blue-100 dark:bg-app dark:bg-none">
-        <LoadingSpinner size="large" text="Cargando resumen de períodos..." />
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-b from-blue-100 to-blue-300 dark:bg-app dark:bg-none">
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-50 to-indigo-100 dark:bg-app dark:bg-none">
       <Navbar />
-      <main className="flex-1 container mx-auto px-4 py-10">
-        <div className="max-w-5xl mx-auto">
-          <h1 className="text-3xl font-extrabold mb-8 text-blue-900 dark:text-blue-200 flex items-center gap-3">
-            <svg
-              className="w-8 h-8 text-blue-500"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={2}
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M9 17v-2a4 4 0 014-4h6m-6 0V7a4 4 0 00-4-4H5a4 4 0 00-4 4v10a4 4 0 004 4h6a4 4 0 004-4z"
-              />
-            </svg>
-            Resumen de Cursos y Matrículas por Periodo
-          </h1>
-          <div className="mb-6 flex flex-col sm:flex-row sm:items-center gap-3 bg-white dark:bg-surface rounded-lg shadow p-4">
-            <label className="font-medium text-blue-900 dark:text-blue-200">
-              Periodo:
-            </label>
-            <select
-              value={periodoSel}
-              onChange={(e) => setPeriodoSel(e.target.value)}
-              className="border rounded px-3 py-2 focus:ring-2 focus:ring-blue-400"
-              disabled={loading || periodos.length === 0}
-            >
-              {periodos.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.nombre}
-                </option>
-              ))}
-            </select>
-            {/* Badge fuera del select */}
-            {periodos.find((p) => p.id === periodoSel && p.activo) && (
-              <span className="inline-block bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300 rounded-full px-3 py-1 text-xs font-semibold">
-                Activo
-              </span>
-            )}
-            <button
-              onClick={exportarCSV}
-              className="ml-auto px-4 py-2 bg-blue-600 text-white rounded shadow hover:bg-blue-700 transition"
-              disabled={loading || cursos.length === 0}
-            >
-              Exportar CSV
-            </button>
+      <main className="flex-1 w-full">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-10 max-w-7xl">
+          {/* Header Section */}
+          <div className="mb-8">
+            <div className="bg-white rounded-2xl shadow-lg p-6 md:p-8 border border-gray-100">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="bg-blue-100 p-3 rounded-full">
+                  <BarChart3 className="h-7 w-7 text-blue-600" />
+                </div>
+                <div>
+                  <h1 className="text-3xl md:text-4xl font-bold text-gray-900">
+                    Resumen de Periodo
+                  </h1>
+                  <p className="text-gray-600 mt-1">
+                    Visualiza cursos, profesores y matrículas del periodo
+                    seleccionado.
+                  </p>
+                </div>
+              </div>
+
+              {/* Filtros */}
+              <div className="grid grid-cols-12 gap-3 items-end">
+                <div className="col-span-12 md:col-span-6">
+                  <label
+                    htmlFor="periodo"
+                    className="block text-xs font-medium text-gray-600 mb-1"
+                  >
+                    Periodo
+                  </label>
+                  <select
+                    id="periodo"
+                    value={periodoSel}
+                    onChange={(e) => setPeriodoSel(e.target.value)}
+                    className="w-full border border-gray-200 bg-white px-3 py-2 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#048FD4]"
+                    disabled={loading || periodos.length === 0}
+                  >
+                    {periodos.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.nombre}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="col-span-12 md:col-span-6">
+                  <div className="flex items-center justify-between gap-2">
+                    {periodos.find((p) => p.id === periodoSel && p.activo) && (
+                      <span className="inline-block bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300 rounded-full px-3 py-1 text-xs font-semibold">
+                        Activo
+                      </span>
+                    )}
+                    <button
+                      onClick={exportarCSV}
+                      className="inline-flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-medium rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all shadow-sm"
+                      disabled={loading || cursos.length === 0}
+                    >
+                      <Download className="h-4 w-4" />
+                      Exportar CSV
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
+          {/* Error State */}
           {error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-800 text-center mb-4 shadow">
+            <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4 text-red-800 text-center shadow-sm">
               {error}
             </div>
           )}
 
+          {/* Loading State */}
           {loading ? (
-            <div className="bg-white dark:bg-surface rounded-lg p-8 text-center text-gray-500 animate-pulse shadow">
-              Cargando cursos...
+            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8">
+              <div className="flex items-center justify-center py-16 text-gray-600">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mr-3"></div>
+                Cargando cursos...
+              </div>
             </div>
           ) : cursos.length === 0 ? (
-            <div className="bg-white dark:bg-surface rounded-lg p-8 text-center text-gray-500 shadow">
-              No hay cursos para este periodo.
+            <div className="bg-white rounded-2xl shadow-lg border border-gray-100">
+              <div className="text-center text-gray-500 text-sm py-16">
+                No hay cursos para este periodo.
+              </div>
             </div>
           ) : (
-            <div className="bg-white dark:bg-surface rounded-lg border dark:border-app overflow-x-auto shadow">
-              <table className="min-w-full">
-                <thead>
-                  <tr className="border-b dark:border-app bg-blue-50 dark:bg-app/30">
-                    <th className="py-3 px-4 text-left text-blue-900 dark:text-blue-200 font-semibold">
-                      Código
-                    </th>
-                    <th className="py-3 px-4 text-left text-blue-900 dark:text-blue-200 font-semibold">
-                      Nombre
-                    </th>
-                    <th className="py-3 px-4 text-left text-blue-900 dark:text-blue-200 font-semibold">
-                      Profesor
-                    </th>
-                    <th className="py-3 px-4 text-center text-blue-900 dark:text-blue-200 font-semibold">
-                      Matriculados
-                    </th>
-                    <th className="py-3 px-4"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {cursos.map((curso, idx) => (
-                    <React.Fragment key={curso.codigo}>
-                      <tr className="border-b dark:border-app hover:bg-blue-50/60 dark:hover:bg-app/20 transition">
-                        <td className="py-2 px-4 font-mono">{curso.codigo}</td>
-                        <td className="py-2 px-4">{curso.nombre}</td>
-                        <td className="py-2 px-4">{curso.profesor}</td>
-                        <td className="py-2 px-4 text-center">
-                          <span className="inline-block bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 rounded-full px-3 py-1 text-xs font-semibold">
-                            {curso.matriculados.length}
-                          </span>
-                        </td>
-                        <td className="py-2 px-4 text-center">
-                          <button
-                            className="text-blue-600 underline text-sm hover:text-blue-800"
-                            onClick={() =>
-                              setExpanded((prev) => ({
-                                ...prev,
-                                [idx]: !prev[idx],
-                              }))
-                            }
-                          >
-                            {expanded[idx] ? "Ocultar" : "Ver estudiantes"}
-                          </button>
-                        </td>
-                      </tr>
-                      {expanded[idx] && (
-                        <tr>
-                          <td colSpan={5} className="bg-blue-50 dark:bg-app/40 px-6 py-3">
-                            <ul className="list-disc ml-6 text-blue-900 dark:text-blue-100">
-                              {curso.matriculados.map((est, i) => (
-                                <li key={i}>{est.nombre}</li>
-                              ))}
-                            </ul>
+            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gradient-to-r from-blue-50 to-indigo-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">
+                        Código
+                      </th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">
+                        Nombre
+                      </th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">
+                        Profesor
+                      </th>
+                      <th className="px-6 py-3 text-center text-sm font-semibold text-gray-700 uppercase tracking-wider">
+                        Matriculados
+                      </th>
+                      <th className="px-6 py-3 text-center text-sm font-semibold text-gray-700 uppercase tracking-wider">
+                        Acción
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-100">
+                    {cursos.map((curso, idx) => (
+                      <React.Fragment key={curso.codigo}>
+                        <tr className="hover:bg-blue-50 transition-colors">
+                          <td className="px-6 py-4 text-sm font-semibold text-gray-900">
+                            {curso.codigo}
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-800">
+                            {curso.nombre}
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-800">
+                            {curso.profesor}
+                          </td>
+                          <td className="px-6 py-4 text-center">
+                            <span className="inline-block bg-blue-100 text-blue-800 rounded-full px-3 py-1 text-xs font-semibold">
+                              {curso.matriculados.length}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-center">
+                            <button
+                              onClick={() =>
+                                setExpanded((prev) => ({
+                                  ...prev,
+                                  [idx]: !prev[idx],
+                                }))
+                              }
+                              className="inline-flex items-center gap-2 px-3 py-2 bg-white hover:bg-blue-50 text-blue-700 text-sm font-medium rounded-lg border border-blue-200 transition-all shadow-sm"
+                            >
+                              {expanded[idx] ? "Ocultar" : "Ver"}
+                            </button>
                           </td>
                         </tr>
-                      )}
-                    </React.Fragment>
-                  ))}
-                </tbody>
-              </table>
+                        {expanded[idx] && (
+                          <tr className="bg-blue-50/50">
+                            <td colSpan={5} className="px-6 py-4">
+                              <div className="space-y-2">
+                                <p className="text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                                  Estudiantes matriculados
+                                </p>
+                                <ul className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                                  {curso.matriculados.map((est, i) => (
+                                    <li
+                                      key={i}
+                                      className="text-sm text-gray-700 bg-white rounded px-3 py-2 border border-gray-100"
+                                    >
+                                      {est.nombre}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </div>

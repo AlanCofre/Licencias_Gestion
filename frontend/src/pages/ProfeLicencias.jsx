@@ -242,7 +242,7 @@ export default function ProfeLicencias() {
                   <Clock className="h-7 w-7 text-blue-600" />
                 </div>
                 <div className="flex-1">
-                  <h1 className="text-2xl font-bold text-gray-900">Licencias — Mis cursos</h1>
+                  <h1 className="text-2xl font-bold text-gray-900">Licencias — Mis Alumnos</h1>
                   <p className="text-gray-600 mt-1">Filtra la bandeja para localizar rápidamente licencias.</p>
                 </div>
 
