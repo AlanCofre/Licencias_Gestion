@@ -300,6 +300,46 @@ export const rejectLicense = async (licenseId, data) => {
   }
 };
 
+export const licenciasService = {
+  // ESTUDIANTE - Historial de licencias
+  getMisLicencias: (page = 1, limit = 20) => 
+    request(`/api/licencias/mis-licencias?page=${page}&limit=${limit}`),
+
+  // SECRETARÍA - Licencias pendientes
+  getLicenciasPendientes: (filters = {}) => {
+    const params = new URLSearchParams();
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value) params.append(key, value);
+    });
+    return request(`/api/licencias/en-revision?${params.toString()}`);
+  },
+
+  // SECRETARÍA - Licencias resueltas (PARA LicenciaInfo.jsx)
+  getLicenciasResueltas: (filters = {}) => {
+    const params = new URLSearchParams();
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value) params.append(key, value);
+    });
+    return request(`/api/licencias/resueltas?${params.toString()}`);
+  },
+
+  // DETALLE de licencia
+  getDetalleLicencia: (idLicencia) => 
+    request(`/api/licencias/${idLicencia}`),
+
+  // PREVISUALIZACIÓN - Obtener URL firmada del PDF
+  getUrlArchivo: (idLicencia) => 
+    request(`/api/licencias/${idLicencia}/archivo`)
+};
+export { 
+  fetchLicenses, 
+  fetchLicenseById, 
+  fetchAttachment,
+  getLicenseDetails,
+  acceptLicense, 
+  rejectLicense 
+};
+
 export default { 
   request: mockRequest, 
   fetchLicenses, 

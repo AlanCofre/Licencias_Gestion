@@ -4,7 +4,7 @@ import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import BannerSection from "../components/BannerSection";
 import { CheckCircle, XCircle, Clock, Calendar, User, GraduationCap, Search, Eye } from "lucide-react";
-
+import { licenciasService } from "../services/api";
 const API_BASE = import.meta.env.VITE_API_BASE_URL?.replace(/\/+$/,"") ?? "http://localhost:3000";
 
 // Probaremos estos endpoints en orden hasta que uno devuelva 200
@@ -81,46 +81,22 @@ useEffect(() => {
     setLoading(true);
     setErr("");
     try {
-      const headers = {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      };
-
-      const url = `${API_BASE}${LIST_PATH}`;
-      const res = await fetch(url, { headers });
-      const text = await res.text();
-
-      // DEBUG: ver exactamente qué llega
-      console.log("[HistorialLicencias] URL:", url);
-      console.log("[HistorialLicencias] Status:", res.status);
-      console.log("[HistorialLicencias] Raw response text:", text);
-
-      if (!res.ok) throw new Error(text || `HTTP ${res.status}`);
-
-      let json;
-      try { json = JSON.parse(text); } catch { json = text; }
-
-      // Soportar varios envoltorios
-      let arr =
-        (json && (json.data || json.licencias || json.rows)) ||
-        (Array.isArray(json) ? json : null);
-
-      if (!Array.isArray(arr)) {
-        // Algunos BE devuelven {ok, count, rows}
-        if (json && typeof json === "object" && Array.isArray(json.rows)) {
-          arr = json.rows;
-        }
-      }
-      if (!Array.isArray(arr)) {
-        throw new Error("La respuesta no trae un array (data/rows/licencias). Revisa el endpoint.");
-      }
-
+      console.log("🔍 Cargando licencias resueltas...");
+      const response = await licenciasService.getLicenciasResueltas();
+      
+      // Tu backend devuelve: { ok: true, data: [...], meta: {...} }
+      const licenciasData = response.data || [];
+      
+      console.log("✅ Licencias resueltas cargadas:", licenciasData);
+      
+      let arr = licenciasData;
+      
       // Normaliza + filtra vacíos
       const normalizadas = arr.map(normalizeItem).filter(Boolean);
 
       // Si después de normalizar quedaron 0, es porque los campos no coinciden
       if (normalizadas.length === 0) {
-        console.warn("[HistorialLicencias] Datos sin mapear. Muestra primeros 2 registros crudos:");
+        console.warn("[LicenciaInfo] Datos sin mapear. Muestra primeros 2 registros crudos:");
         console.warn(arr.slice(0, 2));
       }
 
