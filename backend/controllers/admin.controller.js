@@ -4,6 +4,27 @@ import Matricula from "../src/models/modelo_Matricula.js";
 import Usuario from "../src/models/modelo_Usuario.js";
 import Periodo from "../src/models/modelo_Periodo.js";
 
+// En admin.controller.js, agrega esta función:
+export async function listarProfesores(req, res) {
+  try {
+    const profesores = await Usuario.findAll({
+      where: { 
+        id_rol: 1 // Asumiendo que 1 es el ID para profesores
+      },
+      attributes: ['id_usuario', 'nombre', 'correo_usuario', 'id_rol'],
+      order: [['nombre', 'ASC']]
+    });
+
+    return res.json({ ok: true, data: profesores });
+  } catch (error) {
+    console.error("[admin:profesores] error:", error);
+    return res.status(500).json({
+      ok: false,
+      error: "Error interno al listar profesores",
+    });
+  }
+}
+
 export async function listarCursosMatriculas(req, res) {
   try {
     const { periodo, profesor, curso, codigo, seccion, activo } = req.query;
