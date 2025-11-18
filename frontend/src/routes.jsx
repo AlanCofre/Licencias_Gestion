@@ -33,7 +33,8 @@ import ProfeLicencias from "./pages/ProfeLicencias.jsx";
 import ProfesorRegularidad from "./pages/ProfeRegularidad.jsx";
 import EstudianteRegularidad from "./pages/EstudianteRegularidad.jsx";
 import SecretariaLicenciasAlerta from "./pages/SecretariaLicenciasAlerta";
-
+import DashboardProfesor from "./pages/DashboardProfesor";
+import NotificacionesProfesorPage from "./pages/NotificacionesProfesorPage";
 export default function AppRoutes() {
   return (
     <Routes>
