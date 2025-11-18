@@ -13,11 +13,10 @@ export async function calcularRegularidadEstudiante(idEstudiante, periodo = null
     // Determinar el período activo si no se especifica
     let periodoActivo = periodo;
     if (!periodoActivo) {
-      // Obtener el período actual - CORREGIDO: usar id_curso en lugar de fecha_creacion
       const [periodos] = await db.execute(
-        'SELECT periodo FROM curso WHERE activo = 1 ORDER BY id_curso DESC LIMIT 1'
+        'SELECT codigo FROM periodos_academicos WHERE activo = 1 ORDER BY id_periodo DESC LIMIT 1'
       );
-      periodoActivo = periodos.length > 0 ? periodos[0].periodo : '2025-1'; // fallback
+      periodoActivo = periodos.length > 0 ? periodos[0].codigo : '2025-1';
     }
 
     let query = `
@@ -25,15 +24,10 @@ export async function calcularRegularidadEstudiante(idEstudiante, periodo = null
       FROM licenciamedica lm
       WHERE lm.id_usuario = ?
         AND lm.estado = 'aceptado'
-        AND (? IS NULL OR EXISTS (
-          SELECT 1 FROM licencias_entregas le 
-          JOIN curso c ON le.id_curso = c.id_curso 
-          WHERE le.id_licencia = lm.id_licencia 
-          AND c.periodo = ?
-        ))
+        AND YEAR(lm.fecha_creacion) = YEAR(CURDATE())
     `;
 
-    const params = [idEstudiante, periodoActivo, periodoActivo];
+    const params = [idEstudiante];
 
     // Si se especifica un curso, filtrar por él
     if (idCurso) {
@@ -62,7 +56,8 @@ export async function calcularRegularidadEstudiante(idEstudiante, periodo = null
     return {
       total_licencias_aceptadas: totalLicencias,
       categoria_regularidad: categoria,
-      periodo: periodoActivo
+      periodo: periodoActivo,
+      anio_actual: new Date().getFullYear()
     };
   } catch (error) {
     console.error('❌ Error calculando regularidad:', error);
@@ -115,20 +110,85 @@ export async function obtenerRegularidadPorCurso(idCurso, periodo = null) {
 }
 
 /**
- * Obtiene estadísticas de regularidad para dashboard de profesor/admin
+ * Obtiene estudiantes con su regularidad para un profesor
+ * @param {number} idProfesor - ID del profesor
+ * @param {string} periodo - Periodo académico
+ * @returns {Array} Lista de estudiantes con su regularidad
+ */
+export async function obtenerEstudiantesConRegularidad(idProfesor, periodo = null) {
+  try {
+    // Determinar período activo
+    let periodoActivo = periodo;
+    if (!periodoActivo) {
+      const [periodos] = await db.execute(
+        'SELECT codigo FROM periodos_academicos WHERE activo = 1 ORDER BY id_periodo DESC LIMIT 1'
+      );
+      periodoActivo = periodos.length > 0 ? periodos[0].codigo : '2025-1';
+    }
+
+    // Obtener estudiantes matriculados en cursos del profesor
+    const [estudiantes] = await db.execute(`
+      SELECT DISTINCT
+        u.id_usuario,
+        u.nombre,
+        u.correo_usuario as legajo,
+        c.id_curso,
+        c.codigo as codigo_curso,
+        c.nombre_curso,
+        c.seccion,
+        CONCAT(c.codigo, ' - ', c.nombre_curso, ' (Sección ', c.seccion, ')') as curso_completo
+      FROM matriculas m
+      JOIN usuario u ON m.id_usuario = u.id_usuario
+      JOIN curso c ON m.id_curso = c.id_curso
+      JOIN periodos_academicos p ON c.id_periodo = p.id_periodo
+      WHERE c.id_usuario = ?
+        AND p.codigo = ?
+        AND u.id_rol = 2  -- Rol de estudiante
+      ORDER BY u.nombre, c.codigo
+    `, [idProfesor, periodoActivo]);
+
+    // Calcular regularidad para cada estudiante
+    const estudiantesConRegularidad = await Promise.all(
+      estudiantes.map(async (estudiante) => {
+        const regularidad = await calcularRegularidadEstudiante(
+          estudiante.id_usuario, 
+          periodoActivo, 
+          estudiante.id_curso
+        );
+        
+        return {
+          id: estudiante.id_usuario,
+          nombre: estudiante.nombre,
+          legajo: estudiante.legajo,
+          curso: estudiante.curso_completo,
+          codigo_curso: estudiante.codigo_curso,
+          seccion: estudiante.seccion,
+          regularidad
+        };
+      })
+    );
+
+    return estudiantesConRegularidad;
+  } catch (error) {
+    console.error('❌ Error obteniendo estudiantes con regularidad:', error);
+    throw new Error('Error al obtener estudiantes con regularidad');
+  }
+}
+
+/**
+ * Obtiene estadísticas de regularidad para dashboard
  * @param {number} idProfesor - ID del profesor (opcional para admin)
  * @param {string} periodo - Periodo académico
  * @returns {Object} Estadísticas agregadas
  */
 export async function obtenerEstadisticasRegularidad(idProfesor = null, periodo = null) {
   try {
-    // Determinar período activo - CORREGIDO: usar id_curso en lugar de fecha_creacion
     let periodoActivo = periodo;
     if (!periodoActivo) {
       const [periodos] = await db.execute(
-        'SELECT periodo FROM curso WHERE activo = 1 ORDER BY id_curso DESC LIMIT 1'
+        'SELECT codigo FROM periodos_academicos WHERE activo = 1 ORDER BY id_periodo DESC LIMIT 1'
       );
-      periodoActivo = periodos.length > 0 ? periodos[0].periodo : '2025-1';
+      periodoActivo = periodos.length > 0 ? periodos[0].codigo : '2025-1';
     }
 
     let query = `
@@ -147,18 +207,13 @@ export async function obtenerEstadisticasRegularidad(idProfesor = null, periodo 
           COUNT(DISTINCT lm.id_licencia) as total_licencias
         FROM licenciamedica lm
         WHERE lm.estado = 'aceptado'
-          AND EXISTS (
-            SELECT 1 FROM licencias_entregas le 
-            JOIN curso c2 ON le.id_curso = c2.id_curso 
-            WHERE le.id_licencia = lm.id_licencia 
-            AND c2.periodo = ?
-          )
+          AND YEAR(lm.fecha_creacion) = YEAR(CURDATE())
         GROUP BY lm.id_usuario
       ) lic_count ON u.id_usuario = lic_count.id_usuario
-      WHERE r.nombre_rol = 'estudiante'
+      WHERE r.id_rol = 2  -- Rol de estudiante
     `;
 
-    const params = [periodoActivo];
+    const params = [];
 
     if (idProfesor) {
       query += ` AND c.id_usuario = ?`;
@@ -179,3 +234,6 @@ export async function obtenerEstadisticasRegularidad(idProfesor = null, periodo 
     throw new Error('Error al obtener estadísticas de regularidad');
   }
 }
+
+// NO agregar exportaciones duplicadas al final
+// Las funciones ya están exportadas individualmente con 'export'

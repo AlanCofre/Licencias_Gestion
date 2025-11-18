@@ -4,7 +4,8 @@ import {
   getRegularidadEstudiante, 
   getRegularidadCurso,
   getEstadisticasRegularidad
-} from '../../controllers/regularidad.controller.js'; // ← Ruta corregida
+} from '../../controllers/regularidad.controller.js';
+import { getEstudiantesConRegularidad } from '../../controllers/profesor.controller.js';
 import { validarJWT, tieneRol } from '../../middlewares/auth.js';
 
 const router = Router();
@@ -23,6 +24,14 @@ router.get(
   validarJWT, 
   tieneRol('profesor', 'administrador'),
   getRegularidadCurso
+);
+
+// Estudiantes con regularidad para profesor
+router.get(
+  '/profesor/estudiantes',
+  validarJWT,
+  tieneRol('profesor', 'administrador'),
+  getEstudiantesConRegularidad
 );
 
 // Estadísticas de regularidad (dashboard) - SOLO profesores y administradores

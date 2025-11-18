@@ -88,6 +88,7 @@ app.use(reportesRouter);
 
 // Profesor
 app.use('/profesor', profesorRoutes);
+app.use('/api/regularidad', regularidadRoutes);
 
 // Reportes (SIN prefijo → /reportes/licencias/exceso)
 app.use(reportesRouter);
