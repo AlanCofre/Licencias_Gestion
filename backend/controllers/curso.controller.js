@@ -171,7 +171,21 @@ export const actualizarCurso = async (req, res) => {
 // === GET /cursos  (listar cursos - admin) ===
 export const listarCursos = async (req, res) => {
   try {
+    const { id_periodo, id_profesor } = req.query;
+    
+    // Construir condiciones WHERE
+    const whereConditions = {};
+    
+    if (id_periodo) {
+      whereConditions.id_periodo = id_periodo;
+    }
+    
+    if (id_profesor) {
+      whereConditions.id_usuario = id_profesor;
+    }
+
     const cursos = await Curso.findAll({
+      where: whereConditions,
       include: [
         { 
           model: Usuario, 
@@ -183,8 +197,10 @@ export const listarCursos = async (req, res) => {
           as: 'periodo'
         }
       ],
-      order: [['codigo', 'ASC']] // 👈 CORREGIDO: usar 'codigo'
+      order: [['codigo', 'ASC']]
     });
+
+    
     return ok(res, cursos);
   } catch (err) {
     console.error('[cursos] error listando cursos:', err);

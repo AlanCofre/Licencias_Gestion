@@ -346,14 +346,13 @@ export default function AdminCursos() {
     setTimeout(() => setToast(null), 3200);
   };
 
-  // Cargar datos iniciales con DEBUG
+  // En el useEffect que carga datos iniciales:
   useEffect(() => {
     let alive = true;
     
     const loadInitialData = async () => {
       try {
         setLoadingInitial(true);
-        console.log('🔄 Cargando datos iniciales...');
         
         const [periodosData, profesoresData] = await Promise.all([
           api.getPeriodos(),
@@ -365,16 +364,17 @@ export default function AdminCursos() {
         console.log('📊 Periodos recibidos:', periodosData);
         console.log('👨‍🏫 Profesores recibidos:', profesoresData);
         
-        // Asegurarse de que los datos sean arrays
         const safePeriodos = Array.isArray(periodosData) ? periodosData : [];
         const safeProfesores = Array.isArray(profesoresData) ? profesoresData : [];
         
         setPeriodos(safePeriodos);
         setProfesores(safeProfesores);
         
-        // Si hay periodos, seleccionar el primero
+        // CORREGIDO: Seleccionar el periodo 1 por defecto (donde están los cursos)
         if (safePeriodos.length > 0) {
-          setPeriodoId(String(safePeriodos[0].id_periodo));
+          // Buscar el periodo con ID 1, o el primero si no existe
+          const periodoDefault = safePeriodos.find(p => p.id_periodo === 1) || safePeriodos[0];
+          setPeriodoId(String(periodoDefault.id_periodo));
         }
         
       } catch (error) {
@@ -392,7 +392,6 @@ export default function AdminCursos() {
     return () => {
       alive = false;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Cargar cursos según filtros con DEBUG
@@ -401,11 +400,9 @@ export default function AdminCursos() {
     
     const loadCursos = async () => {
       if (loadingInitial) {
-        console.log('⏳ Esperando datos iniciales...');
         return;
       }
       
-      console.log('🔄 Cargando cursos con filtros:', { periodoId, profesorId });
       setLoadingList(true);
       
       try {
@@ -416,17 +413,13 @@ export default function AdminCursos() {
         
         if (!alive) return;
         
-        console.log('📚 Cursos recibidos:', cursosData);
-        
         // Asegurarse de que los cursos sean un array
         const safeCursos = Array.isArray(cursosData) ? cursosData : [];
         setCursos(safeCursos);
         
         if (safeCursos.length === 0) {
-          console.log('ℹ️  No se encontraron cursos con los filtros actuales');
         }
       } catch (error) {
-        console.error('❌ Error cargando cursos:', error);
         showToast("error", "No se pudo cargar la oferta de cursos.");
         setCursos([]);
       } finally {
@@ -626,7 +619,6 @@ export default function AdminCursos() {
                       id="periodo"
                       value={periodoId}
                       onChange={(e) => {
-                        console.log('🎯 Cambiando periodo a:', e.target.value);
                         setPeriodoId(e.target.value);
                       }}
                       className="w-full border border-gray-200 bg-white px-3 py-2 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#048FD4]"
@@ -655,7 +647,6 @@ export default function AdminCursos() {
                       id="profesor"
                       value={profesorId}
                       onChange={(e) => {
-                        console.log('👨‍🏫 Cambiando profesor a:', e.target.value);
                         setProfesorId(e.target.value);
                       }}
                       className="w-full border border-gray-200 bg-white px-3 py-2 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#048FD4]"
