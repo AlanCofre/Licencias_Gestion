@@ -34,6 +34,30 @@ function inDateRange(valueDateStr, startStr, endStr) {
   return true;
 }
 
+// Función para formatear fecha (solo fecha, sin hora)
+function formatDate(dateString) {
+  if (!dateString) return "-";
+  try {
+    // Si ya está en formato YYYY-MM-DD, convertir a DD/MM/YYYY
+    if (typeof dateString === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+      const [year, month, day] = dateString.split('-');
+      return `${day}/${month}/${year}`;
+    }
+    
+    // Si es un objeto Date o string con hora, extraer solo la fecha
+    const date = new Date(dateString);
+    if (isNaN(date)) return "-";
+    
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const year = date.getFullYear();
+    
+    return `${day}/${month}/${year}`;
+  } catch {
+    return "-";
+  }
+}
+
 /* -------------------- COMPONENTE PRINCIPAL -------------------- */
 export default function ProfeLicencias() {
   const { user, token, isLoading: authLoading } = useAuth();
@@ -61,7 +85,7 @@ export default function ProfeLicencias() {
       return null;
     }
   })();
-  const periodoActivo = periodoFromUrl || periodoFromStorage || "2025-2";
+  const periodoActivo = periodoFromUrl || periodoFromStorage || "";
 
   /* cargar datos desde backend /profesor/licencias */
   useEffect(() => {
@@ -105,6 +129,7 @@ export default function ProfeLicencias() {
         console.log("[ProfeLicencias] Llamando a:", url);
         console.log("[ProfeLicencias] Token presente:", !!token);
         console.log("[ProfeLicencias] User ID:", user?.id_usuario);
+        console.log("[ProfeLicencias] Rol:", user?.rol);
 
         const res = await fetch(url, {
           method: "GET",
@@ -118,45 +143,65 @@ export default function ProfeLicencias() {
         console.log("[ProfeLicencias] Status:", res.status);
 
         if (!res.ok) {
+          if (res.status === 403) {
+            throw new Error("No tienes permisos de profesor para acceder a esta información");
+          }
+          if (res.status === 404) {
+            throw new Error("Recurso no encontrado");
+          }
           const txt = await res.text();
-          console.error("[ProfeLicencias] Response error:", txt);
-          throw new Error(txt || `HTTP ${res.status}`);
+          throw new Error(txt || `Error HTTP ${res.status}`);
         }
 
         const json = await res.json();
-        console.log("[ProfeLicencias] Data recibida:", json);
+        console.log("[ProfeLicencias] Respuesta completa:", json);
 
-        if (!json.ok || !Array.isArray(json.data)) {
-          throw new Error(json.mensaje || json.error || "Respuesta no válida del servidor");
+        if (!json.ok) {
+          throw new Error(json.mensaje || "Error en la respuesta del servidor");
         }
 
-        // Normalizar respuesta
-        const normalized = (json.data || []).map((row) => ({
-          id: row.id_licencia || row.id,
-          studentName: row.nombre_estudiante || row.student_name || "—",
-          studentId: row.correo_estudiante || row.student_id || "—",
-          courseCode: row.codigo_curso || row.course_code || "UNK",
-          section: row.seccion || row.section || "?",
-          fechaEmision: row.fecha_emision ? row.fecha_emision.slice(0, 10) : "",
-          fechaInicio: row.fecha_inicio ? row.fecha_inicio.slice(0, 10) : "",
-          fechaFin: row.fecha_fin ? row.fecha_fin.slice(0, 10) : "",
-          estado: row.estado || row.status || "Desconocido",
+        // Manejar la respuesta de tu backend
+        const dataArray = Array.isArray(json.data) ? json.data : [];
+        
+        // Normalizar datos para el frontend
+        const normalized = dataArray.map((row) => ({
+          id: row.id_licencia,
+          studentName: row.nombre_estudiante || "Estudiante",
+          studentId: row.correo_estudiante || "Sin email",
+          courseCode: row.codigo_curso || "UNK",
+          section: row.seccion || "?",
+          fechaEmision: row.fecha_emision || "",
+          fechaInicio: row.fecha_inicio || "",
+          fechaFin: row.fecha_fin || "",
+          estado: row.estado || "pendiente",
+          folio: row.folio || "",
         }));
 
         if (!mounted) return;
 
-        console.log("[ProfeLicencias] Normalizadas:", normalized.length, "licencias");
+        console.log("[ProfeLicencias] Licencias normalizadas:", normalized.length);
         setItems(normalized);
         setLoading(false);
 
         if (normalized.length === 0) {
-          setError("No hay licencias disponibles para este período.");
+          if (json.mensaje) {
+            setError(json.mensaje);
+          } else {
+            setError("No hay licencias médicas en tus cursos para este período.");
+          }
         }
       } catch (err) {
         if (!mounted) return;
         console.error("[ProfeLicencias] Error completo:", err);
-        setError(err.message || String(err));
+        
+        if (err.name === 'AbortError') {
+          console.log('[ProfeLicencias] Request cancelado');
+          return;
+        }
+        
+        setError(err.message || "Error al cargar las licencias");
         setLoading(false);
+        setItems([]);
       }
     }
 
@@ -236,7 +281,8 @@ export default function ProfeLicencias() {
       out = out.filter(
         (it) =>
           String(it.studentName || "").toLowerCase().includes(s) ||
-          String(it.studentId || "").toLowerCase().includes(s)
+          String(it.studentId || "").toLowerCase().includes(s) ||
+          String(it.folio || "").toLowerCase().includes(s)
       );
     }
 
@@ -402,13 +448,13 @@ export default function ProfeLicencias() {
 
                 <div className="md:col-span-3">
                   <label htmlFor="searchTerm" className="text-sm text-gray-600">
-                    Buscar
+                    Buscar (alumno, email o folio)
                   </label>
                   <div className="relative mt-1">
                     <input
                       id="searchTerm"
                       type="text"
-                      placeholder="Alumno o legajo"
+                      placeholder="Alumno, email o folio"
                       value={searchTerm}
                       onChange={(e) => {
                         setSearchTerm(e.target.value);
@@ -424,11 +470,17 @@ export default function ProfeLicencias() {
           </div>
 
           {/* Error global */}
-          {error && !loading && items.length === 0 && (
+          {error && (
             <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
               <p className="text-red-700 text-sm">
                 <span className="font-semibold">Error:</span> {error}
               </p>
+              <button 
+                onClick={() => window.location.reload()}
+                className="mt-2 px-3 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700"
+              >
+                Reintentar
+              </button>
             </div>
           )}
 
@@ -483,10 +535,20 @@ export default function ProfeLicencias() {
                         <div className="bg-gray-100 rounded-full w-24 h-24 flex items-center justify-center mx-auto mb-6">
                           <Clock className="h-12 w-12 text-gray-400" />
                         </div>
-                        <h2 className="text-2xl font-bold text-gray-700 mb-2">No hay licencias</h2>
+                        <h2 className="text-2xl font-bold text-gray-700 mb-2">
+                          {error ? "Error al cargar" : "No hay licencias"}
+                        </h2>
                         <p className="text-gray-500">
-                          No se encontraron licencias para los filtros seleccionados.
+                          {error || "No se encontraron licencias para los filtros seleccionados."}
                         </p>
+                        {error && (
+                          <button 
+                            onClick={() => window.location.reload()}
+                            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                          >
+                            Reintentar
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ) : (
@@ -494,8 +556,9 @@ export default function ProfeLicencias() {
                       const courseLabel = `${lic.courseCode || "UNK"} - ${lic.section || "?"}`;
                       const studentName = lic.studentName || "Sin nombre";
                       const studentId = lic.studentId || "";
-                      const fechaInicio = lic.fechaInicio || "-";
-                      const fechaFin = lic.fechaFin || "-";
+                      const fechaInicio = formatDate(lic.fechaInicio);
+                      const fechaFin = formatDate(lic.fechaFin);
+                      const folio = lic.folio || "";
 
                       return (
                         <tr
@@ -510,6 +573,9 @@ export default function ProfeLicencias() {
                               <div className="text-sm">
                                 <div className="font-medium text-gray-900">{studentName}</div>
                                 <div className="text-xs text-gray-500">{studentId}</div>
+                                {folio && (
+                                  <div className="text-xs text-gray-400">Folio: {folio}</div>
+                                )}
                               </div>
                             </div>
                           </td>

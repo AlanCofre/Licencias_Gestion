@@ -22,96 +22,6 @@ import { useTranslation } from "react-i18next";
  * ========================== */
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
-const USE_MOCK = false; // <- true si quieres probar sólo mock
-
-/* ==========================
- * MOCK / BE SIMULADO
- * ========================== */
-
-async function fetchEntregaDetalleMock(idEntrega, currentProfId = "prof-abc") {
-  await new Promise((r) => setTimeout(r, 700));
-  const db = {
-    "123": {
-      id: "123",
-      curso: "Algoritmos y Estructuras de Datos",
-      periodo: "2025-2",
-      profesorOwnerId: "prof-abc",
-      estudiante: { nombre: "Rumencio González", email: "rgonzalez@alu.uct.cl" },
-      fechas: {
-        emision: "2025-09-27",
-        envio: "2025-09-28",
-        inicioReposo: "2025-10-01",
-        finReposo: "2025-10-07",
-      },
-      observacionesSecretaria:
-        "Documentación legible. Falta firma en pág. 2, pero se acepta.",
-      estado: "En revisión",
-      file: {
-        url: "/api/files/licencia-123.pdf",
-        tipo: "signed",
-        filename: "licencia-123.pdf",
-      },
-    },
-    "456": {
-      id: "456",
-      curso: "Programación I",
-      periodo: "2025-2",
-      profesorOwnerId: "otro-prof",
-      estudiante: {
-        nombre: "Carlos Rodríguez",
-        email: "crodriguez@alu.uct.cl",
-      },
-      fechas: {
-        emision: "2025-09-13",
-        envio: "2025-09-14",
-        inicioReposo: "2025-09-15",
-        finReposo: "2025-09-20",
-      },
-      observacionesSecretaria: null,
-      estado: "Aceptado",
-      file: {
-        url: "/api/files/licencia-456.pdf",
-        tipo: "direct",
-        filename: "licencia-456.pdf",
-      },
-    },
-    "789": {
-      id: "789",
-      curso: "Derecho Civil",
-      periodo: "2025-2",
-      profesorOwnerId: "prof-abc",
-      estudiante: { nombre: "Ana Martínez", email: "amartinez@alu.uct.cl" },
-      fechas: {
-        emision: "2025-10-01",
-        envio: "2025-10-02",
-        inicioReposo: "2025-10-03",
-        finReposo: "2025-10-05",
-      },
-      observacionesSecretaria: "Adjuntar receta original si aplica.",
-      estado: "Rechazado",
-      file: {
-        url: "/api/files/licencia-789.pdf",
-        tipo: "direct",
-        filename: "licencia-789.pdf",
-      },
-    },
-  };
-
-  const row = db[idEntrega];
-  if (!row) {
-    const err = new Error("Not found");
-    err.status = 404;
-    throw err;
-  }
-
-  if (row.profesorOwnerId && row.profesorOwnerId !== String(currentProfId)) {
-    const err = new Error("Forbidden");
-    err.status = 403;
-    throw err;
-  }
-
-  return row;
-}
 
 /* ==========================
  * Normalizador BE real
@@ -135,27 +45,56 @@ function normalizeEntregaFromApi(payload) {
       null,
   };
 
+  // Función para formatear fecha (solo fecha, sin hora)
+  const formatDate = (dateString) => {
+    if (!dateString) return null;
+    try {
+      const date = new Date(dateString);
+      return date.toISOString().split('T')[0]; // YYYY-MM-DD
+    } catch {
+      return null;
+    }
+  };
+
+  // Función para formatear fecha y hora (para "Enviado")
+  const formatDateTime = (dateString) => {
+    if (!dateString) return null;
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleString('es-CL', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch {
+      return null;
+    }
+  };
+
   const fechas = {
-    emision:
+    emision: formatDate(
       payload.fecha_emision ||
       payload.fecha_emision_licencia ||
-      payload.fechas?.emision ||
-      null,
-    envio:
+      payload.fechas?.emision
+    ),
+    envio: formatDateTime(
       payload.fecha_envio ||
       payload.fecha_entrega ||
       payload.fechas?.envio ||
-      null,
-    inicioReposo:
+      payload.fecha_creacion
+    ),
+    inicioReposo: formatDate(
       payload.fecha_inicio_reposo ||
       payload.fecha_inicio ||
-      payload.fechas?.inicioReposo ||
-      null,
-    finReposo:
+      payload.fechas?.inicioReposo
+    ),
+    finReposo: formatDate(
       payload.fecha_fin_reposo ||
       payload.fecha_fin ||
-      payload.fechas?.finReposo ||
-      null,
+      payload.fechas?.finReposo
+    ),
   };
 
   const fileInfo = payload.archivo || payload.file || payload.licenciaArchivo || null;
@@ -165,7 +104,7 @@ function normalizeEntregaFromApi(payload) {
     file = {
       url: fileInfo.url || fileInfo.signedUrl || fileInfo.path || fileInfo.ruta || "",
       tipo: fileInfo.tipo || fileInfo.kind || "direct",
-      filename: fileInfo.filename || fileInfo.nombre || "documento.pdf",
+      filename: fileInfo.filename || fileInfo.nombre || "",
     };
   }
 
@@ -173,15 +112,13 @@ function normalizeEntregaFromApi(payload) {
     id: payload.id,
     curso: payload.curso,
     periodo: payload.periodo,
-    estudiante: payload.estudiante,
-    fechas: payload.fechas,
+    estudiante: estudiante,
+    fechas: fechas,
     observacionesSecretaria: payload.observacionesSecretaria,
     estado: payload.estado,
-    file: payload.file,
+    file: file,
     motivoMedico: payload.motivoMedico || payload.motivo_medico || null,
   };
-
-
 }
 
 /* ==========================
@@ -189,7 +126,6 @@ function normalizeEntregaFromApi(payload) {
  * ========================== */
 
 async function fetchEntregaDetalleApi(idEntrega, token) {
-  // IMPORTANTE: ruta real del backend
   const url = `${API_BASE}/profesor/licencias/${idEntrega}`;
 
   const res = await fetch(url, {
@@ -316,13 +252,7 @@ export default function ProfesorEntregaDetalle() {
       setEntrega(null);
 
       try {
-        let data;
-        if (USE_MOCK) {
-          const currentProfId = user?.id || "prof-abc";
-          data = await fetchEntregaDetalleMock(idEntrega, currentProfId);
-        } else {
-          data = await fetchEntregaDetalleApi(idEntrega, authToken);
-        }
+        const data = await fetchEntregaDetalleApi(idEntrega, authToken);
 
         if (!alive) return;
         setEntrega(data);
@@ -373,50 +303,60 @@ export default function ProfesorEntregaDetalle() {
       const { url, tipo, filename } = entrega.file;
 
       if (tipo === "direct") {
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = filename || "";
-        a.target = "_blank";
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
+        // Descarga directa - abrir en nueva pestaña
+        window.open(url, '_blank');
+        
+        setToast({
+          kind: "success",
+          title: "Descarga iniciada",
+          desc: "El archivo se está descargando en una nueva pestaña.",
+        });
       } else {
-        const res = await fetch(url, {
+        // Para URLs que requieren autenticación
+        const downloadUrl = `${API_BASE}/api/licencias/${idEntrega}/archivo`;
+        
+        const res = await fetch(downloadUrl, {
           method: "GET",
           headers: {
             ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
           },
           credentials: "include",
         });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const blob = await res.blob();
-        const link = document.createElement("a");
-        const objectUrl = URL.createObjectURL(blob);
-        link.href = objectUrl;
-        link.download = filename || "documento.pdf";
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        URL.revokeObjectURL(objectUrl);
-      }
 
-      setToast({
-        kind: "success",
-        title: t("profEntrega.toast.downloadStartedTitle"),
-        desc: t("profEntrega.toast.downloadStartedDesc"),
-      });
+        if (!res.ok) {
+          // Si falla, intentar con la URL directa como fallback
+          console.warn("Fallback a descarga directa");
+          window.open(url, '_blank');
+        } else {
+          const data = await res.json();
+          if (data.ok && data.url) {
+            // Usar la URL firmada de Supabase
+            window.open(data.url, '_blank');
+          } else {
+            // Fallback a URL directa
+            window.open(url, '_blank');
+          }
+        }
+
+        setToast({
+          kind: "success",
+          title: "Descarga iniciada",
+          desc: "El archivo se está descargando en una nueva pestaña.",
+        });
+      }
     } catch (e) {
+      console.error("Error en descarga:", e);
       setToast({
         kind: "error",
-        title: t("profEntrega.toast.downloadErrorTitle"),
-        desc: t("profEntrega.toast.downloadErrorDesc"),
-        actionLabel: t("profEntrega.toast.retry"),
+        title: "Error al descargar",
+        desc: "No se pudo descargar el archivo. Intente nuevamente.",
+        actionLabel: "Reintentar",
         onAction: handleDownload,
       });
     } finally {
       setDownloading(false);
     }
-  }, [entrega, authToken]);
+  }, [entrega, authToken, idEntrega, API_BASE]);
 
   /* ==========================
    * RENDERS DE ESTADO
@@ -524,6 +464,17 @@ export default function ProfesorEntregaDetalle() {
   const { estudiante, curso, periodo, fechas, observacionesSecretaria, estado, id, motivoMedico } =
   entrega || {};
 
+  // Función auxiliar para mostrar fecha formateada (solo fecha)
+  const mostrarFecha = (fecha) => {
+    if (!fecha) return "-";
+    try {
+      // Convertir de YYYY-MM-DD a formato local DD/MM/YYYY
+      const [year, month, day] = fecha.split('-');
+      return `${day}/${month}/${year}`;
+    } catch {
+      return fecha;
+    }
+  };
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-50 to-indigo-100 w-full overflow-x-hidden dark:bg-app">
@@ -598,11 +549,11 @@ export default function ProfesorEntregaDetalle() {
                   </div>
                   <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-gray-800">
                     <dt className="font-medium text-blue-700">Emisión</dt>
-                    <dd>{fechas?.emision || "-"}</dd>
+                    <dd>{mostrarFecha(fechas?.emision)}</dd>
                     <dt className="font-medium text-green-700">Inicio reposo</dt>
-                    <dd>{fechas?.inicioReposo || "-"}</dd>
+                    <dd>{mostrarFecha(fechas?.inicioReposo)}</dd>
                     <dt className="font-medium text-red-700">Fin reposo</dt>
-                    <dd>{fechas?.finReposo || "-"}</dd>
+                    <dd>{mostrarFecha(fechas?.finReposo)}</dd>
                     <dt className="font-medium text-gray-600">Enviado</dt>
                     <dd>{fechas?.envio || "-"}</dd>
                   </dl>
@@ -627,6 +578,8 @@ export default function ProfesorEntregaDetalle() {
                   </p>
                 )}
               </div>
+
+              {/* Motivo médico */}
               <div className="mt-6 bg-white p-5 rounded-xl border border-gray-100">
                 <div className="flex items-center gap-2 mb-2">
                   <Info className="h-4 w-4 text-gray-700" />
@@ -644,7 +597,7 @@ export default function ProfesorEntregaDetalle() {
                 <button
                   onClick={handleDownload}
                   disabled={downloading || !entrega?.file?.url}
-                  className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-md hover:shadow-lg disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-md hover:shadow-lg disabled:opacity-60 disabled:cursor-not-allowed transition-all duration-200"
                 >
                   <FileDown className="h-4 w-4" />
                   {downloading
@@ -664,7 +617,7 @@ export default function ProfesorEntregaDetalle() {
           <div className="text-center">
             <Link
               to="/profesor/licencias"
-              className="inline-flex items-center px-4 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 shadow-sm"
+              className="inline-flex items-center px-4 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 shadow-sm transition-colors duration-200"
             >
               {t("profEntrega.backToList")}
             </Link>

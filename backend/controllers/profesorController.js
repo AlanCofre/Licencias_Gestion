@@ -22,6 +22,89 @@ async function resolverPeriodoCodigo(req) {
  * Listar licencias de alumnos que tienen cursos conmigo
  * en el período indicado
  * ============================================================ */
+export async function obtenerLicenciasProfesor(req, res) {
+  try {
+    const profesorId = req.user?.id_usuario;
+
+    if (!profesorId) {
+      return res.status(401).json({ ok: false, mensaje: 'No autenticado' });
+    }
+
+    const periodoCodigo = await resolverPeriodoCodigo(req);
+    if (!periodoCodigo) {
+      return res.status(400).json({
+        ok: false,
+        mensaje: 'No se pudo determinar el período académico',
+      });
+    }
+
+    // Consulta optimizada para el frontend
+    const [rows] = await db.execute(
+      `
+      SELECT
+        l.id_licencia                      AS id_licencia,
+        u.nombre                           AS nombre_estudiante,
+        u.id_usuario                       AS id_estudiante,
+        u.correo_usuario                   AS correo_estudiante,
+        c.nombre_curso                     AS nombre_curso,
+        c.codigo                           AS codigo_curso,
+        c.seccion                          AS seccion,
+        DATE(l.fecha_emision)              AS fecha_emision,
+        DATE(l.fecha_inicio)               AS fecha_inicio,
+        DATE(l.fecha_fin)                  AS fecha_fin,
+        l.estado                           AS estado,
+        l.folio                            AS folio,
+        p.codigo                           AS periodo_codigo
+      FROM licenciamedica l
+      JOIN usuario u              ON u.id_usuario   = l.id_usuario
+      JOIN matriculas m           ON m.id_usuario   = l.id_usuario
+      JOIN curso c                ON c.id_curso     = m.id_curso
+      JOIN periodos_academicos p  ON p.id_periodo   = c.id_periodo
+      WHERE c.id_usuario = ?
+        AND p.codigo    = ?
+      GROUP BY l.id_licencia
+      ORDER BY l.fecha_inicio DESC, l.id_licencia DESC
+      `,
+      [profesorId, periodoCodigo]
+    );
+
+    // Formatear datos para el frontend
+    const data = rows.map((r) => ({
+      id_licencia: r.id_licencia,
+      nombre_estudiante: r.nombre_estudiante,
+      correo_estudiante: r.correo_estudiante,
+      codigo_curso: r.codigo_curso,
+      nombre_curso: r.nombre_curso,
+      seccion: r.seccion,
+      fecha_emision: r.fecha_emision,
+      fecha_inicio: r.fecha_inicio,
+      fecha_fin: r.fecha_fin,
+      estado: r.estado,
+      folio: r.folio,
+      periodo_codigo: r.periodo_codigo,
+    }));
+
+    return res.json({ 
+      ok: true, 
+      data,
+      total: data.length,
+      periodo: periodoCodigo
+    });
+    
+  } catch (err) {
+    console.error('[obtenerLicenciasProfesor] error:', err);
+    return res.status(500).json({ 
+      ok: false, 
+      mensaje: 'Error interno del servidor',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
+  }
+}
+/* ============================================================
+ * GET /profesor/licencias
+ * Listar licencias de alumnos que tienen cursos conmigo
+ * en el período indicado
+ * ============================================================ */
 export async function listarLicenciasProfesor(req, res) {
   try {
     const profesorId =
@@ -101,15 +184,11 @@ export async function listarLicenciasProfesor(req, res) {
 
 /* ============================================================
  * GET /profesor/licencias/:idEntrega
- * Detalle de una licencia específica, validando que el prof
- * tenga al menos un curso con ese alumno.
+ * Detalle de una licencia específica
  * ============================================================ */
 export async function obtenerEntregaProfesorPorId(req, res) {
   try {
-    const profesorId =
-      req.user?.id_usuario ??
-      req.id ??
-      null;
+    const profesorId = req.user?.id_usuario;
 
     if (!profesorId) {
       return res.status(401).json({ ok: false, mensaje: 'No autenticado' });
@@ -147,8 +226,7 @@ export async function obtenerEntregaProfesorPorId(req, res) {
       LEFT JOIN archivolicencia a ON a.id_licencia  = l.id_licencia
       WHERE l.id_licencia = ?
         AND c.id_usuario  = ?
-      LIMIT 1;
-
+      LIMIT 1
       `,
       [idEntrega, profesorId]
     );
@@ -159,7 +237,6 @@ export async function obtenerEntregaProfesorPorId(req, res) {
 
     const r = rows[0];
 
-    // Armamos payload amigable para EntregaDetalle.jsx
     const data = {
       id: r.id_licencia,
       folio: r.folio,
@@ -183,14 +260,14 @@ export async function obtenerEntregaProfesorPorId(req, res) {
       file: r.archivo_url
         ? {
             url: r.archivo_url,
-            tipo: "direct", // o usar r.archivo_tipo si quieres
+            tipo: "direct",
             filename: r.archivo_url.split("/").pop() || "documento.pdf",
           }
         : null,
     };
 
-
     return res.json({ ok: true, data });
+    
   } catch (err) {
     console.error('[obtenerEntregaProfesorPorId] error:', err);
     return res.status(500).json({ ok: false, mensaje: 'Error interno' });
