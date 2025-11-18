@@ -25,4 +25,52 @@ router.get(
   repeticionPatologiasCtrl
 );
 
+// verificar autenticación básica
+function isAuthenticated(req, res, next) {
+  if (req.user) {
+    return next();
+  }
+  return res.status(401).json({ error: true, message: 'No autorizado' });
+}
+
+// POST /reports/test (fase preliminar)
+router.post('/test', isAuthenticated, async (req, res) => {
+  try {
+    const { message } = req.body;
+
+    // 2. Validación mínima del payload
+    if (!message || message.trim() === '') {
+      return res.status(400).json({
+        error: true,
+        message: 'El campo "message" es obligatorio.'
+      });
+    }
+
+    // 5. Logging controlado
+    console.log('Reporte recibido (fase preliminar).');
+
+    // 4. Respuesta simulada de éxito
+    return res.json({
+      success: true,
+      report: {
+        id: 'temp-123',
+        status: 'new',
+        received: true
+      }
+    });
+
+  } catch (err) {
+    // 3. Manejo estándar de errores
+    console.error('Error en /reports/test:', err);
+    return res.status(500).json({
+      error: true,
+      message: 'Error al procesar el reporte.'
+    });
+  }
+});
+
+module.exports = router;
+
+
+
 export default router;
