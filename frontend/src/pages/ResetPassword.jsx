@@ -4,6 +4,7 @@ import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import Toast from "../components/toast";
 import { useConfirmReset } from "../hooks/usePasswordReset"; // Asegúrate de que la ruta sea correcta
+import LoadingSpinner from "../components/LoadingSpinner";
 
 export default function ResetPassword() {
   const location = useLocation();
@@ -32,26 +33,15 @@ export default function ResetPassword() {
       return;
     }
 
-    try {
-      const result = await confirmReset(email, code, password);
-      
-      setToast({ 
-        message: result.message || "Tu contraseña fue restablecida correctamente.", 
-        type: "success" 
-      });
-
-      // Redirigir al login después de mostrar toast
-      setTimeout(() => navigate("/login"), 2000);
-    } catch (err) {
-      // El error ya se maneja automáticamente en el hook
-      console.error("Error al restablecer contraseña:", err);
-    }
+    setTimeout(() => {
+      setLoading(false);
+      setToast({ message: "Tu contraseña fue restablecida correctamente.", type: "success" });
+      setTimeout(() => navigate("/login"), 700);
+    }, 1500);
   };
 
   return (
     <div className="min-h-screen flex flex-col">
-      <Navbar />
-
       <main className="flex-grow flex items-center justify-center px-4">
         <div className="bg-white shadow-lg rounded-xl p-8 w-full max-w-md">
           <h2 className="text-2xl font-bold text-gray-800 mb-4">
@@ -75,8 +65,8 @@ export default function ResetPassword() {
             placeholder="Código de verificación (6 dígitos)"
             value={code}
             onChange={(e) => setCode(e.target.value)}
-            className="w-full px-4 py-2 border rounded-lg mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            maxLength={6}
+            disabled={loading}
+            className="w-full px-4 py-2 border rounded-lg mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
           />
 
           <input
@@ -84,8 +74,8 @@ export default function ResetPassword() {
             placeholder="Nueva contraseña (mínimo 6 caracteres)"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full px-4 py-2 border rounded-lg mb-6 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            minLength={6}
+            disabled={loading}
+            className="w-full px-4 py-2 border rounded-lg mb-6 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
           />
 
           <button
@@ -97,7 +87,14 @@ export default function ResetPassword() {
                 : "bg-green-600 hover:bg-green-700"
             }`}
           >
-            {loading ? "Guardando..." : "Guardar nueva contraseña"}
+            {loading ? (
+              <div className="flex items-center justify-center gap-2">
+                <LoadingSpinner size="small" color="white" />
+                Guardando...
+              </div>
+            ) : (
+              "Guardar nueva contraseña"
+            )}
           </button>
         </div>
       </main>

@@ -2,10 +2,13 @@ import React, { useState } from "react";
 import bannerLogin from "../assets/banner-login.png";
 import logo from "../assets/logo.svg"; 
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { toast } from "react-hot-toast";
 
 function AppRegistro() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
+
   const [nombre, setNombre] = useState("");
   const [correo, setCorreo] = useState("");
   const [contrasena, setContrasena] = useState("");
@@ -53,7 +56,7 @@ function AppRegistro() {
     <div className="relative min-h-screen bg-white flex items-center justify-center py-12">
       <img
         src={bannerLogin}
-        alt="Fondo"
+        alt={t("registro.bannerAlt")}
         className="fixed inset-0 w-full h-full object-cover z-0"
       />
 

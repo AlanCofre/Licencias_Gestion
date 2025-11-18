@@ -7,6 +7,7 @@ import ConfirmModal from "../components/ConfirmModal";
 import samplePDF from "../assets/sample.pdf";
 import Toast from "../components/toast"; // añadido
 import AlertaLicenciasAnual from "../components/AlertaLicenciasAnual";
+import { useTranslation } from "react-i18next";
 
 function formatFechaHora(fechaStr) {
   if (!fechaStr) return "";
@@ -15,9 +16,16 @@ function formatFechaHora(fechaStr) {
   return d.toISOString().slice(0, 16).replace("T", " ");
 }
 
-function AttachmentView({ archivo, idLicencia }) {
-  if (!archivo || !archivo.ruta_url) {
-    return <div className="text-sm text-gray-500">Sin archivo adjunto</div>;
+function AttachmentView({ file }) {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const { t } = useTranslation();
+
+  if (!file) {
+    return (
+      <div className="text-sm text-gray-500">
+        {t("evaluarLicencia.attachment.noFile")}
+      </div>
+    );
   }
 
   const API = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
@@ -68,7 +76,7 @@ function AttachmentView({ archivo, idLicencia }) {
             download
             className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 text-sm"
           >
-            Descargar
+            {t("evaluarLicencia.attachment.download")}
           </a>
         )}
       </div>
@@ -83,6 +91,8 @@ export default function EvaluarLicencia() {
   const navigate = useNavigate();
 
   const [licencia, setLicencia] = useState(null);
+  const [license, setLicense] = useState(null);
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [mensaje, setMensaje] = useState("");
   const [motivoRechazo, setMotivoRechazo] = useState("");
@@ -191,6 +201,9 @@ export default function EvaluarLicencia() {
     console.log(`Licencia ${licencia.id} ${action}:`, data);
 
     setToast({ message: `Licencia ${action} exitosamente.`, type: "success" });
+
+    // Mostrar toast de éxito
+    setToast({ message: action, type: "success" });
 
     closeModal();
     setTimeout(() => goBackToBandeja(), 700);
@@ -305,7 +318,9 @@ export default function EvaluarLicencia() {
         <main className="flex-1 flex items-center justify-center w-full">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p className="text-lg">Cargando licencia...</p>
+            <p className="text-lg">
+              {t("evaluarLicencia.loading")}
+            </p>
           </div>
         </main>
         <Footer />
@@ -330,7 +345,8 @@ export default function EvaluarLicencia() {
                 onClick={() => navigate("/licencias-por-revisar")}
                 className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300 transition-colors self-start sm:self-auto"
               >
-                ← Volver a Bandeja
+                {"← "}
+                {t("evaluarLicencia.backToInbox")}
               </button>
             </div>
 

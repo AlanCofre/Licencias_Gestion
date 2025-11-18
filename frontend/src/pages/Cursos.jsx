@@ -14,6 +14,7 @@ import {
   X,
   Trash2,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 // ⛳ Cambia a true si necesitas usar mocks temporalmente
 const USE_MOCK = false;
@@ -223,6 +224,7 @@ async function mockApi(path, opts = {}) {
 
 // ======= UI COMPONENTS =======
 function Toast({ toast, onClose }) {
+  const { t } = useTranslation();
   if (!toast) return null;
   const base =
     toast.type === "error"
@@ -235,7 +237,7 @@ function Toast({ toast, onClose }) {
         <Icon className="h-5 w-5 mt-0.5" />
         <div className="max-w-xs">{toast.message}</div>
         <button onClick={onClose} className="ml-2 text-xs underline decoration-dotted">
-          cerrar
+          {t("toast.close")}
         </button>
       </div>
     </div>
@@ -243,14 +245,18 @@ function Toast({ toast, onClose }) {
 }
 
 function Modal({ open, title, children, onClose }) {
+  const { t } = useTranslation();
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/30 p-4">
       <div className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden">
         <div className="px-5 py-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-100 flex items-center justify-between">
           <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wider">{title}</h3>
-          <button onClick={onClose} className="text-gray-600 hover:text-gray-900 text-sm flex items-center gap-1">
-            <X size={16} /> Cerrar
+          <button
+            onClick={onClose}
+            className="text-gray-600 hover:text-gray-900 text-sm flex items-center gap-1"
+          >
+            <X size={16} /> {t("btn.close")}
           </button>
         </div>
         <div className="p-5">{children}</div>
@@ -259,23 +265,40 @@ function Modal({ open, title, children, onClose }) {
   );
 }
 
-function ConfirmDialog({ open, title = "Confirmar", message, onCancel, onConfirm, confirmLabel = "Eliminar" }) {
+function ConfirmDialog({
+  open,
+  title,
+  message,
+  onCancel,
+  onConfirm,
+  confirmLabel,
+}) {
+  const { t } = useTranslation();
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden">
         <div className="px-5 py-4 bg-gradient-to-r from-red-50 to-rose-50 border-b border-gray-100 flex items-center justify-between">
           <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wider">{title}</h3>
-          <button onClick={onCancel} className="text-gray-600 hover:text-gray-900 text-sm flex items-center gap-1">
-            <X size={16} /> Cerrar
+          <button
+            onClick={onCancel}
+            className="text-gray-600 hover:text-gray-900 text-sm flex items-center gap-1"
+          >
+            <X size={16} /> {t("btn.close")}
           </button>
         </div>
         <div className="p-5 text-sm text-gray-700">{message}</div>
         <div className="px-5 pb-5 flex items-center justify-end gap-2">
-          <button onClick={onCancel} className="px-3 py-2 bg-white text-gray-700 text-sm font-medium rounded-lg border border-gray-200 hover:bg-gray-50 transition-all shadow-sm">
-            Cancelar
+          <button
+            onClick={onCancel}
+            className="px-3 py-2 bg-white text-gray-700 text-sm font-medium rounded-lg border border-gray-200 hover:bg-gray-50 transition-all shadow-sm"
+          >
+            {t("btn.cancel")}
           </button>
-          <button onClick={onConfirm} className="inline-flex items-center gap-2 px-3 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-all shadow-sm">
+          <button
+            onClick={onConfirm}
+            className="inline-flex items-center gap-2 px-3 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-all shadow-sm"
+          >
             <Trash2 className="h-4 w-4" />
             {confirmLabel}
           </button>
@@ -287,6 +310,8 @@ function ConfirmDialog({ open, title = "Confirmar", message, onCancel, onConfirm
 
 // ============= MAIN COMPONENT =============
 export default function AdminCursos() {
+  const { t } = useTranslation();
+
   const [periodos, setPeriodos] = useState([]);
   const [profesores, setProfesores] = useState([]);
   const [cursos, setCursos] = useState([]);
@@ -321,14 +346,13 @@ export default function AdminCursos() {
     setTimeout(() => setToast(null), 3200);
   };
 
-  // Cargar datos iniciales con DEBUG
+  // En el useEffect que carga datos iniciales:
   useEffect(() => {
     let alive = true;
     
     const loadInitialData = async () => {
       try {
         setLoadingInitial(true);
-        console.log('🔄 Cargando datos iniciales...');
         
         const [periodosData, profesoresData] = await Promise.all([
           api.getPeriodos(),
@@ -340,16 +364,17 @@ export default function AdminCursos() {
         console.log('📊 Periodos recibidos:', periodosData);
         console.log('👨‍🏫 Profesores recibidos:', profesoresData);
         
-        // Asegurarse de que los datos sean arrays
         const safePeriodos = Array.isArray(periodosData) ? periodosData : [];
         const safeProfesores = Array.isArray(profesoresData) ? profesoresData : [];
         
         setPeriodos(safePeriodos);
         setProfesores(safeProfesores);
         
-        // Si hay periodos, seleccionar el primero
+        // CORREGIDO: Seleccionar el periodo 1 por defecto (donde están los cursos)
         if (safePeriodos.length > 0) {
-          setPeriodoId(String(safePeriodos[0].id_periodo));
+          // Buscar el periodo con ID 1, o el primero si no existe
+          const periodoDefault = safePeriodos.find(p => p.id_periodo === 1) || safePeriodos[0];
+          setPeriodoId(String(periodoDefault.id_periodo));
         }
         
       } catch (error) {
@@ -375,11 +400,9 @@ export default function AdminCursos() {
     
     const loadCursos = async () => {
       if (loadingInitial) {
-        console.log('⏳ Esperando datos iniciales...');
         return;
       }
       
-      console.log('🔄 Cargando cursos con filtros:', { periodoId, profesorId });
       setLoadingList(true);
       
       try {
@@ -390,17 +413,13 @@ export default function AdminCursos() {
         
         if (!alive) return;
         
-        console.log('📚 Cursos recibidos:', cursosData);
-        
         // Asegurarse de que los cursos sean un array
         const safeCursos = Array.isArray(cursosData) ? cursosData : [];
         setCursos(safeCursos);
         
         if (safeCursos.length === 0) {
-          console.log('ℹ️  No se encontraron cursos con los filtros actuales');
         }
       } catch (error) {
-        console.error('❌ Error cargando cursos:', error);
         showToast("error", "No se pudo cargar la oferta de cursos.");
         setCursos([]);
       } finally {
@@ -579,10 +598,10 @@ export default function AdminCursos() {
                 </div>
                 <div>
                   <h1 className="text-3xl md:text-4xl font-bold text-gray-900">
-                    Gestión de Cursos
+                    {t("adminCursos.title")}
                   </h1>
                   <p className="text-gray-600 mt-1">
-                    Crea, edita y lista cursos por periodo y profesor.
+                    {t("adminCursos.subtitle")}
                   </p>
                 </div>
               </div>
@@ -592,7 +611,7 @@ export default function AdminCursos() {
                 {/* Periodo */}
                 <div className="col-span-12 md:col-span-4">
                   <label htmlFor="periodo" className="block text-xs font-medium text-gray-600 mb-1">
-                    Periodo
+                    {t("adminCursos.filters.period")}
                   </label>
                   <div className="flex items-center gap-2">
                     <CalendarIcon className="h-5 w-5 text-gray-500" />
@@ -600,7 +619,6 @@ export default function AdminCursos() {
                       id="periodo"
                       value={periodoId}
                       onChange={(e) => {
-                        console.log('🎯 Cambiando periodo a:', e.target.value);
                         setPeriodoId(e.target.value);
                       }}
                       className="w-full border border-gray-200 bg-white px-3 py-2 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#048FD4]"
@@ -621,7 +639,7 @@ export default function AdminCursos() {
                 {/* Profesor */}
                 <div className="col-span-12 md:col-span-4">
                   <label htmlFor="profesor" className="block text-xs font-medium text-gray-600 mb-1">
-                    Profesor
+                    {t("adminCursos.filters.professor")}
                   </label>
                   <div className="flex items-center gap-2">
                     <UserIcon className="h-5 w-5 text-gray-500" />
@@ -629,7 +647,6 @@ export default function AdminCursos() {
                       id="profesor"
                       value={profesorId}
                       onChange={(e) => {
-                        console.log('👨‍🏫 Cambiando profesor a:', e.target.value);
                         setProfesorId(e.target.value);
                       }}
                       className="w-full border border-gray-200 bg-white px-3 py-2 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#048FD4]"
@@ -653,7 +670,7 @@ export default function AdminCursos() {
                     <div className="flex items-center justify-between md:justify-end gap-2">
                       <div className="inline-flex items-center text-gray-600 text-sm px-3 py-2">
                         <Filter size={16} className="mr-2" />
-                        {filteredCount} resultados
+                        {t("adminCursos.filters.results", { count: filteredCount })}
                       </div>
                       <button
                         onClick={openCreate}
@@ -661,7 +678,7 @@ export default function AdminCursos() {
                         className="inline-flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-medium rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <Plus className="h-4 w-4" />
-                        Crear curso
+                        {t("adminCursos.actions.create")}
                       </button>
                     </div>
                   </div>
@@ -675,7 +692,7 @@ export default function AdminCursos() {
             {loadingList ? (
               <div className="flex items-center justify-center py-16 text-gray-600">
                 <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                Cargando cursos...
+                {t("adminCursos.list.loading")}
               </div>
             ) : cursos.length === 0 ? (
               <div className="text-center text-gray-500 text-sm py-16">
@@ -692,25 +709,25 @@ export default function AdminCursos() {
                   <thead className="bg-gradient-to-r from-blue-50 to-indigo-50">
                     <tr>
                       <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">
-                        Código
+                        {t("adminCursos.table.code")}
                       </th>
                       <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">
-                        Nombre
+                        {t("adminCursos.table.name")}
                       </th>
                       <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">
-                        Sección
+                        {t("adminCursos.table.section")}
                       </th>
                       <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">
-                        Semestre
+                        {t("adminCursos.table.semester")}
                       </th>
                       <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">
-                        Periodo
+                        {t("adminCursos.table.period")}
                       </th>
                       <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">
-                        Profesor
+                        {t("adminCursos.table.professor")}
                       </th>
                       <th className="px-6 py-3 text-center text-sm font-semibold text-gray-700 uppercase tracking-wider">
-                        Acción
+                        {t("adminCursos.table.action")}
                       </th>
                     </tr>
                   </thead>
@@ -736,14 +753,14 @@ export default function AdminCursos() {
                               className="inline-flex items-center gap-2 px-3 py-2 bg-white hover:bg-blue-50 text-blue-700 text-sm font-medium rounded-lg border border-blue-200 transition-all shadow-sm"
                             >
                               <Pencil className="h-4 w-4" />
-                              Editar
+                              {t("adminCursos.actions.edit")}
                             </button>
                             <button
                               onClick={() => askDelete(curso)}
                               className="inline-flex items-center gap-2 px-3 py-2 bg-white hover:bg-red-50 text-red-600 text-sm font-medium rounded-lg border border-red-200 transition-all shadow-sm"
                             >
                               <Trash2 className="h-4 w-4" />
-                              Eliminar
+                              {t("adminCursos.actions.delete")}
                             </button>
                           </div>
                         </td>
@@ -759,7 +776,11 @@ export default function AdminCursos() {
         {/* Modal Crear/Editar - CORREGIDO: combobox funcionando */}
         <Modal
           open={modalOpen}
-          title={editing ? "Editar curso" : "Crear curso"}
+          title={
+            editing
+              ? t("adminCursos.modal.editTitle")
+              : t("adminCursos.modal.createTitle")
+          }
           onClose={() => {
             setModalOpen(false);
             setEditing(null);
@@ -772,7 +793,7 @@ export default function AdminCursos() {
                 name="codigo"
                 value={form.codigo}
                 onChange={onChange}
-                placeholder="INF-101"
+                placeholder={t("adminCursos.modal.fields.codePlaceholder")}
                 className="w-full border border-gray-200 bg-white px-3 py-2 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#048FD4]"
                 required
               />
@@ -783,7 +804,7 @@ export default function AdminCursos() {
                 name="nombre_curso"
                 value={form.nombre_curso}
                 onChange={onChange}
-                placeholder="Introducción a la Programación"
+                placeholder={t("adminCursos.modal.fields.namePlaceholder")}
                 className="w-full border border-gray-200 bg-white px-3 py-2 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#048FD4]"
                 required
               />
@@ -859,7 +880,7 @@ export default function AdminCursos() {
                 }}
                 className="px-3 py-2 bg-white text-gray-700 text-sm font-medium rounded-lg border border-gray-200 hover:bg-gray-50 transition-all shadow-sm"
               >
-                Cancelar
+                {t("btn.cancel")}
               </button>
               <button
                 type="submit"
@@ -867,7 +888,9 @@ export default function AdminCursos() {
                 className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-medium rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all shadow-sm disabled:opacity-60"
               >
                 {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-                {editing ? "Guardar cambios" : "Crear curso"}
+                {editing
+                  ? t("adminCursos.modal.saveChanges")
+                  : t("adminCursos.modal.create")}
               </button>
             </div>
 
@@ -880,11 +903,14 @@ export default function AdminCursos() {
         {/* Confirmación eliminar */}
         <ConfirmDialog
           open={confirmOpen}
-          title="Eliminar curso"
-          message="¿Seguro que deseas eliminar este curso? Esta acción no se puede deshacer."
-          onCancel={() => { setConfirmOpen(false); setToDelete(null); }}
+          title={t("adminCursos.confirm.title")}
+          message={t("adminCursos.confirm.message")}
+          onCancel={() => {
+            setConfirmOpen(false);
+            setToDelete(null);
+          }}
           onConfirm={doDelete}
-          confirmLabel="Eliminar"
+          confirmLabel={t("adminCursos.confirm.confirm")}
         />
       </main>
 

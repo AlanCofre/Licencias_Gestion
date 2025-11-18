@@ -2,56 +2,65 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
-// Si ya tienes AuthContext como en tu Navbar, úsalo. Si no, simula user admin:
-import { useAuth } from "../context/AuthContext"; // ajusta si tu hook vive en otra ruta
-import { Calendar, CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
+import { useAuth } from "../context/AuthContext";
+import { Calendar, CheckCircle2, XCircle, AlertTriangle, Loader2 } from "lucide-react";
 
-/* =============================== MOCK API ===============================
-   Reemplaza estas funciones por tus fetch reales:
-   - GET /periodos               -> getPeriodos()
-   - GET /periodos/activo        -> getPeriodoActivo()
-   - PUT /periodos/{id}/activar  -> activarPeriodo(id)
-========================================================================= */
-const MOCK_PERIODOS = [
-  { id: "2024-2", nombre: "2024-2" },
-  { id: "2025-1", nombre: "2025-1" },
-  { id: "2025-2", nombre: "2025-2" }
-];
+// =============================== API REAL ===============================
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
 
+async function apiRequest(path, opts = {}) {
+  const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+  
+  const response = await fetch(`${API_BASE}/api${path}`, {
+    credentials: "include",
+    headers: { 
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`
+    },
+    ...opts,
+  });
+
+  if (!response.ok) {
+    let errorMessage = "Error en la solicitud";
+    try {
+      const errorData = await response.json();
+      errorMessage = errorData.mensaje || errorMessage;
+    } catch {
+      errorMessage = await response.text() || `Error ${response.status}`;
+    }
+    
+    const err = new Error(errorMessage);
+    err.status = response.status;
+    throw err;
+  }
+
+  const contentType = response.headers.get("content-type") || "";
+  if (contentType.includes("application/json")) {
+    const data = await response.json();
+    return data.data !== undefined ? data.data : data;
+  }
+  
+  return response.blob();
+}
+
+// Obtener todos los periodos
 async function getPeriodos() {
-  await new Promise((r) => setTimeout(r, 400));
-  return [...MOCK_PERIODOS];
-}
-async function getPeriodoActivo() {
-  await new Promise((r) => setTimeout(r, 300));
-  // Lee de localStorage para simular persistencia
-  const saved = localStorage.getItem("periodo_activo_id");
-  return saved ? { id: saved } : null; // null => no hay activo
-}
-async function activarPeriodo(id) {
-  await new Promise((r) => setTimeout(r, 500));
-  // Simula posible error desde BE si envías un id inexistente
-  const exists = MOCK_PERIODOS.some((p) => p.id === id);
-  if (!exists) {
-    const err = new Error("Periodo no encontrado");
-    err.status = 404;
-    err.detail = "El periodo indicado no existe";
-    throw err;
-  }
-  // Simula error de negocio (ya está activo / regla BE)
-  const current = localStorage.getItem("periodo_activo_id");
-  if (current === id) {
-    const err = new Error("El periodo ya está activo");
-    err.status = 409;
-    err.detail = "Selecciona un periodo distinto.";
-    throw err;
-  }
-  // OK: “activa” guardando en localStorage
-  localStorage.setItem("periodo_activo_id", id);
-  return { ok: true };
+  return apiRequest("/periodos");
 }
 
-/* =============================== TOAST =============================== */
+// Obtener periodo activo actual
+async function getPeriodoActivo() {
+  return apiRequest("/periodos/activo");
+}
+
+// Activar un periodo (esto automáticamente desactiva los demás según tu backend)
+async function activarPeriodo(id) {
+  return apiRequest(`/periodos/${id}/activar`, {
+    method: "PATCH"
+  });
+}
+
+// =============================== TOAST ===============================
 function Toast({ kind = "error", title, desc, onClose }) {
   const palette =
     kind === "success"
@@ -74,8 +83,8 @@ function Toast({ kind = "error", title, desc, onClose }) {
   );
 }
 
-/* =============================== MODAL =============================== */
-function ConfirmModal({ open, title, message, confirmLabel = "Confirmar", cancelLabel = "Cancelar", onConfirm, onCancel }) {
+// =============================== MODAL ===============================
+function ConfirmModal({ open, title, message, confirmLabel = "Confirmar", cancelLabel = "Cancelar", onConfirm, onCancel, loading = false }) {
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60">
@@ -85,14 +94,17 @@ function ConfirmModal({ open, title, message, confirmLabel = "Confirmar", cancel
         <div className="mt-6 flex justify-end gap-3">
           <button
             onClick={onCancel}
-            className="px-4 py-2 rounded-lg border border-gray-200 text-gray-700 bg-white hover:bg-gray-50"
+            disabled={loading}
+            className="px-4 py-2 rounded-lg border border-gray-200 text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
           >
             {cancelLabel}
           </button>
           <button
             onClick={onConfirm}
-            className="px-4 py-2 rounded-lg text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow"
+            disabled={loading}
+            className="px-4 py-2 rounded-lg text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow disabled:opacity-50 flex items-center gap-2"
           >
+            {loading && <Loader2 className="h-4 w-4 animate-spin" />}
             {confirmLabel}
           </button>
         </div>
@@ -101,27 +113,27 @@ function ConfirmModal({ open, title, message, confirmLabel = "Confirmar", cancel
   );
 }
 
-/* =============================== PAGE =============================== */
+// =============================== PAGE ===============================
 export default function AdminPeriodos() {
-  // Si ya tienes AuthContext, úsalo. Aquí asumimos { user?.role }:
-  const { user } = (useAuth?.() ?? {});
-  const role = String(user?.role || "admin").toLowerCase(); // por defecto admin para probar
-  const isAdmin = role === "admin" || role === "administrador";
+  const { user } = useAuth?.() ?? {};
+  const role = String(user?.role || user?.id_rol || "admin").toLowerCase();
+  const isAdmin = role === "admin" || role === "administrador" || user?.id_rol === 4;
 
   const [loading, setLoading] = useState(true);
   const [periodos, setPeriodos] = useState([]);
-  const [activo, setActivo] = useState(null); // {id} | null
+  const [activo, setActivo] = useState(null);
   const [error, setError] = useState(null);
 
   const [toast, setToast] = useState(null);
   const closeToast = () => setToast(null);
 
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [toActivate, setToActivate] = useState(null); // id
+  const [toActivate, setToActivate] = useState(null);
+  const [activating, setActivating] = useState(false);
 
   const activoNombre = useMemo(() => {
-    if (!activo?.id) return null;
-    return periodos.find((p) => p.id === activo.id)?.nombre ?? activo.id;
+    if (!activo?.id_periodo) return null;
+    return periodos.find((p) => p.id_periodo === activo.id_periodo)?.codigo ?? activo.codigo;
   }, [activo, periodos]);
 
   // Cargar lista + activo
@@ -129,11 +141,23 @@ export default function AdminPeriodos() {
     setLoading(true);
     setError(null);
     try {
+      console.log('🔄 Cargando periodos...');
       const [all, act] = await Promise.all([getPeriodos(), getPeriodoActivo()]);
+      
+      console.log('📊 Periodos recibidos:', all);
+      console.log('🎯 Periodo activo:', act);
+      
       setPeriodos(all);
       setActivo(act);
     } catch (e) {
+      console.error('❌ Error cargando periodos:', e);
       setError(e?.message || "Error al cargar periodos");
+      
+      // Si es error 404 en periodo activo, no es crítico
+      if (e.status === 404 && e.message?.includes('periodo activo')) {
+        setActivo(null);
+        setError(null); // No mostrar error por falta de periodo activo
+      }
     } finally {
       setLoading(false);
     }
@@ -152,28 +176,40 @@ export default function AdminPeriodos() {
   // Acción: activar confirmado
   const onConfirmActivate = async () => {
     if (!toActivate) return;
-    setConfirmOpen(false);
+    
+    setActivating(true);
     try {
+      console.log('🎯 Activando periodo:', toActivate);
       await activarPeriodo(toActivate);
 
-      // Limpia caché simple y notifica al resto de la app:
-      try {
-        localStorage.removeItem("cache_periodo_activo");
-      } catch {}
-      const nombre = periodos.find((p) => p.id === toActivate)?.nombre || toActivate;
-      window.dispatchEvent(new CustomEvent("periodoActivoChanged", { detail: { id: toActivate, nombre } }));
+      // Notificar al resto de la app
+      const periodo = periodos.find((p) => p.id_periodo === toActivate);
+      window.dispatchEvent(new CustomEvent("periodoActivoChanged", { 
+        detail: { 
+          id_periodo: toActivate, 
+          codigo: periodo?.codigo 
+        } 
+      }));
 
-      setToast({ kind: "success", title: "Periodo activado", desc: `Ahora el periodo activo es ${nombre}.` });
+      setToast({ 
+        kind: "success", 
+        title: "Periodo activado", 
+        desc: `Ahora el periodo activo es ${periodo?.codigo}.` 
+      });
 
-      // Refresca FE (lista + activo):
+      // Refrescar datos
       await refetch();
+      
     } catch (e) {
+      console.error('❌ Error activando periodo:', e);
       setToast({
         kind: "error",
         title: "No se pudo activar el periodo",
-        desc: e?.detail || e?.message || "Intenta nuevamente."
+        desc: e?.message || "Intenta nuevamente."
       });
     } finally {
+      setActivating(false);
+      setConfirmOpen(false);
       setToActivate(null);
     }
   };
@@ -193,13 +229,36 @@ export default function AdminPeriodos() {
     );
   }
 
+  // Verificar permisos
+  if (!isAdmin) {
+    return (
+      <div className="min-h-screen flex flex-col bg-gradient-to-b from-blue-100 to-blue-300 dark:bg-app dark:bg-none">
+        <Navbar />
+        <main className="flex-1 flex items-center justify-center">
+          <div className="text-center bg-white dark:bg-surface p-8 rounded-2xl shadow-lg border border-gray-100 dark:border-app">
+            <XCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Acceso Denegado</h1>
+            <p className="text-gray-600 dark:text-muted">No tienes permisos para administrar periodos académicos.</p>
+            <Link
+              to="/admin"
+              className="inline-block mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
+              Volver al Panel
+            </Link>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-blue-100 to-blue-300 dark:bg-app dark:bg-none w-full overflow-x-hidden">
       <Navbar />
       <main className="flex-1 w-full">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-10 max-w-6xl">
           {/* Banner de advertencia si no hay periodo activo */}
-          {!activo?.id && (
+          {!activo?.id_periodo && (
             <div className="mb-6 bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-700 text-yellow-900 dark:text-yellow-300 rounded-2xl p-4 flex items-start gap-3 shadow-sm">
               <AlertTriangle className="h-5 w-5 mt-0.5 text-yellow-700 dark:text-yellow-400" />
               <div className="text-sm">
@@ -223,7 +282,7 @@ export default function AdminPeriodos() {
               </div>
 
               <div className="flex items-center gap-2">
-                {activo?.id ? (
+                {activo?.id_periodo ? (
                   <span className="px-3 py-1 rounded-full text-xs font-semibold bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 border border-green-200 dark:border-green-700">
                     Activo: {activoNombre}
                   </span>
@@ -238,64 +297,72 @@ export default function AdminPeriodos() {
 
           {/* Tabla de periodos */}
           <div className="bg-white dark:bg-surface rounded-2xl shadow-lg overflow-hidden border border-gray-100 dark:border-app">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20">
-                  <tr>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 dark:text-blue-200 uppercase tracking-wider">
-                      Periodo
-                    </th>
-                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 dark:text-blue-200 uppercase tracking-wider">
-                      Estado
-                    </th>
-                    <th className="px-6 py-4 text-center text-sm font-semibold text-gray-700 dark:text-blue-200 uppercase tracking-wider">
-                      Acción
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white dark:bg-surface divide-y divide-gray-100 dark:divide-app">
-                  {periodos.map((p) => {
-                    const isActive = activo?.id === p.id;
-                    return (
-                      <tr key={p.id} className="hover:bg-blue-50 dark:hover:bg-app/20 transition-colors duration-200">
-                        <td className="px-6 py-5 whitespace-nowrap">
-                          <div className="text-sm font-semibold text-gray-900 dark:text-white">{p.nombre}</div>
-                          <div className="text-xs text-gray-500 dark:text-muted">ID: {p.id}</div>
-                        </td>
-                        <td className="px-6 py-5 whitespace-nowrap">
-                          {isActive ? (
-                            <span className="px-3 py-1 rounded-full text-xs font-semibold bg-green-50 dark:bg-green-900/30 text-green-800 dark:text-green-300 border border-green-200 dark:border-green-700">
-                              Activo
-                            </span>
-                          ) : (
-                            <span className="px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 dark:bg-app text-gray-700 dark:text-muted border border-gray-200 dark:border-app">
-                              Inactivo
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-6 py-5 whitespace-nowrap text-center">
-                          {isActive ? (
-                            <button
-                              disabled
-                              className="inline-flex items-center px-4 py-2 bg-gray-100 dark:bg-app text-gray-400 dark:text-muted text-sm font-medium rounded-lg border border-gray-200 dark:border-app cursor-not-allowed"
-                            >
-                              ✓ Actual
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => onAskActivate(p.id)}
-                              className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-medium rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 shadow-md hover:shadow-lg"
-                            >
-                              Activar periodo
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+            {periodos.length === 0 ? (
+              <div className="text-center py-16 text-gray-500 dark:text-muted">
+                <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>No hay periodos académicos configurados.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20">
+                    <tr>
+                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 dark:text-blue-200 uppercase tracking-wider">
+                        Periodo
+                      </th>
+                      <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 dark:text-blue-200 uppercase tracking-wider">
+                        Estado
+                      </th>
+                      <th className="px-6 py-4 text-center text-sm font-semibold text-gray-700 dark:text-blue-200 uppercase tracking-wider">
+                        Acción
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white dark:bg-surface divide-y divide-gray-100 dark:divide-app">
+                    {periodos.map((p) => {
+                      const isActive = activo?.id_periodo === p.id_periodo;
+                      return (
+                        <tr key={p.id_periodo} className="hover:bg-blue-50 dark:hover:bg-app/20 transition-colors duration-200">
+                          <td className="px-6 py-5 whitespace-nowrap">
+                            <div className="text-sm font-semibold text-gray-900 dark:text-white">{p.codigo}</div>
+                            <div className="text-xs text-gray-500 dark:text-muted">ID: {p.id_periodo}</div>
+                          </td>
+                          <td className="px-6 py-5 whitespace-nowrap">
+                            {isActive ? (
+                              <span className="px-3 py-1 rounded-full text-xs font-semibold bg-green-50 dark:bg-green-900/30 text-green-800 dark:text-green-300 border border-green-200 dark:border-green-700">
+                                Activo
+                              </span>
+                            ) : (
+                              <span className="px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 dark:bg-app text-gray-700 dark:text-muted border border-gray-200 dark:border-app">
+                                Inactivo
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-6 py-5 whitespace-nowrap text-center">
+                            {isActive ? (
+                              <button
+                                disabled
+                                className="inline-flex items-center px-4 py-2 bg-gray-100 dark:bg-app text-gray-400 dark:text-muted text-sm font-medium rounded-lg border border-gray-200 dark:border-app cursor-not-allowed"
+                              >
+                                <CheckCircle2 className="h-4 w-4 mr-2" />
+                                Actual
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => onAskActivate(p.id_periodo)}
+                                className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-medium rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 shadow-md hover:shadow-lg"
+                              >
+                                Activar periodo
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
 
           {/* Link back opcional */}
@@ -317,7 +384,7 @@ export default function AdminPeriodos() {
         title="Activar periodo"
         message={
           toActivate
-            ? `¿Seguro que deseas activar el periodo ${toActivate}? Esta acción afectará a todo el sistema.`
+            ? `¿Seguro que deseas activar el periodo ${periodos.find(p => p.id_periodo === toActivate)?.codigo}? Esta acción desactivará automáticamente los demás periodos.`
             : "¿Activar periodo?"
         }
         confirmLabel="Activar"
@@ -327,6 +394,7 @@ export default function AdminPeriodos() {
           setConfirmOpen(false);
           setToActivate(null);
         }}
+        loading={activating}
       />
 
       {/* Toast */}

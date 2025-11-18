@@ -5,7 +5,7 @@ import Navbar from "../components/Navbar";
 import BannerSection from "../components/BannerSection";
 import Footer from "../components/Footer";
 import { Eye, Clock, Calendar, User, GraduationCap, Search } from "lucide-react";
-
+import { licenciasRealService } from "../services/licenciasRealService";
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
 
 function mapLicenciaBackendToFrontend(l) {
@@ -91,28 +91,20 @@ export default function LicenciasPorRevisar() {
       setLoading(true);
       setError("");
       try {
-        const token = localStorage.getItem("token");
-        const url = `${API_BASE}/api/4licencias/en-revision?limit=1000`;
-        const res = await fetch(url, {
-          headers: {
-            "Authorization": `Bearer ${token}`,
-            "Accept": "application/json"
-          }
-        });
-        if (!res.ok) {
-          const errorText = await res.text();
-          throw new Error(`Error ${res.status}: ${errorText}`);
-        }
-        const data = await res.json();
-        if (!data.ok && data.ok !== undefined) {
-          throw new Error(data.error || "Error en la respuesta");
-        }
-
-        const lista = (data.data || []).map(mapLicenciaBackendToFrontend);
+        console.log("🔍 Cargando licencias pendientes...");
+        
+        const response = await licenciasRealService.getLicenciasPendientes();
+        
+        // Tu backend devuelve: { ok: true, data: [...], meta: {...} }
+        const licenciasData = response.data || [];
+        
+        console.log("✅ Licencias pendientes cargadas:", licenciasData);
+        
+        const lista = licenciasData.map(mapLicenciaBackendToFrontend);
         setLicenciasTodas(lista);
       } catch (e) {
         console.error("❌ Error cargando licencias:", e);
-        setError(e.message);
+        setError(e.message || "Error al cargar licencias pendientes");
         setLicenciasTodas([]);
       } finally {
         setLoading(false);
