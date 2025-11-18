@@ -195,6 +195,17 @@ export const confirmPasswordReset = async (req, res) => {
         [newHash, id_usuario]
       )
 
+      // 🔔 Insertar notificación
+      await conn.execute(
+        `INSERT INTO notificacion (asunto, contenido, leido, fecha_envio, id_usuario)
+        VALUES (?, ?, 0, NOW(), ?)`,
+        [
+          'Cambio de contraseña',
+          'Tu contraseña ha sido actualizada correctamente.',
+          id_usuario
+        ]
+      )
+      console.log(`🔔 Notificación creada para usuario ${id_usuario}: Cambio de contraseña - Tu contraseña ha sido actualizada correctamente.`)
       await conn.commit()
 
       // Marcar usado y limpiar

@@ -85,7 +85,7 @@ export async function guardarMiPerfil(req, res) {
 
     // devuelve el perfil actualizado
     const [rows] = await db.execute(
-      `SELECT id_perfil, id_usuario, email_alt, numero_telef, direccion, foto_url
+      `SELECT user, id_usuario, email_alt, numero_telef, direccion, foto_url
        FROM perfil WHERE id_usuario = ? LIMIT 1`,
       [id_usuario]
     );
@@ -155,7 +155,7 @@ export const NotificacionesPassword = async (req, res) => {
     const { id_usuario } = req.user;
 
     const [notificaciones] = await db.execute(
-      'SELECT id_notificacion, asunto, contenido, fecha_envio FROM notificaciones WHERE id_usuario = ? AND asunto = ? ORDER BY fecha_envio DESC',
+      'SELECT id_notificacion, asunto, contenido, fecha_envio FROM notificacion WHERE id_usuario = ? AND asunto = ? ORDER BY fecha_envio DESC',
       [id_usuario, 'Cambio de contraseña']
     );
 
@@ -173,7 +173,7 @@ export const NotificacionesPerfil = async (req, res) => {
     const { id_usuario } = req.user;
 
     const [notificaciones] = await db.execute(
-      'SELECT id_notificacion, asunto, contenido, fecha_envio FROM notificaciones WHERE id_usuario = ? AND asunto = ? ORDER BY fecha_envio DESC',
+      'SELECT id_notificacion, asunto, contenido, fecha_envio FROM notificacion WHERE id_usuario = ? AND asunto = ? ORDER BY fecha_envio DESC',
       [id_usuario, 'Actualización de perfil']
     );
 
