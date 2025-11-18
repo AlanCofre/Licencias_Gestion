@@ -110,41 +110,109 @@ const api = {
       }));
     }),
 
-  // Buscar estudiantes → [{id, nombre, email}]
-  searchEstudiantes: (q) =>
-    apiRequest(`/estudiantes/buscar?q=${encodeURIComponent(q)}`).then((r) => {
-      console.log("[Matriculas] /api/estudiantes/buscar respuesta cruda =", r);
-      const arr = Array.isArray(r?.data) ? r.data : [];
-      return arr.map((e) => ({
-        id: String(e.id_usuario),
-        nombre: e.nombre,
-        email: e.correo_usuario,
-        raw: e,
-      }));
-    }),
+  // Buscar estudiantes POR EMAIL → [{id, nombre, email}]
+  searchEstudiantes: (email) =>
+    (async () => {
+      console.log("[Matriculas] buscando estudiante por email:", email);
 
-  // Crear matrícula → objeto igual que getMatriculas()
+      const emailTrimmed = (email || "").trim().toLowerCase();
+
+      // Validar que sea un email válido
+      const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrimmed);
+      if (!isValidEmail) {
+        console.warn("[Matriculas] email inválido:", emailTrimmed);
+        return [];
+      }
+
+      // Intentar múltiples rutas que el backend podría exponer
+      const endpoints = [
+        `/estudiantes?email=${encodeURIComponent(emailTrimmed)}`,
+        `/estudiantes/email/${encodeURIComponent(emailTrimmed)}`,
+        `/estudiantes/buscar?email=${encodeURIComponent(emailTrimmed)}`,
+        `/admin/estudiantes?email=${encodeURIComponent(emailTrimmed)}`,
+        `/admin/estudiantes/email/${encodeURIComponent(emailTrimmed)}`,
+      ];
+
+      let lastErr = null;
+
+      for (const endpoint of endpoints) {
+        try {
+          console.log("[Matriculas] intentando:", endpoint);
+          const res = await apiRequest(endpoint);
+          console.log("[Matriculas] respuesta:", res);
+
+          // Normalizar respuesta (puede ser array o object con .data)
+          const data = res?.data ?? res;
+          const arr = Array.isArray(data) ? data : data ? [data] : [];
+
+          // Mapear campos
+          const normalized = arr
+            .map((e) => ({
+              id: String(e.id_usuario ?? e.id ?? ""),
+              nombre: e.nombre ?? e.nombre_completo ?? e.name ?? "",
+              email: (e.correo_usuario ?? e.email ?? e.correo ?? "").toLowerCase(),
+              raw: e,
+            }))
+            .filter((x) => x.id && x.email);
+
+          if (normalized.length > 0) {
+            console.log("[Matriculas] encontrado:", normalized);
+            return normalized;
+          }
+        } catch (err) {
+          lastErr = err;
+          console.warn("[Matriculas] endpoint falló:", endpoint, err.message);
+          // continuar al siguiente
+        }
+      }
+
+      // Si ningún endpoint funcionó, retornar vacío
+      console.warn("[Matriculas] ningún endpoint funcionó, última excepción:", lastErr);
+      return [];
+    })(),
+
+  // Crear matrícula: intenta con {id_usuario,id_curso} y, si falla, con {estudiante_id,curso_id}
   crearMatricula: (estudiante_id, curso_id) =>
-    apiRequest(`/matriculas`, {
-      method: "POST",
-      body: JSON.stringify({
-        id_usuario: estudiante_id,
-        id_curso: curso_id,
-      }),
-    }).then((r) => {
-      console.log("[Matriculas] POST /api/matriculas respuesta cruda =", r);
-      const m = r?.data;
-      if (!m) return null;
-      return {
-        id: String(m.id_matricula),
-        estudiante: {
-          id: String(m.id_usuario),
-          nombre: m.nombre,
-          email: m.correo_usuario,
-        },
-        raw: m,
-      };
-    }),
+    (async () => {
+      const bodyVariants = [
+        { id_usuario: estudiante_id, id_curso: curso_id },
+        { estudiante_id: estudiante_id, curso_id: curso_id },
+        { id: estudiante_id, curso: curso_id },
+      ];
+      let lastErr = null;
+      for (const body of bodyVariants) {
+        try {
+          const r = await apiRequest(`/matriculas`, {
+            method: "POST",
+            body: JSON.stringify(body),
+            headers: { "Content-Type": "application/json" },
+          });
+          console.log("[Matriculas] POST /api/matriculas respuesta cruda =", r);
+          const m = r?.data ?? r;
+          if (!m) return null;
+          return {
+            id: String(m.id_matricula ?? m.id_matricula ?? m.id ?? m.id_matricula_new ?? ""),
+            estudiante: {
+              id: String(m.id_usuario ?? m.id ?? m.estudiante_id ?? ""),
+              nombre: m.nombre ?? m.nombre_usuario ?? m.nombre_estudiante ?? m.name ?? "",
+              email: m.correo_usuario ?? m.email ?? m.correo ?? "",
+            },
+            raw: m,
+          };
+        } catch (err) {
+          lastErr = err;
+          // si es error de validación intentar siguiente variante
+          if (err && err.status && [400, 422, 409].includes(err.status)) {
+            console.warn("[Matriculas] intento crear matrícula con body", body, "falló:", err.message || err);
+            continue;
+          }
+          throw err;
+        }
+      }
+      const e = new Error(lastErr?.message || "No se pudo crear matrícula");
+      e.status = lastErr?.status;
+      throw e;
+    })(),
 
   eliminarMatricula: (matricula_id) =>
     apiRequest(`/matriculas/${matricula_id}`, { method: "DELETE" }).then(
@@ -794,15 +862,15 @@ export default function AdminMatriculas() {
                 <div className="flex-1 flex items-center w-full bg-white border border-gray-300 rounded-lg shadow-sm px-3 py-2">
                   <Search className="w-5 h-5 text-gray-400 mr-2" />
                   <input
-                    type="text"
+                    type="email"
                     value={q}
                     onChange={(e) => setQ(e.target.value)}
-                    placeholder="Buscar por nombre o email..."
+                    placeholder="Ingresa correo electrónico del estudiante..."
                     className="flex-1 outline-none text-gray-700 placeholder-gray-400"
                   />
                 </div>
                 <button
-                  disabled={searching}
+                  disabled={searching || !q.trim()}
                   className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-medium rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all shadow-sm disabled:opacity-60"
                 >
                   {searching ? "Buscando..." : "Buscar"}
