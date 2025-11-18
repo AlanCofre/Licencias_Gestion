@@ -189,16 +189,13 @@ export default function GenerarRevision() {
       fd.append("fecha_inicio", form.fechaInicioReposo);
       fd.append("fecha_fin", form.fechaFinalReposo);
       fd.append("cursos", JSON.stringify(cursos));
-<<<<<<< HEAD
+
       fd.append("motivo_medico", form.motivoMedico?.trim() || "");
       fd.append("requiere_archivo", "true");
       fd.append("ruta_url", ruta_url);
       fd.append("tipo_mime", tipoMime);
       fd.append("hash", hash);
       fd.append("tamano", tamano);
-=======
-      fd.append("motivo_medico", form.motivoMedico.trim());
->>>>>>> develop
 
       const token = localStorage.getItem("token") || "";
       const apiBase = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
@@ -239,12 +236,8 @@ export default function GenerarRevision() {
     }
   };
 
-<<<<<<< HEAD
-
   // Cuando el usuario hace "Siguiente / Confirmar" en el formulario: validar y pasar a preview
-=======
-  // Cuando el usuario hace "Siguiente / Confirmar" en el formulario
->>>>>>> develop
+
   const handleFormNext = (e) => {
     e.preventDefault();
     if (selectedCursos.length === 0) {
