@@ -56,7 +56,8 @@ export default function GenerarRevision() {
       const apiBase = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
 
       try {
-        const res = await fetch(`${apiBase}/api/matriculas/mis?flat=true`, {
+        const res = await fetch(`${apiBase}/api/matriculas/mis-matriculas?flat=true`, {
+
           headers: { Authorization: `Bearer ${token}` }
         });
 
