@@ -96,7 +96,7 @@ export async function guardarMiPerfil(req, res) {
 
     // devuelve el perfil actualizado
     const [rows] = await db.execute(
-      `SELECT user, id_usuario, email_alt, numero_telef, direccion, foto_url
+      `SELECT id_perfil, id_usuario, email_alt, numero_telef, direccion, foto_url
        FROM perfil WHERE id_usuario = ? LIMIT 1`,
       [id_usuario]
     );
