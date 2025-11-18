@@ -127,6 +127,7 @@ export async function obtenerEntregaProfesorPorId(req, res) {
         DATE(l.fecha_fin)                  AS fecha_fin,
         l.estado                           AS estado,
         l.motivo_rechazo                   AS motivo_rechazo,
+        l.motivo_medico,
         l.fecha_creacion                   AS fecha_creacion,
         u.id_usuario                       AS id_estudiante,
         u.nombre                           AS nombre_estudiante,
@@ -135,15 +136,19 @@ export async function obtenerEntregaProfesorPorId(req, res) {
         c.nombre_curso                     AS nombre_curso,
         c.codigo                           AS codigo_curso,
         c.seccion                          AS seccion,
-        p.codigo                           AS periodo_codigo
+        p.codigo                           AS periodo_codigo,
+        a.ruta_url                         AS archivo_url,
+        a.tipo_mime                        AS archivo_tipo
       FROM licenciamedica l
       JOIN usuario u              ON u.id_usuario   = l.id_usuario
       JOIN matriculas m           ON m.id_usuario   = l.id_usuario
       JOIN curso c                ON c.id_curso     = m.id_curso
       JOIN periodos_academicos p  ON p.id_periodo   = c.id_periodo
+      LEFT JOIN archivolicencia a ON a.id_licencia  = l.id_licencia
       WHERE l.id_licencia = ?
-        AND c.id_usuario  = ?   -- seguridad: sólo cursos de este profe
-      LIMIT 1
+        AND c.id_usuario  = ?
+      LIMIT 1;
+
       `,
       [idEntrega, profesorId]
     );
@@ -170,13 +175,20 @@ export async function obtenerEntregaProfesorPorId(req, res) {
         emision: r.fecha_emision,
         inicioReposo: r.fecha_inicio,
         finReposo: r.fecha_fin,
-        envio: r.fecha_creacion, // mejor que nada; si después tienes otra columna la cambiamos
+        envio: r.fecha_creacion,
       },
       observacionesSecretaria: r.motivo_rechazo || null,
+      motivoMedico: r.motivo_medico || null,
       estado: r.estado,
-      // por ahora sin archivo real; cuando tengamos archivo/licencia lo conectamos
-      file: null,
+      file: r.archivo_url
+        ? {
+            url: r.archivo_url,
+            tipo: "direct", // o usar r.archivo_tipo si quieres
+            filename: r.archivo_url.split("/").pop() || "documento.pdf",
+          }
+        : null,
     };
+
 
     return res.json({ ok: true, data });
   } catch (err) {

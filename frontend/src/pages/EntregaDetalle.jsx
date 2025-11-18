@@ -172,8 +172,11 @@ function normalizeEntregaFromApi(payload) {
     fechas: payload.fechas,
     observacionesSecretaria: payload.observacionesSecretaria,
     estado: payload.estado,
-    file: payload.file
+    file: payload.file,
+    motivoMedico: payload.motivoMedico || payload.motivo_medico || null,
   };
+
+
 }
 
 /* ==========================
@@ -500,8 +503,9 @@ export default function ProfesorEntregaDetalle() {
    * DETALLE NORMAL
    * ========================== */
 
-  const { estudiante, curso, periodo, fechas, observacionesSecretaria, estado, id } =
-    entrega || {};
+  const { estudiante, curso, periodo, fechas, observacionesSecretaria, estado, id, motivoMedico } =
+  entrega || {};
+
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-50 to-indigo-100 w-full overflow-x-hidden dark:bg-app">
@@ -595,6 +599,17 @@ export default function ProfesorEntregaDetalle() {
                   <p className="text-gray-700 leading-relaxed">{observacionesSecretaria}</p>
                 ) : (
                   <p className="text-gray-500 text-sm">Sin observaciones por ahora.</p>
+                )}
+              </div>
+              <div className="mt-6 bg-white p-5 rounded-xl border border-gray-100">
+                <div className="flex items-center gap-2 mb-2">
+                  <Info className="h-4 w-4 text-gray-700" />
+                  <h3 className="text-sm font-semibold text-gray-900">Motivo médico</h3>
+                </div>
+                {motivoMedico ? (
+                  <p className="text-gray-700 leading-relaxed">{motivoMedico}</p>
+                ) : (
+                  <p className="text-gray-500 text-sm">Sin motivo médico.</p>
                 )}
               </div>
 
