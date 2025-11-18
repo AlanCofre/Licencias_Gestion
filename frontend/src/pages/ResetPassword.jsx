@@ -14,6 +14,8 @@ export default function ResetPassword() {
   const [toast, setToast] = useState(null);
   const navigate = useNavigate();
   const { confirmReset, loading, error } = useConfirmReset();
+  const [localLoading, setLoading] = useState(false);
+  const isLoading = loading || localLoading;
 
   // Mostrar errores del hook
   useEffect(() => {
@@ -33,11 +35,32 @@ export default function ResetPassword() {
       return;
     }
 
-    setTimeout(() => {
-      setLoading(false);
+    setLoading(true);
+    try {
+      // Intentar llamar al hook confirmReset; soporta dos firmas comunes:
+      // confirmReset({ email, code, password }) o confirmReset(email, code, password)
+      let res;
+      try {
+        res = await confirmReset({ email, code, password });
+      } catch (err) {
+        res = await confirmReset(email, code, password);
+      }
+
+      // Normalizar respuesta y comprobar error
+      if (res && (res.error || res.ok === false || res.success === false)) {
+        const message = res?.error || res?.message || "Error al restablecer contraseña";
+        throw new Error(message);
+      }
+
+      // Si no hay objeto de resultado, asumimos éxito si no se lanzó excepción
       setToast({ message: "Tu contraseña fue restablecida correctamente.", type: "success" });
       setTimeout(() => navigate("/login"), 700);
-    }, 1500);
+    } catch (err) {
+      console.error("[ResetPassword] confirmReset error:", err);
+      setToast({ message: err?.message || "No se pudo restablecer la contraseña", type: "error" });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -65,7 +88,7 @@ export default function ResetPassword() {
             placeholder="Código de verificación (6 dígitos)"
             value={code}
             onChange={(e) => setCode(e.target.value)}
-            disabled={loading}
+            disabled={isLoading}
             className="w-full px-4 py-2 border rounded-lg mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
           />
 
@@ -74,20 +97,20 @@ export default function ResetPassword() {
             placeholder="Nueva contraseña (mínimo 6 caracteres)"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            disabled={loading}
+            disabled={isLoading}
             className="w-full px-4 py-2 border rounded-lg mb-6 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
           />
 
           <button
             onClick={handleReset}
-            disabled={loading}
+            disabled={isLoading}
             className={`w-full py-2 rounded-lg text-white font-semibold transition ${
-              loading
+              isLoading
                 ? "bg-gray-400 cursor-not-allowed"
                 : "bg-green-600 hover:bg-green-700"
             }`}
           >
-            {loading ? (
+            {isLoading ? (
               <div className="flex items-center justify-center gap-2">
                 <LoadingSpinner size="small" color="white" />
                 Guardando...

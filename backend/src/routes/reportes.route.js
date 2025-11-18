@@ -6,11 +6,11 @@ import { reporteExcesoLicenciasCtrl, repeticionPatologiasCtrl } from '../../cont
 const router = Router();
 
 /**
- * Acceso permitido:
- * - ADMIN (total)
- * - PROFESOR (limitado a sus cursos; lo resuelve el service)
- * Si más adelante agregas "secretaria", agrégalo aquí: ROLES.SEC
- */
+ 
+Acceso permitido:
+ADMIN (total)
+PROFESOR (limitado a sus cursos; lo resuelve el service)
+Si más adelante agregas "secretaria", agrégalo aquí: ROLES.SEC*/
 router.get(
   '/reportes/licencias/exceso',
   validarJWT,

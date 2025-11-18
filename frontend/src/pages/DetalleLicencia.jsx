@@ -3,8 +3,6 @@ import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
-import { useTranslation } from "react-i18next";
-import samplePDF from "../assets/sample.pdf";
 const API_BASE =
   import.meta.env.VITE_API_BASE_URL?.replace(/\/+$/, "") ?? "http://localhost:3000";
 
@@ -186,24 +184,12 @@ async function tryFetchEstudiante(headers, estudianteId) {
 
 // ---------- Adjuntos ----------
 function AttachmentView({ file }) {
-  const { t } = useTranslation();
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [open, setOpen] = useState(false);
 
-  if (!file) {
-    return (
-      <div className="text-sm text-gray-500">
-        {t("attachment.none")}
-      </div>
-    );
+  if (!file?.url) {
+    return <div className="text-sm text-gray-500">Sin archivo adjunto</div>;
   }
 
-  const { filename, mimetype } = file;
-  const isImage =
-    mimetype?.startsWith?.("image/") ||
-    /\.(jpg|jpeg|png|gif)$/i.test(filename);
-  const isPDF =
-    mimetype === "application/pdf" || /\.pdf$/i.test(filename);
-  const fileUrl = isPDF ? samplePDF : null;
   const puedePDF = isPDF(file.mimetype || file.nombre);
   const puedeImg = isImage(file.mimetype || file.nombre);
 
@@ -224,7 +210,7 @@ function AttachmentView({ file }) {
             onClick={() => setOpen(true)}
             className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
           >
-            {t("attachment.preview")}
+            Previsualizar
           </button>
           <a
             href={file.url}
@@ -233,12 +219,12 @@ function AttachmentView({ file }) {
             download={file.nombre}
             className="px-4 py-2 bg-gray-700 text-white rounded hover:bg-gray-800 text-sm"
           >
-            {t("attachment.download")}
+            Descargar
           </a>
         </div>
       ) : (
         <div className="text-xs text-gray-500">
-          {t("attachment.notPreviewableNote")}
+          * Este tipo de archivo no se puede previsualizar
         </div>
       )}
 
@@ -264,7 +250,7 @@ function AttachmentView({ file }) {
               rel="noreferrer"
               className="absolute bottom-4 right-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 shadow"
             >
-              {t("attachment.download")}
+              Descargar
             </a>
           </div>
         </div>
@@ -395,48 +381,26 @@ export default function DetalleLicencia() {
                 onClick={() => navigate("/mis-licencias")}
                 className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300 transition-colors self-start sm:self-auto"
               >
-                {t("licDetail.backBtn")}
+                ← Volver a Licencias
               </button>
             </div>
 
             {/* Datos del estudiante */}
             <section className="mb-6">
-              <h2 className="text-lg font-semibold mb-3 text-gray-800">
-                {t("licDetail.studentSectionTitle")}
-              </h2>
+              <h2 className="text-lg font-semibold mb-3 text-gray-800">Datos del Estudiante</h2>
               <div className="bg-gray-50 p-4 rounded-lg border">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                   <div className="flex flex-col">
-                    <span className="font-medium text-gray-600">
-                      {t("licDetail.student.name")}
-                    </span>
-                    <span className="text-gray-900">
-                      {license.student.name}
-                    </span>
+                    <span className="font-medium text-gray-600">Nombre:</span>
+                    <span className="text-gray-900">{estudiante?.nombre ?? "—"}</span>
                   </div>
                   <div className="flex flex-col">
-                    <span className="font-medium text-gray-600">
-                      {t("licDetail.student.studentId")}
-                    </span>
-                    <span className="text-gray-900">
-                      {license.student.studentId}
-                    </span>
+                    <span className="font-medium text-gray-600">Email:</span>
+                    <span className="text-gray-900 break-all">{estudiante?.email ?? "—"}</span>
                   </div>
                   <div className="flex flex-col">
-                    <span className="font-medium text-gray-600">
-                      {t("licDetail.student.faculty")}
-                    </span>
-                    <span className="text-gray-900">
-                      {license.student.faculty}
-                    </span>
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="font-medium text-gray-600">
-                      {t("licDetail.student.email")}
-                    </span>
-                    <span className="text-gray-900">
-                      {license.student.email}
-                    </span>
+                    <span className="font-medium text-gray-600">ID de licencia:</span>
+                    <span className="text-gray-900">{estudiante?.idLicencia ?? "—"}</span>
                   </div>
                 </div>
               </div>
@@ -444,42 +408,28 @@ export default function DetalleLicencia() {
 
             {/* Datos de la licencia */}
             <section className="mb-6">
-              <h2 className="text-lg font-semibold mb-3 text-gray-800">
-                {t("licDetail.licenseSectionTitle")}
-              </h2>
+              <h2 className="text-lg font-semibold mb-3 text-gray-800">Datos de la Licencia</h2>
               <div className="bg-gray-50 p-4 rounded-lg border">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                   <div className="flex flex-col">
-                    <span className="font-medium text-gray-600">
-                      {t("licDetail.dates.emission")}
-                    </span>
-                    <span className="text-gray-900">
-                      {license.dates.emissionDate}
-                    </span>
+                    <span className="font-medium text-gray-600">Folio:</span>
+                    <span className="text-gray-900">{licencia?.folio ?? "—"}</span>
                   </div>
                   <div className="flex flex-col">
-                    <span className="font-medium text-gray-600">
-                      {t("licDetail.dates.submitted")}
-                    </span>
-                    <span className="text-gray-900">
-                      {license.dates.submitted}
-                    </span>
+                    <span className="font-medium text-gray-600">Estado:</span>
+                    <span className="text-gray-900 capitalize">{licencia?.estado ?? "—"}</span>
                   </div>
                   <div className="flex flex-col">
-                    <span className="font-medium text-gray-600">
-                      {t("licDetail.dates.restStart")}
-                    </span>
-                    <span className="text-gray-900">
-                      {license.dates.restStart}
-                    </span>
+                    <span className="font-medium text-gray-600">Fecha de envío:</span>
+                    <span className="text-gray-900">{licencia?.fechas?.creada ?? "—"}</span>
                   </div>
                   <div className="flex flex-col">
-                    <span className="font-medium text-gray-600">
-                      {t("licDetail.dates.restEnd")}
-                    </span>
-                    <span className="text-gray-900">
-                      {license.dates.restEnd}
-                    </span>
+                    <span className="font-medium text-gray-600">Inicio de reposo:</span>
+                    <span className="text-gray-900">{licencia?.fechas?.inicio ?? "—"}</span>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="font-medium text-gray-600">Fin de reposo:</span>
+                    <span className="text-gray-900">{licencia?.fechas?.fin ?? "—"}</span>
                   </div>
 
                   {licencia?.motivoRechazo ? (
@@ -494,9 +444,7 @@ export default function DetalleLicencia() {
 
             {/* Archivo adjunto */}
             <section className="mb-8">
-              <h2 className="text-lg font-semibold mb-3 text-gray-800">
-                {t("licDetail.attachmentSectionTitle")}
-              </h2>
+              <h2 className="text-lg font-semibold mb-3 text-gray-800">Archivo Adjunto</h2>
               <div className="border rounded-lg p-4">
                 <AttachmentView file={archivo} />
               </div>

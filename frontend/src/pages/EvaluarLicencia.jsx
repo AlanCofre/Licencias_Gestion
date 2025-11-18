@@ -23,22 +23,19 @@ function AttachmentView({ file }) {
   if (!file) {
     return (
       <div className="text-sm text-gray-500">
-        {t("evaluarLicencia.attachment.noFile")}
+        Sin archivo adjunto
       </div>
     );
   }
 
-  const API = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
-  const token = localStorage.getItem("token") || "";
-  const isPDF =
-    archivo.mimetype === "application/pdf" || /\.pdf$/i.test(archivo.ruta_url);
+  const isPDF = /application\/pdf/i.test(file.mimetype || file.nombre) || /\.pdf$/i.test(String(file.nombre));
+  const isImage = /^image\//i.test(file.mimetype || file.nombre) || /\.(png|jpe?g|gif|webp|bmp|tiff?)$/i.test(String(file.nombre));
 
-  const fileUrl = archivo.ruta_url?.startsWith("http")
-    ? archivo.ruta_url
-    : `${API}/api/licencias/${idLicencia}/archivo?token=${token}`;
+  const fileUrl = file.ruta_url?.startsWith("http")
+    ? file.ruta_url
+    : file.url ?? file.ruta_url;
 
-  const nombre =
-    archivo.nombre_archivo || archivo.ruta_url.split("/").pop() || "licencia.pdf";
+  const nombre = file.nombre_archivo || file.nombre || "archivo";
 
   return (
     <div className="space-y-3">
@@ -46,40 +43,70 @@ function AttachmentView({ file }) {
         <div className="flex-1">
           <div className="font-medium text-sm break-all">{nombre}</div>
           <div className="text-xs text-gray-500">
-            {isPDF ? "Documento PDF" : archivo.mimetype || "Archivo"}
+            {isPDF ? "Documento PDF" : isImage ? "Imagen" : "Archivo"}
           </div>
         </div>
       </div>
 
-      <div className="flex gap-2">
-        {isPDF ? (
-          <>
+      {(isPDF || isImage) ? (
+        <div className="flex gap-2">
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
+          >
+            Previsualizar
+          </button>
+          <a
+            href={fileUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            download={nombre}
+            className="px-4 py-2 bg-gray-700 text-white rounded hover:bg-gray-800 text-sm"
+          >
+            Descargar
+          </a>
+        </div>
+      ) : (
+        <div className="text-xs text-gray-500">
+          * Este tipo de archivo no se puede previsualizar
+        </div>
+      )}
+
+      {isModalOpen && fileUrl && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <div className="relative bg-white w-full md:w-4/5 h-5/6 rounded-lg overflow-hidden shadow-xl">
+            {isPDF ? (
+              <iframe
+                title={nombre}
+                src={fileUrl}
+                className="w-full h-full"
+              />
+            ) : (
+              <img
+                src={fileUrl}
+                alt={nombre}
+                className="w-full h-full object-contain"
+              />
+            )}
+            <button
+              onClick={() => setIsModalOpen(false)}
+              className="absolute top-3 right-3 bg-gray-800 text-white rounded-full w-9 h-9 grid place-items-center hover:bg-black z-10"
+              aria-label="Cerrar previsualización"
+            >
+              ✕
+            </button>
             <a
               href={fileUrl}
+              download={nombre}
               target="_blank"
               rel="noopener noreferrer"
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
-            >
-              Previsualizar
-            </a>
-            <a
-              href={fileUrl}
-              download
-              className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 text-sm"
+              className="absolute bottom-4 right-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 shadow z-10"
             >
               Descargar
             </a>
-          </>
-        ) : (
-          <a
-            href={fileUrl}
-            download
-            className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 text-sm"
-          >
-            {t("evaluarLicencia.attachment.download")}
-          </a>
-        )}
-      </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -461,10 +488,7 @@ export default function EvaluarLicencia() {
                 Archivo Adjunto
               </h2>
               <div className="border rounded-lg p-4">
-                <AttachmentView
-                  archivo={lic.archivo}
-                  idLicencia={lic.id_licencia ?? id}
-                />
+                <AttachmentView file={lic.archivo} />
               </div>
             </section>
 
