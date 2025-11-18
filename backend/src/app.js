@@ -25,7 +25,6 @@ import periodoRoutes from './routes/periodo.route.js';
 import entregasRoutes from './routes/entregas.routes.js';
 import profesorRoutes from './routes/profesor.routes.js';
 import movilRouter from "./movil/movil.routes.js";
-import reportesRouter from './routes/reportes.route.js';
 
 
 const app = express();
