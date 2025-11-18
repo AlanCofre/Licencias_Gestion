@@ -6,48 +6,9 @@ import { Eye, Clock, Search, X } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
 const PAGE_SIZE = 10;
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
-
-/* -------------------- MOCK DE LICENCIAS (solo para pruebas locales) -------------------- */
-/* Ya no se usa en producción; queda por si necesitas testear sin backend */
-const mockLicencias = [
-  {
-    id: "123",
-    studentName: "Rumencio González",
-    studentId: "20201234",
-    courseCode: "INF101",
-    section: "A",
-    fechaEmision: "2025-09-27",
-    fechaInicio: "2025-10-01",
-    fechaFin: "2025-10-07",
-    estado: "En revisión",
-  },
-  {
-    id: "456",
-    studentName: "Carlos Rodríguez",
-    studentId: "20195678",
-    courseCode: "INF101",
-    section: "A",
-    fechaEmision: "2025-09-13",
-    fechaInicio: "2025-09-15",
-    fechaFin: "2025-09-20",
-    estado: "Aceptada",
-  },
-  {
-    id: "789",
-    studentName: "Ana Martínez",
-    studentId: "20221122",
-    courseCode: "DER201",
-    section: "B",
-    fechaEmision: "2025-10-01",
-    fechaInicio: "2025-10-03",
-    fechaFin: "2025-10-05",
-    estado: "Rechazada",
-  },
-];
+const API_BASE = import.meta.env.VITE_API_BASE_URL?.replace(/\/+$/, "") || "http://localhost:3000";
 
 /* -------------------- UTILIDADES -------------------- */
-/* Obtener iniciales para avatar */
 function initialsFromName(name = "") {
   const parts = name.trim().split(/\s+/);
   if (parts.length === 0) return "";
@@ -55,7 +16,6 @@ function initialsFromName(name = "") {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
-/* Comparador de fecha en formato ISO yyyy-mm-dd (sin hora) */
 function inDateRange(valueDateStr, startStr, endStr) {
   if (!valueDateStr) return false;
   const v = new Date(valueDateStr);
@@ -68,7 +28,6 @@ function inDateRange(valueDateStr, startStr, endStr) {
   if (endStr) {
     const e = new Date(endStr);
     if (isNaN(e)) return false;
-    // incluir fin del día
     e.setHours(23, 59, 59, 999);
     if (v > e) return false;
   }
@@ -77,10 +36,10 @@ function inDateRange(valueDateStr, startStr, endStr) {
 
 /* -------------------- COMPONENTE PRINCIPAL -------------------- */
 export default function ProfeLicencias() {
-  const { user, token } = useAuth();
+  const { user, token, isLoading: authLoading } = useAuth();
 
   /* estado de datos */
-  const [items, setItems] = useState([]); // licencias cargadas
+  const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -93,7 +52,7 @@ export default function ProfeLicencias() {
   const [searchTerm, setSearchTerm] = useState(searchParams.get("q") || "");
   const [page, setPage] = useState(Number(searchParams.get("page") || 1));
 
-  /* determinar período activo (URL > localStorage > fallback) */
+  /* período activo */
   const periodoFromUrl = searchParams.get("periodo");
   const periodoFromStorage = (() => {
     try {
@@ -102,10 +61,17 @@ export default function ProfeLicencias() {
       return null;
     }
   })();
-  const periodoActivo = periodoFromUrl || periodoFromStorage || "2025-1";
+  const periodoActivo = periodoFromUrl || periodoFromStorage || "2025-2";
 
   /* cargar datos desde backend /profesor/licencias */
   useEffect(() => {
+    // Si AuthContext aún está cargando, no hacer nada
+    if (authLoading) {
+      console.log("[ProfeLicencias] Esperando AuthContext...");
+      setLoading(true);
+      return;
+    }
+
     let mounted = true;
     const controller = new AbortController();
 
@@ -113,9 +79,18 @@ export default function ProfeLicencias() {
       setLoading(true);
       setError(null);
 
+      // Validar token y user DESPUÉS de que AuthContext termine de cargar
       if (!token) {
+        console.warn("[ProfeLicencias] Sin token");
+        setError("No hay token de autenticación. Inicia sesión nuevamente.");
         setLoading(false);
-        setError("No hay token de autenticación.");
+        return;
+      }
+
+      if (!user?.id_usuario) {
+        console.warn("[ProfeLicencias] Sin id_usuario");
+        setError("No se encontró información del usuario.");
+        setLoading(false);
         return;
       }
 
@@ -127,6 +102,10 @@ export default function ProfeLicencias() {
           params.toString() ? `?${params.toString()}` : ""
         }`;
 
+        console.log("[ProfeLicencias] Llamando a:", url);
+        console.log("[ProfeLicencias] Token presente:", !!token);
+        console.log("[ProfeLicencias] User ID:", user?.id_usuario);
+
         const res = await fetch(url, {
           method: "GET",
           headers: {
@@ -136,36 +115,46 @@ export default function ProfeLicencias() {
           signal: controller.signal,
         });
 
+        console.log("[ProfeLicencias] Status:", res.status);
+
         if (!res.ok) {
           const txt = await res.text();
+          console.error("[ProfeLicencias] Response error:", txt);
           throw new Error(txt || `HTTP ${res.status}`);
         }
 
         const json = await res.json();
-        if (!json.ok) {
+        console.log("[ProfeLicencias] Data recibida:", json);
+
+        if (!json.ok || !Array.isArray(json.data)) {
           throw new Error(json.mensaje || json.error || "Respuesta no válida del servidor");
         }
 
-        // El backend ya entrega el shape ideal:
-        // { id, studentName, studentId, courseCode, section, fechaEmision, fechaInicio, fechaFin, estado }
+        // Normalizar respuesta
         const normalized = (json.data || []).map((row) => ({
-          id: row.id_licencia,
-          studentName: row.nombre_estudiante,
-          studentId: row.correo_estudiante,   // o row.id_estudiante, según quieras mostrar
-          courseCode: row.codigo_curso,
-          section: row.seccion,
-          fechaEmision: row.fecha_emision?.slice(0,10),
-          fechaInicio: row.fecha_inicio?.slice(0,10),
-          fechaFin: row.fecha_fin?.slice(0,10),
-          estado: row.estado,
+          id: row.id_licencia || row.id,
+          studentName: row.nombre_estudiante || row.student_name || "—",
+          studentId: row.correo_estudiante || row.student_id || "—",
+          courseCode: row.codigo_curso || row.course_code || "UNK",
+          section: row.seccion || row.section || "?",
+          fechaEmision: row.fecha_emision ? row.fecha_emision.slice(0, 10) : "",
+          fechaInicio: row.fecha_inicio ? row.fecha_inicio.slice(0, 10) : "",
+          fechaFin: row.fecha_fin ? row.fecha_fin.slice(0, 10) : "",
+          estado: row.estado || row.status || "Desconocido",
         }));
 
         if (!mounted) return;
+
+        console.log("[ProfeLicencias] Normalizadas:", normalized.length, "licencias");
         setItems(normalized);
         setLoading(false);
+
+        if (normalized.length === 0) {
+          setError("No hay licencias disponibles para este período.");
+        }
       } catch (err) {
         if (!mounted) return;
-        console.error("❌ Error cargando licencias del profesor:", err);
+        console.error("[ProfeLicencias] Error completo:", err);
         setError(err.message || String(err));
         setLoading(false);
       }
@@ -177,9 +166,9 @@ export default function ProfeLicencias() {
       mounted = false;
       controller.abort();
     };
-  }, [token, user?.id_usuario, periodoActivo]);
+  }, [authLoading, token, user?.id_usuario, periodoActivo]);
 
-  /* sincronizar filtros al cambiar searchParams (por si el usuario pega URL) */
+  /* sincronizar filtros al montar */
   useEffect(() => {
     const spCourse = searchParams.get("course") || "";
     const spEstado = searchParams.get("estado") || "";
@@ -195,9 +184,9 @@ export default function ProfeLicencias() {
     setSearchTerm(spQ);
     setPage(spPage);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // ejecutar solo al montar
+  }, []);
 
-  /* construir opciones para dropdowns desde la bandeja actual */
+  /* opciones de dropdowns */
   const courseOptions = useMemo(() => {
     const setC = new Set();
     items.forEach((it) => {
@@ -216,11 +205,10 @@ export default function ProfeLicencias() {
     return Array.from(setE).sort();
   }, [items]);
 
-  /* aplicar filtros client-side (instantáneo) */
+  /* aplicar filtros */
   const filtered = useMemo(() => {
     let out = items.slice();
 
-    // filtro por curso
     if (filterCourse) {
       out = out.filter((it) => {
         const key = `${it.courseCode || "UNK"} - ${it.section || "?"}`;
@@ -228,14 +216,12 @@ export default function ProfeLicencias() {
       });
     }
 
-    // filtro por estado
     if (filterEstado) {
       out = out.filter((it) => {
         return String(it.estado || "").toLowerCase() === String(filterEstado).toLowerCase();
       });
     }
 
-    // filtro por rango de fechas (si se entrega start y/o end)
     if (startDate || endDate) {
       out = out.filter((it) => {
         return (
@@ -245,7 +231,6 @@ export default function ProfeLicencias() {
       });
     }
 
-    // búsqueda por nombre o legajo (q)
     if (searchTerm) {
       const s = searchTerm.toLowerCase();
       out = out.filter(
@@ -255,7 +240,6 @@ export default function ProfeLicencias() {
       );
     }
 
-    // ordenar por fecha inicio descendente, fallback fechaEmision
     out.sort((a, b) => {
       const da = new Date(a.fechaInicio || a.fechaEmision || 0).getTime();
       const db = new Date(b.fechaInicio || b.fechaEmision || 0).getTime();
@@ -265,7 +249,7 @@ export default function ProfeLicencias() {
     return out;
   }, [items, filterCourse, filterEstado, startDate, endDate, searchTerm]);
 
-  /* paginación simple client-side */
+  /* paginación */
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   useEffect(() => {
     if (page > totalPages) setPage(1);
@@ -273,7 +257,7 @@ export default function ProfeLicencias() {
 
   const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  /* actualizar querystring cada vez que cambian filtros o página */
+  /* actualizar querystring */
   useEffect(() => {
     const params = {};
     if (filterCourse) params.course = filterCourse;
@@ -286,7 +270,7 @@ export default function ProfeLicencias() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterCourse, filterEstado, startDate, endDate, searchTerm, page]);
 
-  /* limpiar todos los filtros (y persistencia) */
+  /* limpiar filtros */
   function clearFilters() {
     setFilterCourse("");
     setFilterEstado("");
@@ -303,7 +287,7 @@ export default function ProfeLicencias() {
 
       <main className="flex-1 w-full">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-10 max-w-6xl">
-          {/* header y barra de filtros */}
+          {/* header y filtros */}
           <div className="mb-6">
             <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
               <div className="flex items-center gap-4">
@@ -320,7 +304,6 @@ export default function ProfeLicencias() {
                   </p>
                 </div>
 
-                {/* botón limpiar filtros visible en header */}
                 <div className="flex items-center gap-2">
                   <button
                     onClick={clearFilters}
@@ -333,9 +316,8 @@ export default function ProfeLicencias() {
                 </div>
               </div>
 
-              {/* filtros: curso, estado, rango fechas, búsqueda */}
+              {/* filtros */}
               <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
-                {/* dropdown curso */}
                 <div>
                   <label htmlFor="filterCourse" className="text-sm text-gray-600">
                     Ramo
@@ -358,7 +340,6 @@ export default function ProfeLicencias() {
                   </select>
                 </div>
 
-                {/* dropdown estado */}
                 <div>
                   <label htmlFor="filterEstado" className="text-sm text-gray-600">
                     Estado
@@ -381,7 +362,6 @@ export default function ProfeLicencias() {
                   </select>
                 </div>
 
-                {/* date range local (start / end) */}
                 <div className="flex gap-2">
                   <div className="w-1/2">
                     <label htmlFor="startDate" className="text-sm text-gray-600">
@@ -420,7 +400,6 @@ export default function ProfeLicencias() {
                   </div>
                 </div>
 
-                {/* búsqueda global */}
                 <div className="md:col-span-3">
                   <label htmlFor="searchTerm" className="text-sm text-gray-600">
                     Buscar
@@ -444,7 +423,16 @@ export default function ProfeLicencias() {
             </div>
           </div>
 
-          {/* Contenido: tabla de licencias */}
+          {/* Error global */}
+          {error && !loading && items.length === 0 && (
+            <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
+              <p className="text-red-700 text-sm">
+                <span className="font-semibold">Error:</span> {error}
+              </p>
+            </div>
+          )}
+
+          {/* Tabla de licencias */}
           <div className="bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-100">
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -548,7 +536,8 @@ export default function ProfeLicencias() {
                           <td className="px-6 py-5 whitespace-nowrap">
                             <span
                               className={`px-3 py-2 inline-flex text-sm leading-5 font-semibold rounded-full border min-w-[140px] justify-center ${
-                                String(lic.estado).toLowerCase().includes("acept")
+                                String(lic.estado).toLowerCase().includes("acept") ||
+                                String(lic.estado).toLowerCase().includes("aprob")
                                   ? "bg-green-100 text-green-800 border-green-200"
                                   : String(lic.estado).toLowerCase().includes("rechaz")
                                   ? "bg-red-100 text-red-800 border-red-200"
@@ -578,7 +567,7 @@ export default function ProfeLicencias() {
 
             {/* Paginación */}
             {!loading && filtered.length > 0 && (
-              <div className="flex items-center justify_between p-4 border-t">
+              <div className="flex items-center justify-between p-4 border-t">
                 <div className="text-sm text-gray-600">
                   Mostrando {filtered.length} resultados — Página {page} de {totalPages}
                 </div>
@@ -593,7 +582,7 @@ export default function ProfeLicencias() {
                   <button
                     onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                     disabled={page === totalPages}
-                    className="px-3 py-1 rounded border bg_white hover:bg-gray-50 disabled:opacity-50"
+                    className="px-3 py-1 rounded border bg-white hover:bg-gray-50 disabled:opacity-50"
                   >
                     Siguiente
                   </button>
@@ -601,13 +590,6 @@ export default function ProfeLicencias() {
               </div>
             )}
           </div>
-
-          {/* error si aplica */}
-          {error && (
-            <div className="mt-4 text-sm text-red-600">
-              Error al cargar licencias: {String(error)}
-            </div>
-          )}
         </div>
       </main>
 

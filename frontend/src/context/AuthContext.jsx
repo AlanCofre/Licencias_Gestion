@@ -7,7 +7,6 @@ const AuthContext = createContext(null);
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
 
@@ -19,13 +18,21 @@ export function AuthProvider({ children }) {
         // Simular tiempo de verificación de sesión
         await new Promise((resolve) => setTimeout(resolve, 1000));
 
-        const raw = localStorage.getItem("user");
-        if (raw) {
+        // Leer usuario desde localStorage
+        const rawUser = localStorage.getItem("user");
+        if (rawUser) {
           try {
-            setUser(JSON.parse(raw));
+            setUser(JSON.parse(rawUser));
           } catch {
             localStorage.removeItem("user");
           }
+        }
+
+        // ✅ LEER TOKEN desde localStorage
+        const savedToken = localStorage.getItem("token");
+        if (savedToken) {
+          console.log("[AuthContext] Token encontrado en localStorage");
+          setToken(savedToken);
         }
       } catch (error) {
         console.error("Error inicializando auth:", error);
@@ -37,15 +44,21 @@ export function AuthProvider({ children }) {
     initializeAuth();
   }, []);
 
-  const login = async (userData) => {
+  const login = async (userData, tokenData) => {
     setIsAuthenticating(true);
     try {
       // Simular autenticación en backend
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      await new Promise((resolve) => setTimeout(resolve, 500));
 
       setUser(userData);
+      setToken(tokenData); // ✅ GUARDAR token en estado
+
       localStorage.setItem("user", JSON.stringify(userData));
+      localStorage.setItem("token", tokenData); // ✅ GUARDAR en localStorage
+
+      console.log("[AuthContext] Login exitoso, token guardado");
     } catch (error) {
+      console.error("[AuthContext] Error en login:", error);
       throw error;
     } finally {
       setIsAuthenticating(false);
@@ -57,7 +70,7 @@ export function AuthProvider({ children }) {
     setToken(null);
     localStorage.removeItem("user");
     localStorage.removeItem("token");
-    // si tienes endpoint de logout, puedes llamarlo aquí sin bloquear la UI
+    console.log("[AuthContext] Logout completado");
   };
 
   // Mostrar loading inicial mientras se verifica la sesión
@@ -76,9 +89,10 @@ export function AuthProvider({ children }) {
       value={{
         user,
         token,
-        loading,
+        loading: isAuthenticating,
         isAuthenticated: !!user && !!token,
         login,
+        logout,
       }}
     >
       {children}
@@ -86,4 +100,10 @@ export function AuthProvider({ children }) {
   );
 }
 
-export const useAuth = () => useContext(AuthContext);
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error("useAuth debe usarse dentro de AuthProvider");
+  }
+  return context;
+};
