@@ -66,6 +66,8 @@ export default function ProfeLicencias() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [periodos, setPeriodos] = useState([]);
+  const [periodoActivo, setPeriodoActivo] = useState("");
 
   /* filtros locales + paginación */
   const [searchParams, setSearchParams] = useSearchParams();
@@ -76,7 +78,41 @@ export default function ProfeLicencias() {
   const [searchTerm, setSearchTerm] = useState(searchParams.get("q") || "");
   const [page, setPage] = useState(Number(searchParams.get("page") || 1));
 
-  /* período activo */
+  /* Obtener períodos desde la base de datos */
+  useEffect(() => {
+    const obtenerPeriodos = async () => {
+      try {
+        const response = await fetch(`${API_BASE}/api/periodos`);
+        const data = await response.json();
+        
+        if (data.ok && Array.isArray(data.data)) {
+          console.log("[ProfeLicencias] Períodos obtenidos:", data.data);
+          setPeriodos(data.data);
+          
+          // Buscar el período activo
+          const periodoActivoEncontrado = data.data.find(p => p.activo);
+          if (periodoActivoEncontrado) {
+            console.log("[ProfeLicencias] Período activo encontrado:", periodoActivoEncontrado.codigo);
+            setPeriodoActivo(periodoActivoEncontrado.codigo);
+            localStorage.setItem("periodo_activo_codigo", periodoActivoEncontrado.codigo);
+          } else if (data.data.length > 0) {
+            // Si no hay activo, usar el primero
+            console.log("[ProfeLicencias] Usando primer período:", data.data[0].codigo);
+            setPeriodoActivo(data.data[0].codigo);
+            localStorage.setItem("periodo_activo_codigo", data.data[0].codigo);
+          }
+        } else {
+          console.warn("[ProfeLicencias] No se pudieron obtener períodos:", data.mensaje);
+        }
+      } catch (error) {
+        console.error("[ProfeLicencias] Error al obtener períodos:", error);
+      }
+    };
+
+    obtenerPeriodos();
+  }, []);
+
+  // También mantener la lógica existente para compatibilidad
   const periodoFromUrl = searchParams.get("periodo");
   const periodoFromStorage = (() => {
     try {
@@ -85,7 +121,9 @@ export default function ProfeLicencias() {
       return null;
     }
   })();
-  const periodoActivo = periodoFromUrl || periodoFromStorage || "";
+
+  // Usar el período del estado si está disponible, sino usar los métodos anteriores
+  const periodoFinal = periodoActivo || periodoFromUrl || periodoFromStorage || "";
 
   /* cargar datos desde backend /profesor/licencias */
   useEffect(() => {
@@ -93,6 +131,12 @@ export default function ProfeLicencias() {
     if (authLoading) {
       console.log("[ProfeLicencias] Esperando AuthContext...");
       setLoading(true);
+      return;
+    }
+
+    // Si no tenemos período, no cargar datos aún
+    if (!periodoFinal) {
+      console.log("[ProfeLicencias] Esperando período...");
       return;
     }
 
@@ -120,16 +164,15 @@ export default function ProfeLicencias() {
 
       try {
         const params = new URLSearchParams();
-        if (periodoActivo) params.set("periodo", periodoActivo);
+        params.set("periodo", periodoFinal);
 
-        const url = `${API_BASE}/profesor/licencias${
-          params.toString() ? `?${params.toString()}` : ""
-        }`;
+        const url = `${API_BASE}/profesor/licencias?${params.toString()}`;
 
         console.log("[ProfeLicencias] Llamando a:", url);
         console.log("[ProfeLicencias] Token presente:", !!token);
         console.log("[ProfeLicencias] User ID:", user?.id_usuario);
         console.log("[ProfeLicencias] Rol:", user?.rol);
+        console.log("[ProfeLicencias] Período:", periodoFinal);
 
         const res = await fetch(url, {
           method: "GET",
@@ -173,8 +216,9 @@ export default function ProfeLicencias() {
           fechaEmision: row.fecha_emision || "",
           fechaInicio: row.fecha_inicio || "",
           fechaFin: row.fecha_fin || "",
-          estado: row.estado || "pendiente",
+          estado: row.estado || "",
           folio: row.folio || "",
+          motivoMedico: row.motivo_medico || "",
         }));
 
         if (!mounted) return;
@@ -187,7 +231,7 @@ export default function ProfeLicencias() {
           if (json.mensaje) {
             setError(json.mensaje);
           } else {
-            setError("No hay licencias médicas en tus cursos para este período.");
+            setError("No hay licencias médicas aceptadas en tus cursos para este período.");
           }
         }
       } catch (err) {
@@ -211,7 +255,7 @@ export default function ProfeLicencias() {
       mounted = false;
       controller.abort();
     };
-  }, [authLoading, token, user?.id_usuario, periodoActivo]);
+  }, [authLoading, token, user?.id_usuario, periodoFinal]);
 
   /* sincronizar filtros al montar */
   useEffect(() => {
@@ -327,6 +371,14 @@ export default function ProfeLicencias() {
     setSearchParams({});
   }
 
+  /* cambiar período */
+  const handleCambiarPeriodo = (nuevoPeriodo) => {
+    setPeriodoActivo(nuevoPeriodo);
+    localStorage.setItem("periodo_activo_codigo", nuevoPeriodo);
+    // Recargar datos
+    window.location.reload();
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-50 to-indigo-100 dark:bg-app dark:bg-none">
       <Navbar />
@@ -341,16 +393,31 @@ export default function ProfeLicencias() {
                   <Clock className="h-7 w-7 text-blue-600" />
                 </div>
                 <div className="flex-1">
-                  <h1 className="text-2xl font-bold text-gray-900">Licencias — Mis cursos</h1>
+                  <h1 className="text-2xl font-bold text-gray-900">Licencias Aceptadas — Mis cursos</h1>
                   <p className="text-gray-600 mt-1">
-                    Filtra la bandeja para localizar rápidamente licencias.
+                    Filtra la bandeja para localizar rápidamente licencias aceptadas.
                   </p>
                   <p className="text-xs text-gray-500 mt-1">
-                    Período activo: <span className="font-semibold">{periodoActivo}</span>
+                    Período activo: <span className="font-semibold">{periodoFinal}</span>
                   </p>
                 </div>
 
                 <div className="flex items-center gap-2">
+                  {/* Selector de períodos */}
+                  {periodos.length > 0 && (
+                    <select
+                      value={periodoFinal}
+                      onChange={(e) => handleCambiarPeriodo(e.target.value)}
+                      className="px-3 py-2 border border-gray-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#048FD4] bg-white"
+                    >
+                      {periodos.map((periodo) => (
+                        <option key={periodo.id_periodo} value={periodo.codigo}>
+                          {periodo.codigo} {periodo.activo ? "(Activo)" : ""}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  
                   <button
                     onClick={clearFilters}
                     className="inline-flex items-center gap-2 px-3 py-2 bg-white border rounded shadow-sm hover:bg-gray-50 text-sm"
@@ -536,10 +603,10 @@ export default function ProfeLicencias() {
                           <Clock className="h-12 w-12 text-gray-400" />
                         </div>
                         <h2 className="text-2xl font-bold text-gray-700 mb-2">
-                          {error ? "Error al cargar" : "No hay licencias"}
+                          {error ? "Error al cargar" : "No hay licencias aceptadas"}
                         </h2>
                         <p className="text-gray-500">
-                          {error || "No se encontraron licencias para los filtros seleccionados."}
+                          {error || "No se encontraron licencias aceptadas para los filtros seleccionados."}
                         </p>
                         {error && (
                           <button 
