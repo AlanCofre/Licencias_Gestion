@@ -1,39 +1,44 @@
-import React, { createContext, useContext, useState, useCallback } from "react";
-import Toast from "../components/toast";
+import React, { createContext, useContext, useState } from 'react';
+import Toast from '../components/toast';
 
 const ToastContext = createContext();
 
-export function ToastProvider({ children }) {
+export const useToast = () => {
+  const context = useContext(ToastContext);
+  if (!context) {
+    throw new Error('useToast debe ser usado dentro de ToastProvider');
+  }
+  return context;
+};
+
+export const ToastProvider = ({ children }) => {
   const [toasts, setToasts] = useState([]);
 
-  const showToast = useCallback((message, type = "success", duration = 3000) => {
+  const showToast = (message, type = 'success') => {
     const id = Date.now();
-    setToasts((prev) => [...prev, { id, message, type }]);
-    setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, duration);
-  }, []);
+    const newToast = { id, message, type };
+    
+    setToasts(prev => [...prev, newToast]);
+  };
 
-  const removeToast = useCallback((id) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
-  }, []);
+  const hideToast = (id) => {
+    setToasts(prev => prev.filter(toast => toast.id !== id));
+  };
+
+  const success = (message) => showToast(message, 'success');
+  const error = (message) => showToast(message, 'error');
 
   return (
-    <ToastContext.Provider value={{ showToast }}>
+    <ToastContext.Provider value={{ success, error }}>
       {children}
-      {/* Contenedor fijo para los toasts */}
-      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex flex-col gap-2">
-        {toasts.map((t) => (
-          <Toast
-            key={t.id}
-            message={t.message}
-            type={t.type}
-            onClose={() => removeToast(t.id)}
-          />
-        ))}
-      </div>
+      {toasts.map(toast => (
+        <Toast
+          key={toast.id}
+          message={toast.message}
+          type={toast.type}
+          onClose={() => hideToast(toast.id)}
+        />
+      ))}
     </ToastContext.Provider>
   );
-}
-
-export const useToast = () => useContext(ToastContext);
+};

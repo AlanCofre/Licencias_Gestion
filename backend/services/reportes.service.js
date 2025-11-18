@@ -63,3 +63,25 @@ export async function excesoLicenciasSvc({ filtro, idProfesor }) {
   const [rows] = await db.execute(sql, params);
   return rows;
 }
+
+export async function repeticionPatologiasSvc() {
+  const sql = `
+    SELECT
+      u.id_usuario              AS id_estudiante,
+      u.nombre                  AS nombre_estudiante,
+      u.correo_usuario          AS correo_estudiante,
+      l.motivo_medico,
+      COUNT(*)                  AS repeticiones,
+      GROUP_CONCAT(DATE(l.fecha_inicio) ORDER BY l.fecha_inicio) AS fechas
+    FROM licenciamedica l
+    JOIN usuario u ON u.id_usuario = l.id_usuario
+    WHERE l.estado = 'pendiente' AND l.motivo_medico IS NOT NULL
+    GROUP BY u.id_usuario, l.motivo_medico
+    HAVING repeticiones >= 3
+    ORDER BY repeticiones DESC, nombre_estudiante ASC
+  `;
+
+  const [rows] = await db.execute(sql);
+  return rows;
+}
+

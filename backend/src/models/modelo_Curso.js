@@ -2,6 +2,7 @@
 import { DataTypes, Model } from 'sequelize';
 import sequelize from '../../db/sequelize.js';
 import Usuario from './modelo_Usuario.js';
+import Periodo from './modelo_Periodo.js';
 
 class Curso extends Model {}
 
@@ -20,22 +21,22 @@ Curso.init(
       type: DataTypes.STRING(100),
       allowNull: false,
     },
-    semestre: { // ✅ CAMPO AÑADIDO
-      type: DataTypes.INTEGER,
+    semestre: {
+      type: DataTypes.TINYINT,
       allowNull: false,
     },
     seccion: {
-      type: DataTypes.STRING(10),
+      type: DataTypes.INTEGER,
       allowNull: false,
+      defaultValue: 1,
     },
-    periodo: {
-      type: DataTypes.STRING(10),
+    id_periodo: {
+      type: DataTypes.INTEGER,
       allowNull: false,
-    },
-    activo: {
-      type: DataTypes.BOOLEAN,
-      allowNull: false,
-      defaultValue: true,
+      references: {
+        model: Periodo,
+        key: 'id_periodo',
+      },
     },
     id_usuario: {
       type: DataTypes.INTEGER,
@@ -54,5 +55,7 @@ Curso.init(
   }
 );
 
+Curso.belongsTo(Usuario, { foreignKey: 'id_usuario' });
+Curso.belongsTo(Periodo, { foreignKey: 'id_periodo' });
 
 export default Curso;

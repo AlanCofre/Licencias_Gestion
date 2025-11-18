@@ -46,18 +46,17 @@ Matricula.init(
     indexes: [
       {
         unique: true,
-        fields: ['id_usuario', 'id_curso', 'id_periodo'],
-        name: 'uq_usuario_curso_periodo',
+        fields: ['id_usuario', 'id_curso'],
+        name: 'uq_usuario_curso',
       },
     ],
     hooks: {
-      // validación de que SEA estudiante
       beforeCreate: async (matricula) => {
         const usuario = await Usuario.findByPk(matricula.id_usuario);
         if (!usuario) {
           throw new Error('Usuario no encontrado');
         }
-        // en tu BD: 2 = estudiante
+        // 2 = estudiante en tu BD
         if (usuario.id_rol !== 2) {
           throw new Error('Solo los estudiantes pueden matricularse en cursos');
         }

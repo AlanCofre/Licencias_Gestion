@@ -5,12 +5,14 @@ import Navbar from "../components/Navbar";
 import BannerSection from "../components/BannerSection";
 import Footer from "../components/Footer";
 import { Eye, Clock, Calendar, User, GraduationCap, Search } from "lucide-react";
-
+import { licenciasRealService } from "../services/licenciasRealService";
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
 
 function mapLicenciaBackendToFrontend(l) {
   return {
     id: l.id_licencia || l.id,
+    id_usuario: l.id_usuario,
+    id_estudiante: l.id_usuario,
     estudiante: l.estudiante_nombre || l.nombre || "Estudiante",
     fechaEmision: l.fecha_emision,
     fechaEnvio: l.fecha_creacion,
@@ -20,6 +22,7 @@ function mapLicenciaBackendToFrontend(l) {
             l.estado?.charAt(0).toUpperCase() + l.estado?.slice(1)
   };
 }
+
 
 function formatFecha(fechaStr) {
   if (!fechaStr) return "";
@@ -52,6 +55,19 @@ function hoyLocal() {
   return `${yyyy}-${mm}-${dd}`;
 }
 
+function obtenerIdEstudiante(licencia) {
+  const id = licencia.id_estudiante || licencia.id_usuario || licencia.id_usuario_estudiante || null;
+  console.log("🔍 ID estudiante detectado:", id, licencia);
+  return id;
+}
+
+
+function tieneAnomaliaLicencia(licencia, observaciones) {
+  const idEst = obtenerIdEstudiante(licencia);
+  return observaciones[idEst]?.some(obs => obs.repeticiones >= 3);
+}
+
+
 export default function LicenciasPorRevisar() {
   const [licenciasTodas, setLicenciasTodas] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -61,34 +77,34 @@ export default function LicenciasPorRevisar() {
   const [searchTerm, setSearchTerm] = useState("");
   const [page, setPage] = useState(1);
   const [itemsPorPagina] = useState(10);
+  const [observaciones, setObservaciones] = useState({});
+  const [expandedObs, setExpandedObs] = useState({});
+  const toggleObs = (idEst) => {
+    setExpandedObs((prev) => ({
+      ...prev,
+      [idEst]: !prev[idEst]
+    }));
+  };
 
   useEffect(() => {
     const cargarLicencias = async () => {
       setLoading(true);
       setError("");
       try {
-        const token = localStorage.getItem("token");
-        const url = `${API_BASE}/api/licencias/en-revision?limit=1000`;
-        const res = await fetch(url, {
-          headers: {
-            "Authorization": `Bearer ${token}`,
-            "Accept": "application/json"
-          }
-        });
-        if (!res.ok) {
-          const errorText = await res.text();
-          throw new Error(`Error ${res.status}: ${errorText}`);
-        }
-        const data = await res.json();
-        if (!data.ok && data.ok !== undefined) {
-          throw new Error(data.error || "Error en la respuesta");
-        }
-
-        const lista = (data.data || []).map(mapLicenciaBackendToFrontend);
+        console.log("🔍 Cargando licencias pendientes...");
+        
+        const response = await licenciasRealService.getLicenciasPendientes();
+        
+        // Tu backend devuelve: { ok: true, data: [...], meta: {...} }
+        const licenciasData = response.data || [];
+        
+        console.log("✅ Licencias pendientes cargadas:", licenciasData);
+        
+        const lista = licenciasData.map(mapLicenciaBackendToFrontend);
         setLicenciasTodas(lista);
       } catch (e) {
         console.error("❌ Error cargando licencias:", e);
-        setError(e.message);
+        setError(e.message || "Error al cargar licencias pendientes");
         setLicenciasTodas([]);
       } finally {
         setLoading(false);
@@ -96,6 +112,39 @@ export default function LicenciasPorRevisar() {
     };
     cargarLicencias();
   }, []);
+  useEffect(() => {
+    const cargarObservaciones = async () => {
+      const token = localStorage.getItem("token");
+      const rol = localStorage.getItem("rol")?.toLowerCase();
+      if (!rol || !["funcionario", "func"].includes(rol)) return;
+
+      try {
+        const res = await fetch(`${API_BASE}/reportes/licencias/repetidas`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const json = await res.json();
+        if (!json.ok) return;
+
+        // Agrupar por id_estudiante
+        const agrupadas = {};
+        for (const obs of json.data) {
+          if (!agrupadas[obs.id_estudiante]) agrupadas[obs.id_estudiante] = [];
+          agrupadas[obs.id_estudiante].push(obs);
+
+
+        }
+        setObservaciones(agrupadas);
+        console.log("📊 Observaciones:", agrupadas);
+
+      } catch (err) {
+        console.error("❌ Error al cargar observaciones:", err);
+      }
+    };
+
+    if (licenciasTodas.length > 0) {
+      cargarObservaciones();
+    }
+  }, [licenciasTodas]);
 
   // Filtrado por búsqueda y fecha
   const licenciasFiltradas = useMemo(() => {
@@ -107,7 +156,9 @@ export default function LicenciasPorRevisar() {
       return cumpleBusqueda && cumpleFecha;
     });
   }, [licenciasTodas, searchTerm, filterDate]);
-
+  useEffect(() => {
+    console.log("🧠 Observaciones activas:", observaciones);
+  }, [observaciones]);
   // Estadísticas
   const estadisticas = useMemo(() => {
     const hoy = hoyLocal();
@@ -300,8 +351,16 @@ export default function LicenciasPorRevisar() {
                               <User className="h-4 w-4 text-blue-600" />
                             </div>
                             <div>
-                              <div className="text-sm font-semibold text-gray-900">{licencia.estudiante}</div>
-                              <div className="text-xs text-gray-500">ID: {licencia.id}</div>
+
+                              <div className="space-y-1">
+                                <div className="text-sm font-semibold text-gray-900">{licencia.estudiante}</div>
+                                {tieneAnomaliaLicencia(licencia, observaciones) && (
+                                  <div className="text-xs text-red-700 font-semibold">
+                                    ⚠️ Anomalía detectada
+                                  </div>
+                                )}
+                                <div className="text-xs text-gray-500">ID: {licencia.id}</div>
+                              </div>
                             </div>
                           </div>
                         </td>

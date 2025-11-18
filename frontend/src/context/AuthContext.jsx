@@ -1,40 +1,67 @@
 // src/context/AuthContext.jsx
 import React, { createContext, useContext, useEffect, useState } from "react";
+import LoadingSpinner from "../components/LoadingSpinner";
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
 
   // Hidratación inicial desde localStorage
   useEffect(() => {
-    try {
-      const rawUser = localStorage.getItem("user");
-      const rawToken = localStorage.getItem("token");
-      if (rawUser) setUser(JSON.parse(rawUser));
-      if (rawToken) setToken(rawToken);
-    } catch {
-      localStorage.removeItem("user");
-      localStorage.removeItem("token");
-    } finally {
-      setLoading(false);
-    }
+    const initializeAuth = async () => {
+      setIsLoading(true);
+      try {
+        // Simular tiempo de verificación de sesión
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+
+        // Leer usuario desde localStorage
+        const rawUser = localStorage.getItem("user");
+        if (rawUser) {
+          try {
+            setUser(JSON.parse(rawUser));
+          } catch {
+            localStorage.removeItem("user");
+          }
+        }
+
+        // ✅ LEER TOKEN desde localStorage
+        const savedToken = localStorage.getItem("token");
+        if (savedToken) {
+          console.log("[AuthContext] Token encontrado en localStorage");
+          setToken(savedToken);
+        }
+      } catch (error) {
+        console.error("Error inicializando auth:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    initializeAuth();
   }, []);
 
-  // API del contexto: recibe el user normalizado (tu AppLogin ya lo normaliza)
-  const login = (userData, tokenStr) => {
-    setUser(userData || null);
-    if (userData) localStorage.setItem("user", JSON.stringify(userData));
-    else localStorage.removeItem("user");
+  const login = async (userData, tokenData) => {
+    setIsAuthenticating(true);
+    try {
+      // Simular autenticación en backend
+      await new Promise((resolve) => setTimeout(resolve, 500));
 
-    if (tokenStr) {
-      setToken(tokenStr);
-      localStorage.setItem("token", tokenStr);
-    } else {
-      setToken(null);
-      localStorage.removeItem("token");
+      setUser(userData);
+      setToken(tokenData); // ✅ GUARDAR token en estado
+
+      localStorage.setItem("user", JSON.stringify(userData));
+      localStorage.setItem("token", tokenData); // ✅ GUARDAR en localStorage
+
+      console.log("[AuthContext] Login exitoso, token guardado");
+    } catch (error) {
+      console.error("[AuthContext] Error en login:", error);
+      throw error;
+    } finally {
+      setIsAuthenticating(false);
     }
   };
 
@@ -43,15 +70,26 @@ export function AuthProvider({ children }) {
     setToken(null);
     localStorage.removeItem("user");
     localStorage.removeItem("token");
-    // si tienes endpoint de logout, puedes llamarlo aquí sin bloquear la UI
+    console.log("[AuthContext] Logout completado");
   };
+
+  // Mostrar loading inicial mientras se verifica la sesión
+  if (isLoading) {
+    return (
+      <LoadingSpinner
+        fullScreen
+        size="large"
+        text="Verificando sesión..."
+      />
+    );
+  }
 
   return (
     <AuthContext.Provider
       value={{
         user,
         token,
-        loading,
+        loading: isAuthenticating,
         isAuthenticated: !!user && !!token,
         login,
         logout,
@@ -62,4 +100,10 @@ export function AuthProvider({ children }) {
   );
 }
 
-export const useAuth = () => useContext(AuthContext);
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error("useAuth debe usarse dentro de AuthProvider");
+  }
+  return context;
+};

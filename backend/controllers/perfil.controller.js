@@ -83,6 +83,17 @@ export async function guardarMiPerfil(req, res) {
     const params = [id_usuario, email_alt, numero_telef, direccion, foto_url];
     await db.execute(sql, params);
 
+    // 🔔 Insertar notificación
+    await db.execute(
+      `INSERT INTO notificacion (asunto, contenido, leido, fecha_envio, id_usuario)
+       VALUES (?, ?, 0, NOW(), ?)`,
+      [
+        'Actualización de perfil',
+        'Tu perfil ha sido actualizado correctamente.',
+        id_usuario
+      ]
+    );
+
     // devuelve el perfil actualizado
     const [rows] = await db.execute(
       `SELECT id_perfil, id_usuario, email_alt, numero_telef, direccion, foto_url
@@ -155,7 +166,7 @@ export const NotificacionesPassword = async (req, res) => {
     const { id_usuario } = req.user;
 
     const [notificaciones] = await db.execute(
-      'SELECT id_notificacion, asunto, contenido, fecha_envio FROM notificaciones WHERE id_usuario = ? AND asunto = ? ORDER BY fecha_envio DESC',
+      'SELECT id_notificacion, asunto, contenido, fecha_envio FROM notificacion WHERE id_usuario = ? AND asunto = ? ORDER BY fecha_envio DESC',
       [id_usuario, 'Cambio de contraseña']
     );
 
@@ -173,7 +184,7 @@ export const NotificacionesPerfil = async (req, res) => {
     const { id_usuario } = req.user;
 
     const [notificaciones] = await db.execute(
-      'SELECT id_notificacion, asunto, contenido, fecha_envio FROM notificaciones WHERE id_usuario = ? AND asunto = ? ORDER BY fecha_envio DESC',
+      'SELECT id_notificacion, asunto, contenido, fecha_envio FROM notificacion WHERE id_usuario = ? AND asunto = ? ORDER BY fecha_envio DESC',
       [id_usuario, 'Actualización de perfil']
     );
 

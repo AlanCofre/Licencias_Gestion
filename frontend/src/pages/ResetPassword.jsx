@@ -4,6 +4,7 @@ import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import Toast from "../components/toast";
 import { useConfirmReset } from "../hooks/usePasswordReset"; // Asegúrate de que la ruta sea correcta
+import LoadingSpinner from "../components/LoadingSpinner";
 
 export default function ResetPassword() {
   const location = useLocation();
@@ -13,6 +14,8 @@ export default function ResetPassword() {
   const [toast, setToast] = useState(null);
   const navigate = useNavigate();
   const { confirmReset, loading, error } = useConfirmReset();
+  const [localLoading, setLoading] = useState(false);
+  const isLoading = loading || localLoading;
 
   // Mostrar errores del hook
   useEffect(() => {
@@ -32,26 +35,36 @@ export default function ResetPassword() {
       return;
     }
 
+    setLoading(true);
     try {
-      const result = await confirmReset(email, code, password);
-      
-      setToast({ 
-        message: result.message || "Tu contraseña fue restablecida correctamente.", 
-        type: "success" 
-      });
+      // Intentar llamar al hook confirmReset; soporta dos firmas comunes:
+      // confirmReset({ email, code, password }) o confirmReset(email, code, password)
+      let res;
+      try {
+        res = await confirmReset({ email, code, password });
+      } catch (err) {
+        res = await confirmReset(email, code, password);
+      }
 
-      // Redirigir al login después de mostrar toast
-      setTimeout(() => navigate("/login"), 2000);
+      // Normalizar respuesta y comprobar error
+      if (res && (res.error || res.ok === false || res.success === false)) {
+        const message = res?.error || res?.message || "Error al restablecer contraseña";
+        throw new Error(message);
+      }
+
+      // Si no hay objeto de resultado, asumimos éxito si no se lanzó excepción
+      setToast({ message: "Tu contraseña fue restablecida correctamente.", type: "success" });
+      setTimeout(() => navigate("/login"), 700);
     } catch (err) {
-      // El error ya se maneja automáticamente en el hook
-      console.error("Error al restablecer contraseña:", err);
+      console.error("[ResetPassword] confirmReset error:", err);
+      setToast({ message: err?.message || "No se pudo restablecer la contraseña", type: "error" });
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <div className="min-h-screen flex flex-col">
-      <Navbar />
-
       <main className="flex-grow flex items-center justify-center px-4">
         <div className="bg-white shadow-lg rounded-xl p-8 w-full max-w-md">
           <h2 className="text-2xl font-bold text-gray-800 mb-4">
@@ -75,8 +88,8 @@ export default function ResetPassword() {
             placeholder="Código de verificación (6 dígitos)"
             value={code}
             onChange={(e) => setCode(e.target.value)}
-            className="w-full px-4 py-2 border rounded-lg mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            maxLength={6}
+            disabled={isLoading}
+            className="w-full px-4 py-2 border rounded-lg mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
           />
 
           <input
@@ -84,20 +97,27 @@ export default function ResetPassword() {
             placeholder="Nueva contraseña (mínimo 6 caracteres)"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full px-4 py-2 border rounded-lg mb-6 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            minLength={6}
+            disabled={isLoading}
+            className="w-full px-4 py-2 border rounded-lg mb-6 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
           />
 
           <button
             onClick={handleReset}
-            disabled={loading}
+            disabled={isLoading}
             className={`w-full py-2 rounded-lg text-white font-semibold transition ${
-              loading
+              isLoading
                 ? "bg-gray-400 cursor-not-allowed"
                 : "bg-green-600 hover:bg-green-700"
             }`}
           >
-            {loading ? "Guardando..." : "Guardar nueva contraseña"}
+            {isLoading ? (
+              <div className="flex items-center justify-center gap-2">
+                <LoadingSpinner size="small" color="white" />
+                Guardando...
+              </div>
+            ) : (
+              "Guardar nueva contraseña"
+            )}
           </button>
         </div>
       </main>

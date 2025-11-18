@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",
+    "axios": "^1.13.2",
     "heroicons": "^2.2.0",
     "i18next": "^25.6.0",
     "lucide-react": "^0.544.0",

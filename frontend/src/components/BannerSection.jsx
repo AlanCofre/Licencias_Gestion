@@ -3,19 +3,29 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useTranslation } from "react-i18next";
 import bannerImg from "../assets/banner-inicio.png";
-import { GraduationCap, CalendarCheck } from "lucide-react";
+/*Iconos*/
+import {
+  GraduationCap,
+  CalendarCheck,
+  UsersRound,
+  BookOpen,
+  CalendarRange,
+  PieChart,
+  HelpCircle
+} from "lucide-react";
 
 const BannerSection = () => {
   const { user } = useAuth();
   const { t } = useTranslation();
 
   const role = String(user?.role || "").toLowerCase();
-  const isSecretary = role === "secretaria" || role === "secretary";
+  const isSecretary = role === "secretaria" || role === "secretary" || role === "funcionario";
   const isProfessor = role === "profesor" || role === "professor";
+  const isAdmin = role === "admin" || role === "administrador" || role === "administrator";
 
   return (
     <>
-      {/* Banner */}
+      {/* Banner superior con imagen de fondo */}
       <section className="relative bg-gradient-to-r from-[var(--blue-600)] to-[var(--blue-400)] h-[300px] overflow-hidden">
         <div
           className="absolute inset-0 bg-cover bg-right opacity-100 pointer-events-none"
@@ -33,17 +43,14 @@ const BannerSection = () => {
         </div>
       </section>
 
-      {/* Botones */}
+      {/* Botonera inferior */}
       <div className="relative z-20 container mx-auto px-8 -mt-7 flex flex-wrap justify-center gap-8">
         {/* ¿Cómo se usa? (siempre visible) */}
         <Link to="/como-usar" className="inline-flex no-underline">
           <button className="bg-white text-gray-700 px-6 py-3 min-w-[260px] rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-between font-sans font-medium">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                    d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+                <HelpCircle className="w-4 h-4 text-blue-600" strokeWidth={2} />
               </div>
               <span>{t("banner.btnHowUse")}</span>
             </div>
@@ -53,18 +60,77 @@ const BannerSection = () => {
           </button>
         </Link>
 
-        {/* Variantes por rol */}
-        {isProfessor ? (
+        {/* Variante para Administrador */}
+        {isAdmin ? (
           <>
-            {/* Cursos (Profesor) */}
-            <Link to="/" className="inline-flex no-underline">
+            {/* Vista de Cursos */}
+            <Link to="/admin/cursos" className="inline-flex no-underline">
               <button className="bg-white text-gray-700 px-6 py-3 min-w-[260px] rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-between font-sans font-medium">
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
-                    {/* graduation-cap */}
-                    <svg className="w-4 h-4 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <GraduationCap strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
+                    <BookOpen className="w-4 h-4 text-orange-600" strokeWidth={2} />
+                  </div>
+                  <span>{t("i18n.admin.dashboard.courses", "Cursos")}</span>
+                </div>
+                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            </Link>
+
+            {/* Vista de Matrículas */}
+            <Link to="/admin/matriculas" className="inline-flex no-underline">
+              <button className="bg-white text-gray-700 px-6 py-3 min-w-[260px] rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-between font-sans font-medium">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                    <UsersRound className="w-4 h-4 text-green-600" strokeWidth={2} />
+                  </div>
+                  <span>{t("i18n.admin.dashboard.enrollments", "Matrículas")}</span>
+                </div>
+                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            </Link>
+
+            {/* Gestión de Período Activo (activar/desactivar) */}
+            <Link to="/admin/periodos" className="inline-flex no-underline">
+              <button className="bg-white text-gray-700 px-6 py-3 min-w-[260px] rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-between font-sans font-medium">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-teal-100 rounded-full flex items-center justify-center">
+                    <CalendarRange className="w-4 h-4 text-teal-600" strokeWidth={2} />
+                  </div>
+                  <span>Periodos</span>
+                </div>
+                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            </Link>
+
+            {/* Vista del Tablero (resumen cursos/matrículas por período) */}
+            <Link to="/admin/periodo/resumen" className="inline-flex no-underline">
+              <button className="bg-white text-gray-700 px-6 py-3 min-w-[260px] rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-between font-sans font-medium">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-amber-100 rounded-full flex items-center justify-center">
+                    <PieChart className="w-4 h-4 text-amber-600" strokeWidth={2} />
+                  </div>
+                  <span>{t("i18n.admin.dashboard.summary", "Tablero")}</span>
+                </div>
+                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            </Link>
+          </>
+        ) : isProfessor ? (
+          <>
+            {/* Cursos (Profesor) */}
+            <Link to="/profesor/licencias" className="inline-flex no-underline">
+              <button className="bg-white text-gray-700 px-6 py-3 min-w-[260px] rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-between font-sans font-medium">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
+                    <GraduationCap className="w-4 h-4 text-orange-500" strokeWidth={2} />
                   </div>
                   <span>{t("banner.prof.courses", "Cursos")}</span>
                 </div>
@@ -91,7 +157,7 @@ const BannerSection = () => {
           </>
         ) : isSecretary ? (
           <>
-            {/* SecretarÍa: Licencias por revisar */}
+            {/* Secretaría: Licencias por revisar */}
             <Link to="/licencias-por-revisar" className="inline-flex no-underline">
               <button className="bg-white text-gray-700 px-6 py-3 min-w-[260px] rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-between font-sans font-medium">
                 <div className="flex items-center gap-3">
@@ -109,7 +175,7 @@ const BannerSection = () => {
               </button>
             </Link>
 
-            {/* SecretarÍa: Historial */}
+            {/* Secretaría: Historial */}
             <Link to="/historial" className="inline-flex no-underline">
               <button className="bg-white text-gray-700 px-6 py-3 min-w-[260px] rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-between font-sans font-medium">
                 <div className="flex items-center gap-3">
@@ -158,6 +224,20 @@ const BannerSection = () => {
                     </svg>
                   </div>
                   <span>{t("banner.btnResults")}</span>
+                </div>
+                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            </Link>
+
+            <Link to="/estudiante/mis-matriculas" className="inline-flex no-underline">
+              <button className="bg-white text-gray-700 px-6 py-3 min-w-[260px] rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-between font-sans font-medium">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
+                    <UsersRound className="w-4 h-4 text-purple-600" strokeWidth={2} />
+                  </div>
+                  <span>Mis Matrículas</span>
                 </div>
                 <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />

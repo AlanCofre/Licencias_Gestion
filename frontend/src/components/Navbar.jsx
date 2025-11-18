@@ -28,6 +28,7 @@ export default function Navbar() {
   const [expanded, setExpanded] = useState({});
   const [perfil, setPerfil] = useState(null);
 
+
   // leer token actual
   const rawToken =
     typeof window !== "undefined" ? localStorage.getItem("token") : null;
@@ -57,6 +58,23 @@ export default function Navbar() {
 
   const isSecretary =
     role === "secretaria" || role === "secretary" || role === "funcionario";
+
+  // Determinar la ruta según el rol
+  const getHomeRoute = () => {
+    switch (role) {
+      case "secretaria":
+      case "secretary":
+      case "funcionario":
+        return "/secretaria";
+      case "profesor":
+        return "/profesor";
+      case "administrador":
+      case "administrator":
+        return "/admin";
+      default:
+        return "/alumno";
+    }
+  };
 
   // ==== AQUÍ ES LA CLAVE ====
   // orden de prioridad para el nombre
@@ -91,7 +109,7 @@ export default function Navbar() {
   // notificaciones
   const [studentNotifications, setStudentNotifications] = useState([]);
   const [secretaryNotifications, setSecretaryNotifications] = useState([]);
-
+  const [profesorNotifications, setProfesorNotifications] = useState([]);
   const toggleDescription = (id) => {
     setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
   };
@@ -153,6 +171,47 @@ export default function Navbar() {
     }
   }, [isSecretary, role]);
 
+    // Busca los useEffect existentes y añade ESTE NUEVO useEffect solo para profesor:
+  // EN Navbar.jsx - useEffect ESPECÍFICO PARA PROFESOR
+  useEffect(() => {
+    if (role === "profesor") {
+      const fetchProfesorNotis = async () => {
+        try {
+          const token = localStorage.getItem("token");
+          const res = await fetch(`${API}/api/notificaciones`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          const json = await res.json();
+          
+          console.log('🎯 NOTIFICACIONES PROFESOR RAW:', json.data);
+          
+          if (json.ok && Array.isArray(json.data)) {
+            // Función de mapeo específica para profesor
+            const mapProfesorNotif = (r) => ({
+              id: r.id_notificacion,
+              text: r.asunto || "Licencia médica de estudiante",
+              type: "revision",
+              date: new Date(r.fecha_envio),
+              description: r.contenido || "Un estudiante ha presentado una licencia médica para revisión.",
+              read: Boolean(r.leido),
+            });
+            
+            const notifsProfesor = json.data.map(mapProfesorNotif);
+            
+            console.log('🔔 Notificaciones mapeadas del profesor:', notifsProfesor);
+            setProfesorNotifications(notifsProfesor);
+          }
+        } catch (e) {
+          console.error("[notifs profesor]", e);
+        }
+      };
+      
+      fetchProfesorNotis();
+      const id = setInterval(fetchProfesorNotis, 30000);
+      return () => clearInterval(id);
+    }
+  }, [role, API]);
+
   const TypeIcon = ({ type }) => {
     const base = "w-5 h-5";
     switch (type) {
@@ -207,166 +266,146 @@ export default function Navbar() {
     </svg>
   );
 
-  const UnifiedBell = () => {
-    let notifications = [];
+const UnifiedBell = () => {
+  let notifications = [];
+  let mappedNotifications = [];
 
-    if (isSecretary) {
-      notifications = secretaryNotifications;
-    } else if (role === "profesor") {
-      notifications = [];
-    } else {
-      notifications = studentNotifications;
-    }
+  if (isSecretary) {
+    notifications = secretaryNotifications;
+    // ✅ CORREGIDO: Mapear notificaciones de secretario al formato correcto
+    mappedNotifications = notifications.map(notif => ({
+      id: notif.id_notificacion,
+      text: notif.asunto || "Notificación del sistema",
+      type: "pendiente",
+      date: new Date(notif.fecha_envio),
+      description: notif.contenido || "Sin descripción disponible",
+      read: Boolean(notif.leido),
+    }));
+  } else if (role === "profesor") {
+    notifications = profesorNotifications;
+    mappedNotifications = notifications; // Ya están mapeadas en el useEffect
+  } else {
+    notifications = studentNotifications;
+    mappedNotifications = notifications;
+  }
 
-    const filteredNotifications = notifications;
-    const API = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
+  const filteredNotifications = mappedNotifications;
+  const unread = filteredNotifications.filter((n) => !n.read).length;
 
-    const unread = isSecretary
-      ? notifications.filter((n) => !n.leido).length
-      : filteredNotifications.filter((n) => !n.read).length;
+  const markAsRead = async (id) => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${API}/api/notificaciones/${id}/leida`, {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error("Error al marcar notificación como leída");
 
-    const markAsRead = async (id) => {
-      try {
-        const token = localStorage.getItem("token");
-        const res = await fetch(`${API}/api/notificaciones/${id}/leida`, {
-          method: "PUT",
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!res.ok) throw new Error("Error al marcar notificación como leída");
-
-        if (isSecretary) {
-          setSecretaryNotifications((prev) =>
-            prev.map((n) =>
-              n.id_notificacion === id ? { ...n, leido: 1 } : n
-            )
-          );
-        } else if (role !== "profesor") {
-          setStudentNotifications((prev) =>
-            prev.map((n) => (n.id === id ? { ...n, read: true } : n))
-          );
-        }
-      } catch (err) {
-        console.error("[markAsRead]", err);
+      // Actualizar según el rol
+      if (isSecretary) {
+        setSecretaryNotifications((prev) =>
+          prev.map((n) =>
+            n.id_notificacion === id ? { ...n, leido: 1 } : n
+          )
+        );
+      } else if (role === "profesor") {
+        setProfesorNotifications((prev) =>
+          prev.map((n) => (n.id === id ? { ...n, read: true } : n))
+        );
+      } else {
+        setStudentNotifications((prev) =>
+          prev.map((n) => (n.id === id ? { ...n, read: true } : n))
+        );
       }
-    };
-
-    return (
-      <div className="relative" data-notif-dropdown>
-        <button
-          onClick={() =>
-            setOpenDropdown((cur) => (cur === "unified" ? null : "unified"))
-          }
-          className="p-2 rounded-md hover:bg-white/10 transition-colors relative"
-        >
-          <BellSvg />
-          {unread > 0 && (
-            <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center shadow-md">
-              {unread}
-            </span>
-          )}
-        </button>
-
-        {openDropdown === "unified" && (
-          <div className="absolute right-0 mt-3 w-80 bg-white text-black shadow-xl rounded-lg z-50 max-h-80 overflow-y-auto">
-            <div className="absolute -top-2 right-6 w-4 h-4 bg-white rotate-45 shadow-md rounded-sm" />
-            {filteredNotifications.length === 0 ? (
-              <div className="p-4 text-sm text-gray-500 text-center">
-                No hay notificaciones disponibles.
-              </div>
-            ) : (
-              <ul className="relative z-10">
-                {[...filteredNotifications]
-                  .sort((a, b) => {
-                    if (isSecretary) {
-                      return new Date(b.fecha_envio) - new Date(a.fecha_envio);
-                    }
-                    return new Date(b.date) - new Date(a.date);
-                  })
-                  .map((n) =>
-                    isSecretary ? (
-                      <li
-                        key={n.id_notificacion}
-                        className={`px-4 py-3 text-sm border-b last:border-none flex flex-col gap-1 ${
-                          n.leido ? "bg-gray-100 text-gray-500" : "bg-white"
-                        }`}
-                      >
-                        <div className="flex justify-between items-center">
-                          <span>
-                            {n.asunto}: {n.contenido}
-                          </span>
-                          {!n.leido && (
-                            <button
-                              onClick={() => markAsRead(n.id_notificacion)}
-                              className="ml-2 flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 border border-blue-600 hover:border-blue-800 px-2 py-1 rounded transition"
-                            >
-                              Marcar leída
-                            </button>
-                          )}
-                        </div>
-                        <span className="text-xs text-gray-400">
-                          {new Date(n.fecha_envio).toLocaleString("es-CL")}
-                        </span>
-                      </li>
-                    ) : (
-                      <li
-                        key={n.id}
-                        className={`px-4 py-3 text-sm border-b last:border-none flex flex-col gap-1 ${
-                          n.read ? "bg-gray-100 text-gray-500" : "bg-white"
-                        }`}
-                      >
-                        <div className="flex justify-between items-start gap-3">
-                          <div className="flex items-center gap-2 flex-1">
-                            <TypeIcon type={n.type} />
-                            <div>
-                              <span className="font-medium">{n.text}</span>
-                              <div className="text-xs text-gray-400 mt-1">
-                                {n.date?.toLocaleString("es-CL")}
-                              </div>
-                              <div className="text-xs text-gray-500 italic">
-                                {n.type?.charAt(0).toUpperCase() +
-                                  n.type?.slice(1)}
-                              </div>
-                            </div>
-                          </div>
-                          {!n.read && (
-                            <button
-                              onClick={() => markAsRead(n.id)}
-                              className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 border border-blue-600 hover:border-blue-800 px-2 py-1 rounded transition"
-                            >
-                              <CheckIcon /> {t("notifications.read")}
-                            </button>
-                          )}
-                        </div>
-                        {expanded[n.id] && (
-                          <div className="mt-2 bg-gray-50 text-gray-700 p-2 rounded-md shadow-inner border border-gray-200 text-sm transition-all">
-                            {n.description}
-                          </div>
-                        )}
-                        {!expanded[n.id] && (
-                          <button
-                            onClick={() => toggleDescription(n.id)}
-                            className="text-xs text-gray-500 hover:text-gray-700 mt-1"
-                          >
-                            {t("notifications.viewMore")}
-                          </button>
-                        )}
-                      </li>
-                    )
-                  )}
-              </ul>
-            )}
-          </div>
-        )}
-      </div>
-    );
+    } catch (err) {
+      console.error("[markAsRead]", err);
+    }
   };
 
+  return (
+    <div className="relative" data-notif-dropdown>
+      <button
+        onClick={() =>
+          setOpenDropdown((cur) => (cur === "unified" ? null : "unified"))
+        }
+        className="p-2 rounded-md hover:bg-white/10 transition-colors relative"
+      >
+        <BellSvg />
+        {unread > 0 && (
+          <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center shadow-md">
+            {unread}
+          </span>
+        )}
+      </button>
+
+      {openDropdown === "unified" && (
+        <div className="absolute right-0 mt-3 w-80 bg-white text-black shadow-xl rounded-lg z-50 max-h-80 overflow-y-auto">
+          <div className="absolute -top-2 right-6 w-4 h-4 bg-white rotate-45 shadow-md rounded-sm" />
+          {filteredNotifications.length === 0 ? (
+            <div className="p-4 text-sm text-gray-500 text-center">
+              No hay notificaciones disponibles.
+            </div>
+          ) : (
+            <ul className="relative z-10">
+              {filteredNotifications
+                .sort((a, b) => new Date(b.date) - new Date(a.date))
+                .map((n) => (
+                  <li
+                    key={n.id}
+                    className={`px-4 py-3 text-sm border-b last:border-none flex flex-col gap-1 ${
+                      n.read ? "bg-gray-100 text-gray-500" : "bg-white"
+                    }`}
+                  >
+                    <div className="flex justify-between items-start gap-3">
+                      <div className="flex items-center gap-2 flex-1">
+                        <TypeIcon type={n.type} />
+                        <div>
+                          <span className="font-medium">{n.text}</span>
+                          <div className="text-xs text-gray-400 mt-1">
+                            {n.date?.toLocaleString("es-CL")}
+                          </div>
+                          <div className="text-xs text-gray-500 italic">
+                            {n.type?.charAt(0).toUpperCase() + n.type?.slice(1)}
+                          </div>
+                        </div>
+                      </div>
+                      {!n.read && (
+                        <button
+                          onClick={() => markAsRead(n.id)}
+                          className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 border border-blue-600 hover:border-blue-800 px-2 py-1 rounded transition"
+                        >
+                          <CheckIcon /> {t("notifications.read")}
+                        </button>
+                      )}
+                    </div>
+                    {expanded[n.id] && (
+                      <div className="mt-2 bg-gray-50 text-gray-700 p-2 rounded-md shadow-inner border border-gray-200 text-sm transition-all">
+                        {n.description}
+                      </div>
+                    )}
+                    {!expanded[n.id] && (
+                      <button
+                        onClick={() => toggleDescription(n.id)}
+                        className="text-xs text-gray-500 hover:text-gray-700 mt-1"
+                      >
+                        {t("notifications.viewMore")}
+                      </button>
+                    )}
+                  </li>
+                ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
   return (
     <header className="bg-[#048FD4] text-white shadow-md relative" role="banner">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-20">
           <div className="flex items-center">
-            <Link to="/" onClick={closeMenu} className="flex items-center p-1">
+            <Link to={getHomeRoute()} onClick={closeMenu} className="flex items-center p-1">
               <img src={logo} alt="MedManager" className="h-10 w-10 mr-3" />
               <span className="text-2xl font-bold tracking-wide font-display">
                 MedManager
@@ -376,14 +415,6 @@ export default function Navbar() {
 
           <nav className="hidden md:flex flex-1 justify-center">
             <ul className="flex gap-8 text-sm font-medium items-center">
-              <li>
-                <Link
-                  to={isSecretary ? "/secretaria" : "/alumno"}
-                  className="px-3 py-2 hover:bg-white/10 rounded transition-colors"
-                >
-                  {t("nav.home")}
-                </Link>
-              </li>
             </ul>
           </nav>
 
